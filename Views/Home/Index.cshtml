@@ -1,0 +1,67 @@
+@* הגדרת כותרת הדף לטובת כותרת ה-Title ב-Layout *@
+@{
+    ViewData["Title"] = "הגדרת חיבורים";
+}
+
+@* מיכל ראשי לדף הבית הכולל כותרת ואזור הגדרת חיבורים *@
+<div class="text-center mb-5" id="home-welcome-header">
+    @* כותרת ראשית מעוצבת באמצעות גרדיאנט טקסט מרהיב *@
+    <h1 class="display-4 text-gradient mb-3" id="main-landing-title">הגדרת חיבורי מסדי נתונים</h1>
+    @* תיאור קצר וממוקד מתחת לכותרת הראשית *@
+    <p class="lead text-secondary fs-5" id="main-landing-description">
+        הזינו את מחרוזות החיבור עבור שני מסדי הנתונים כדי לבדוק קישוריות ולהביא את רשימת הטבלאות.
+    </p>
+</div>
+
+@* הצגת הודעת שגיאה מעוצבת בעיצוב Pro Max במידה וההתחברות נכשלה *@
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="glass-card mb-5" style="border-color: rgba(239, 68, 68, 0.3) !important;" id="error-message-box">
+        <div class="d-flex align-items-center justify-content-center gap-3">
+            @* סימן שגיאה מובנה ללא שימוש באימוג'י *@
+            <span class="text-danger fw-bold fs-4" id="error-icon" style="user-select: none;">✕</span>
+            <div class="text-start">
+                <h2 class="h6 mb-1 text-danger fw-bold" id="error-title">נכשל ניסיון ההתחברות למסדי הנתונים</h2>
+                <p class="mb-0 text-secondary small" id="error-details">@TempData["ErrorMessage"]</p>
+            </div>
+        </div>
+    </div>
+}
+
+@* טופס הגדרת החיבורים וההשוואה *@
+<form id="compare-config-form" method="post" action="/Compare/Connect">
+    @* פריסת Bento Grid הכוללת את כרטיסי הגדרות החיבורים למסדי הנתונים *@
+    <div class="bento-grid mb-5" id="db-config-grid">
+        
+        @* כרטיס הגדרות חיבור למסד הנתונים SQL Server *@
+        <div class="glass-card" id="sql-server-card">
+            @* כותרת הכרטיס *@
+            <h2 class="h4 text-gradient mb-4" id="sql-card-title">Legacy SQL Server</h2>
+            @* שדה קלט עבור מחרוזת החיבור (Connection String) *@
+            <div class="mb-3">
+                <label for="sql-conn-string" class="form-label text-secondary fs-6" id="sql-conn-string-label">מחרוזת חיבור (Connection String)</label>
+                <textarea class="form-control form-input-glass text-light w-100" id="sql-conn-string" name="sqlConnectionString" rows="4" required placeholder="Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;TrustServerCertificate=True;">@TempData["SqlConnString"]</textarea>
+            </div>
+        </div>
+
+        @* כרטיס הגדרות חיבור למסד הנתונים Oracle *@
+        <div class="glass-card" id="oracle-card">
+            @* כותרת הכרטיס *@
+            <h2 class="h4 text-gradient mb-4" id="oracle-card-title">New Oracle Database</h2>
+            @* שדה קלט עבור מחרוזת החיבור (Connection String) *@
+            <div class="mb-3">
+                <label for="oracle-conn-string" class="form-label text-secondary fs-6" id="oracle-conn-string-label">מחרוזת חיבור (Connection String)</label>
+                <textarea class="form-control form-input-glass text-light w-100" id="oracle-conn-string" name="oracleConnectionString" rows="4" required placeholder="User Id=myUsername;Password=myPassword;Data Source=myOracleServer:1521/myServiceName;">@TempData["OracleConnString"]</textarea>
+            </div>
+        </div>
+
+    </div>
+
+    @* אזור כפתור ההרצה הראשי המרכזי *@
+    <div class="text-center" id="action-button-container">
+        @* כפתור ביצוע ההשוואה מעוצב עם אפקט זוהר מתקדם ומעבר חלק *@
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-start-compare">
+            התחבר והבא טבלאות
+        </button>
+    </div>
+</form>

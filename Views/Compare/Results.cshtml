@@ -1,0 +1,125 @@
+@model CompareD.Controllers.ComparisonResultViewModel
+
+@{
+    ViewData["Title"] = "תוצאות ההשוואה";
+}
+
+@* כותרת דף התוצאות הראשית *@
+<div class="text-center mb-5" id="results-header">
+    <h1 class="display-4 text-gradient mb-3" id="results-title">תוצאות השוואת הנתונים</h1>
+    <p class="lead text-secondary fs-5" id="results-description">
+        סיכום וממצאים מהשוואת הנתונים בין @Model.SqlTable (מקור) ל-@Model.OracleTable (יעד).
+    </p>
+</div>
+
+@* דשבורד סיכום בפריסת Bento Grid מעוצבת *@
+<div class="bento-grid mb-5" id="results-dashboard">
+    
+    @* כרטיס רשומות זהות - ירוק זוהר *@
+    <div class="glass-card text-center" id="card-matched" style="border-color: rgba(16, 185, 129, 0.3) !important;">
+        <h2 class="h5 text-secondary mb-2" id="matched-title">רשומות זהות</h2>
+        <div class="display-5 fw-bold text-success" id="matched-count">@Model.TotalMatched</div>
+        <p class="text-secondary small mb-0 mt-2">נתונים תואמים לחלוטין</p>
+    </div>
+
+    @* כרטיס הבדלי נתונים - אדום זוהר *@
+    <div class="glass-card text-center" id="card-diff" style="border-color: rgba(239, 68, 68, 0.3) !important;">
+        <h2 class="h5 text-secondary mb-2" id="diff-title">הבדלי נתונים</h2>
+        <div class="display-5 fw-bold text-danger" id="diff-count">@Model.TotalDifferences</div>
+        <p class="text-secondary small mb-0 mt-2">מפתח זהה, ערכים שונים</p>
+    </div>
+
+    @* כרטיס חסר ביעד (Oracle) - צהוב זוהר *@
+    <div class="glass-card text-center" id="card-missing-oracle" style="border-color: rgba(245, 158, 11, 0.3) !important;">
+        <h2 class="h5 text-secondary mb-2" id="missing-oracle-title">חסר ביעד (Oracle)</h2>
+        <div class="display-5 fw-bold text-warning" id="missing-oracle-count">@Model.TotalMissingInOracle</div>
+        <p class="text-secondary small mb-0 mt-2">קיימות במקור בלבד</p>
+    </div>
+
+    @* כרטיס חסר במקור (SQL) - כחול זוהר *@
+    <div class="glass-card text-center" id="card-missing-sql" style="border-color: rgba(59, 130, 246, 0.3) !important;">
+        <h2 class="h5 text-secondary mb-2" id="missing-sql-title">חסר במקור (SQL)</h2>
+        <div class="display-5 fw-bold" style="color: var(--accent-primary);" id="missing-sql-count">@Model.TotalMissingInSql</div>
+        <p class="text-secondary small mb-0 mt-2">קיימות ביעד בלבד</p>
+    </div>
+
+</div>
+
+@* חלק פירוט ההבדלים והרשומות החסרות *@
+<div class="glass-card mb-5" id="details-section">
+    <h3 class="h4 text-gradient mb-4" id="details-section-title">פירוט אי-התאמות והבדלים</h3>
+
+    @if (Model.Details.Count == 0)
+    {
+        @* הודעה במקרה של התאמה מלאה של כל הנתונים *@
+        <div class="text-center py-5 text-success" id="full-match-message">
+            <span class="fs-1 d-block mb-3">✓</span>
+            <h4 class="fw-bold">השוואה תקינה לחלוטין!</h4>
+            <p class="text-secondary mb-0">כל הרשומות תואמות ומסונכרנות בין שני מסדי הנתונים.</p>
+        </div>
+    }
+    else
+    {
+        @* טבלת הצגת הפירוט של השורות הלא תואמות *@
+        <div class="table-responsive" id="details-table-wrapper">
+            <table class="table table-dark table-borderless align-middle" id="details-table">
+                <thead>
+                    <tr class="text-secondary small">
+                        <th style="width: 25%;">מפתח רשומה (Key Value)</th>
+                        <th style="width: 20%;">סוג אי-התאמה</th>
+                        <th style="width: 55%;">השוואת שדות (מקור מול יעד)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Details)
+                    {
+                        <tr class="border-bottom border-white/5" id="row-detail-@row.KeyValue">
+                            @* הצגת מפתח הרשומה *@
+                            <td class="font-monospace fw-bold text-light">@row.KeyValue</td>
+                            @* תגית סטטוס אי-ההתאמה *@
+                            <td>
+                                @if (row.Status == "Difference")
+                                {
+                                    <span class="badge bg-danger/20 text-danger border border-danger/30 px-3 py-2">הבדל בנתונים</span>
+                                }
+                                else if (row.Status == "MissingInOracle")
+                                {
+                                    <span class="badge bg-warning/20 text-warning border border-warning/30 px-3 py-2">חסר ביעד (Oracle)</span>
+                                }
+                                else if (row.Status == "MissingInSql")
+                                {
+                                    <span class="badge bg-primary/20 text-primary border border-primary/30 px-3 py-2">חסר במקור (SQL)</span>
+                                }
+                            </td>
+                            @* פירוט ערכי השדות בשורה זו *@
+                            <td>
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach (var field in row.Fields)
+                                    {
+                                        @* תיבת השוואה מעוצבת לשדה בודד עם צביעה תואמת *@
+                                        <div class="d-flex align-items-center justify-content-between p-2 rounded" 
+                                             style="background-color: @(field.IsMatch ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)"); 
+                                                    border: 1px solid @(field.IsMatch ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)");">
+                                            <span class="small fw-bold text-secondary">@field.FieldName</span>
+                                            <div class="d-flex gap-3 text-start">
+                                                <span class="small" style="color: var(--text-secondary);">מקור: <strong class="text-light">@field.SqlValue</strong></span>
+                                                <span class="small" style="color: var(--text-secondary);">יעד: <strong class="text-light">@field.OracleValue</strong></span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* כפתור חזרה לדף הבית להתחלת השוואה חדשה *@
+<div class="text-center mb-5" id="restart-action-container">
+    <a asp-controller="Home" asp-action="Index" class="btn-glow btn-lg text-decoration-none px-5 py-3 fs-5" id="btn-restart-compare">
+        התחל השוואה חדשה
+    </a>
+</div>

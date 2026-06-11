@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- הגדרת גרסת ה-Dotnet ל-10.0 כפי שאושר על ידי המשתמש -->
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- הפעלת תכונות טיפוסים ריקים (Nullable) לבטיחות מירבית בקוד -->
+    <Nullable>enable</Nullable>
+    <!-- הפעלת ייבוא ספריות משתמע (Implicit Usings) למניעת כתיבה מרובה של using -->
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ספריית ה-ADO.NET הרשמית של מיקרוסופט להתחברות ל-SQL Server -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- ספריית ה-ADO.NET הרשמית של אורקל להתחברות ל-Oracle Database -->
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.6.0" />
+  </ItemGroup>
+
+</Project>

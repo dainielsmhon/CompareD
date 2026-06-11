@@ -1,0 +1,226 @@
+/* הגדרת גופן Outfit מ-Google Fonts לשדרוג הטיפוגרפיה */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+/* הגדרת משתני עיצוב גלובליים לערכת הצבעים הכהה והמודרנית */
+:root {
+    /* צבע הרקע הראשי הכהה - Slate עמוק */
+    --bg-primary: #0a0f1d;
+    /* צבע רקע משני לכרטיסים ואלמנטים מוגבהים */
+    --bg-secondary: rgba(15, 23, 42, 0.65);
+    /* צבע גבול דק ועדין עבור אלמנטים מזכוכית */
+    --border-color: rgba(255, 255, 255, 0.08);
+    /* צבע טקסט ראשי - לבן חם ורך למניעת עייפות עיניים */
+    --text-primary: #f8fafc;
+    /* צבע טקסט משני - אפרפר עדין */
+    --text-secondary: #94a3b8;
+    /* צבע דגש (Accent) ראשי - כחול ניאון זוהר */
+    --accent-primary: #3b82f6;
+    /* צבע דגש משני - סגול מודרני */
+    --accent-secondary: #8b5cf6;
+    /* צבע להצלחה (למשל השוואה תואמת) - ירוק אמרלד */
+    --color-success: #10b981;
+    /* צבע לשגיאה (למשל אי-התאמה בנתונים) - אדום ורדי */
+    --color-danger: #ef4444;
+    /* צבע אזהרה - כתום חם */
+    --color-warning: #f59e0b;
+    /* הגדרת המעבר החלק לכל האנימציות */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* הגדרות בסיסיות לגוף הדף והתאמה למצב כהה */
+body {
+    /* שימוש בגופן המודרני כברירת מחדל */
+    font-family: 'Outfit', sans-serif;
+    /* צביעת הרקע בצבע הכהה הראשי */
+    background-color: var(--bg-primary);
+    /* צביעת הטקסט בצבע הלבן החם */
+    color: var(--text-primary);
+    /* הגדרת כיוון כתיבה מימין לשמאל עבור עברית */
+    direction: rtl;
+    /* מניעת גלילה אופקית מיותרת */
+    overflow-x: hidden;
+    /* הגדרת גובה מינימלי למילוי המסך */
+    min-height: 100vh;
+    /* הגדרת מיקום יחסי לטובת אפקטי רקע */
+    position: relative;
+}
+
+/* אפקט תאורת רקע Aurora UI */
+body::before {
+    /* יצירת אלמנט מדומה לרקע */
+    content: "";
+    /* הגדרת מיקום מוחלט בראש הדף */
+    position: absolute;
+    /* הצמדה לקצה העליון */
+    top: -10%;
+    /* הצמדה לקצה השמאלי */
+    left: -10%;
+    /* רוחב האלמנט */
+    width: 60%;
+    /* גובה האלמנט */
+    height: 60%;
+    /* יצירת גרדיאנט מעגלי כחול-סגול מטושטש */
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 100%);
+    /* טשטוש חזק של הרקע ליצירת אפקט זוהר חלק */
+    filter: blur(120px);
+    /* מיקום מתחת לתוכן הדף */
+    z-index: -1;
+    /* מניעת אינטראקציה עם העכבר */
+    pointer-events: none;
+}
+
+/* אפקט תאורת רקע Aurora UI נוסף בצד ימין למטה */
+body::after {
+    /* יצירת אלמנט מדומה שני */
+    content: "";
+    /* מיקום מוחלט */
+    position: absolute;
+    /* הצמדה לקצה התחתון */
+    bottom: -10%;
+    /* הצמדה לקצה הימני */
+    right: -10%;
+    /* רוחב האלמנט */
+    width: 50%;
+    /* גובה האלמנט */
+    height: 50%;
+    /* גרדיאנט מעגלי סגלגל */
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 60%, transparent 100%);
+    /* טשטוש חזק */
+    filter: blur(100px);
+    /* מיקום מתחת לתוכן */
+    z-index: -1;
+    /* מניעת אינטראקציה */
+    pointer-events: none;
+}
+
+/* הגדרת כרטיסי זכוכית מודרניים (Glassmorphism) */
+.glass-card {
+    /* רקע חצי שקוף וכהה */
+    background: var(--bg-secondary);
+    /* אפקט טשטוש הרקע שמאחורי הכרטיס */
+    backdrop-filter: blur(16px);
+    /* תמיכה בדפדפנים ישנים */
+    -webkit-backdrop-filter: blur(16px);
+    /* גבול דק ולבן עמום ליצירת מראה זכוכית תלת-ממדי */
+    border: 1px solid var(--border-color);
+    /* פינות מעוגלות רחבות בעיצוב מודרני */
+    border-radius: 1.25rem;
+    /* צל רך ועמוק מתחת לכרטיס */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    /* ריווח פנימי עשיר */
+    padding: 2rem;
+    /* מעבר חלק בשינויי עיצוב */
+    transition: var(--transition-smooth);
+}
+
+/* אפקט מעבר עכבר על כרטיסי זכוכית */
+.glass-card:hover {
+    /* הגברת בהירות הגבול במעבר עכבר */
+    border-color: rgba(255, 255, 255, 0.15);
+    /* הוספת זוהר כחול עדין מחוץ לכרטיס */
+    box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.15);
+    /* הזזה קלה למעלה ליצירת עומק */
+    transform: translateY(-4px);
+}
+
+/* הגדרת פריסת Bento Grid מודרנית */
+.bento-grid {
+    /* שימוש בפריסת רשת */
+    display: grid;
+    /* הגדרת רווחים גדולים ומודרניים בין הכרטיסים */
+    gap: 1.5rem;
+    /* חלוקת עמודות רספונסיבית מבוססת רוחב מינימלי */
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* עיצוב כפתורים מודרניים זוהרים */
+.btn-glow {
+    /* רקע מבוסס גרדיאנט כחול סגול */
+    background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    /* צבע טקסט לבן */
+    color: var(--text-primary);
+    /* הגדרת גבול ללא */
+    border: none;
+    /* פינות מעוגלות מודרניות */
+    border-radius: 0.75rem;
+    /* ריווח פנימי אופקי ואנכי */
+    padding: 0.75rem 1.75rem;
+    /* משקל גופן מודגש */
+    font-weight: 600;
+    /* סימן עכבר בצורת יד */
+    cursor: pointer;
+    /* מעבר חלק */
+    transition: var(--transition-smooth);
+    /* מיקום יחסי לטובת שכבות תאורה */
+    position: relative;
+    /* מניעת גלישת תוכן */
+    overflow: hidden;
+}
+
+/* אפקט מעבר עכבר על כפתורים זוהרים */
+.btn-glow:hover {
+    /* הגברת בהירות הרקע */
+    filter: brightness(1.1);
+    /* צל זוהר סגול/כחול מתחת לכפתור */
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+    /* שינוי קנה מידה קל */
+    transform: scale(1.02);
+    /* צבע טקסט נשאר לבן */
+    color: var(--text-primary);
+}
+
+/* עיצוב שדות קלט מודרניים מזכוכית */
+.form-input-glass {
+    /* רקע כהה ושקוף */
+    background: rgba(15, 23, 42, 0.4);
+    /* גבול דק */
+    border: 1px solid var(--border-color);
+    /* פינות מעוגלות */
+    border-radius: 0.75rem;
+    /* צבע טקסט לבן */
+    color: var(--text-primary) !important;
+    /* ריווח פנימי */
+    padding: 0.75rem 1rem;
+    /* מעבר חלק */
+    transition: var(--transition-smooth);
+}
+
+/* אפקט מיקוד (Focus) בשדה קלט מזכוכית */
+.form-input-glass:focus {
+    /* רקע מעט יותר בהיר */
+    background: rgba(15, 23, 42, 0.6);
+    /* הדגשת הגבול בצבע כחול */
+    border-color: var(--accent-primary);
+    /* ביטול ברירת המחדל של הדפדפן */
+    outline: none;
+    /* הוספת צל זוהר כחול עדין סביב הקלט */
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+/* תיוג ותצוגה של מצבי ניווט מקלדת נגישים */
+*:focus-visible {
+    /* הצגת טבעת מיקוד כחולה ברורה בניווט מקלדת */
+    outline: 2px solid var(--accent-primary);
+    /* מרחק קל מהאלמנט */
+    outline-offset: 2px;
+}
+
+/* עיצוב כותרות דגש */
+.text-gradient {
+    /* יצירת גרדיאנט צבעים לטקסט */
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, var(--accent-primary) 100%);
+    /* חיתוך הרקע לפי אותיות הטקסט */
+    -webkit-background-clip: text;
+    /* הפיכת צבע הגופן המקורי לשקוף כדי להציג את הגרדיאנט */
+    -webkit-text-fill-color: transparent;
+    /* משקל גופן עבה ומודרני */
+    font-weight: 700;
+}
+
+/* התאמת אפשרויות הבחירה (option) בעיצוב הכהה לתאימות דפדפנים */
+.form-input-glass option {
+    /* צבע רקע תואם למצב כהה */
+    background-color: var(--bg-primary);
+    /* צבע טקסט לבן חם */
+    color: var(--text-primary);
+}

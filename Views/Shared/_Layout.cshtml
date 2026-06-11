@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+@* הגדרת שפת המסמך לעברית וכיוון מימין לשמאל (RTL) *@
+<html lang="he" dir="rtl">
+<head>
+    @* הגדרת קידוד תווים תואם לשפות מרובות *@
+    <meta charset="utf-8" />
+    @* התאמת התצוגה למסכי מובייל ומכשירים שונים *@
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* כותרת הדף הראשית המאפיינת את תפקיד האפליקציה למטרות קידום וממשק *@
+    <title>@ViewData["Title"] - CompareD | השוואת נתונים חכמה</title>
+    @* תיאור הדף לצורך קידום אתרים במנועי חיפוש *@
+    <meta name="description" content="מערכת CompareD להשוואת נתונים מהירה, מדויקת ודינמית בין מסדי נתונים SQL Server ו-Oracle כחלק מתהליך מיגרציה." />
+    
+    @* טעינת ספריית העיצוב Bootstrap בגרסה 5 לצורך פריסה נוחה *@
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" integrity="sha384-nBkR4GZsL5Z9s9QE6tGg5E21KdcQJW1lx7y258ap97O5wyyWYmAdtYOMsYuOw1d7" crossorigin="anonymous" />
+    @* טעינת קובץ העיצוב המותאם אישית של הפרויקט הכולל את עקרונות ה-Deep Dark Mode *@
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    @* אזור הניווט הראשי בראש הדף *@
+    <header>
+        @* תפריט עליון מזכוכית מעוצב בעיצוב מודרני *@
+        <nav class="navbar navbar-expand-sm navbar-dark glass-card m-3 py-3" id="main-navigation-bar">
+            <div class="container-fluid">
+                @* לוגו או שם המערכת המקושר לדף הבית *@
+                <a class="navbar-brand text-gradient fs-4" id="nav-brand-link" asp-area="" asp-controller="Home" asp-action="Index">CompareD</a>
+                @* כפתור לפתיחת תפריט הניווט במסכים קטנים *@
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation" id="nav-menu-toggle-btn">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                @* אזור הקישורים הראשי של הניווט *@
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        @* קישור לדף הבית *@
+                        <li class="nav-item">
+                            <a class="nav-link text-light fs-6 transition-all px-3" id="nav-home-link" asp-area="" asp-controller="Home" asp-action="Index">דף הבית</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    @* האזור המרכזי של תוכן הדפים השונים *@
+    <div class="container my-5" id="main-content-container">
+        <main role="main" class="pb-3" id="main-content-layout">
+            @* ביצוע רינדור של תוכן דף ה-View שנקרא *@
+            @RenderBody()
+        </main>
+    </div>
+
+    @* אזור כותרת תחתונה של הדף *@
+    <footer class="footer mt-auto py-4 text-center text-secondary glass-card mx-3 mb-3" id="main-footer">
+        <div class="container">
+            @* טקסט זכויות יוצרים של המערכת *@
+            <span id="footer-copyright-text">&copy; 2026 - CompareD - מערכת השוואת נתונים מנוהלת ומאובטחת</span>
+        </div>
+    </footer>
+
+    @* טעינת סקריפטים תומכים של Bootstrap *@
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    @* רינדור סקריפטים נוספים הנדרשים בדפים ספציפיים *@
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

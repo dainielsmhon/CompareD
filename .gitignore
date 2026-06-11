@@ -1,0 +1,16 @@
+# קבצי פלט של הקומפילציה והרצה
+bin/
+obj/
+
+# הגדרות משתמש וסביבות פיתוח של Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# הגדרות של סביבות עבודה אחרות
+.vscode/
+.idea/
+
+# קובץ הגדרות סביבת פיתוח מקומית (מניעת העלאת סודות)
+appsettings.Development.json

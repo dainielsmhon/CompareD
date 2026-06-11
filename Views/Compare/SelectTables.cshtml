@@ -1,0 +1,125 @@
+@model CompareD.Controllers.TableSelectionViewModel
+
+@{
+    ViewData["Title"] = "בחירת טבלאות ותצוגות";
+}
+
+@* כותרת הדף המרכזית לבחירת טבלאות ותצוגות *@
+<div class="text-center mb-5" id="select-tables-header">
+    <h1 class="display-4 text-gradient mb-3" id="select-title">בחירת טבלאות ותצוגות להשוואה</h1>
+    <p class="lead text-secondary fs-5" id="select-description">
+        החיבור למסדי הנתונים בוצע בהצלחה! כעת בחרו את הטבלאות או התצוגות (Views) שברצונכם להשוות ביניהן.
+    </p>
+</div>
+
+@* טופס הגשת הבחירה להשוואה ומיפוי שדות *@
+<form id="select-tables-form" method="post" action="/Compare/SelectFields">
+    @* פריסת בנטו גריד לחלוקה בין שני מסדי הנתונים *@
+    <div class="bento-grid mb-5" id="tables-selection-grid">
+        
+        @* כרטיס בחירת טבלה או תצוגה מ-SQL Server *@
+        <div class="glass-card" id="sql-tables-card">
+            @* כותרת הכרטיס עם זיהוי המסד *@
+            <h2 class="h4 text-gradient mb-3" id="sql-tables-title">SQL Server - מקור</h2>
+            @* תיבת חיפוש וסינון מהיר מבוססת לקוח *@
+            <div class="mb-3">
+                <label for="sql-search-input" class="form-label text-secondary small" id="sql-search-label">חיפוש מהיר</label>
+                <input type="text" class="form-control form-input-glass text-light w-100" id="sql-search-input" placeholder="הקלידו שם טבלה או תצוגה לסינון..." autocomplete="off" />
+            </div>
+            @* תיבת בחירת האובייקט מהרשימה *@
+            <div class="mb-3">
+                <label for="sql-table-select" class="form-label text-secondary fs-6" id="sql-table-select-label">בחרו טבלה או תצוגה</label>
+                <select class="form-select form-input-glass text-light w-100" id="sql-table-select" name="sqlTable" required>
+                    <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
+                    @foreach (var table in Model.SqlTables)
+                    {
+                        <option value="@table.Name">@table.Name (@(table.Type == "VIEW" ? "תצוגה" : "טבלה"))</option>
+                    }
+                </select>
+            </div>
+            @* תצוגת סיכום כמות האובייקטים שנמצאו *@
+            <div class="text-secondary small" id="sql-count-info">
+                נמצאו @Model.SqlTables.Count טבלאות ותצוגות זמינות.
+            </div>
+        </div>
+
+        @* כרטיס בחירת טבלה או תצוגה מ-Oracle *@
+        <div class="glass-card" id="oracle-tables-card">
+            @* כותרת הכרטיס עם זיהוי המסד *@
+            <h2 class="h4 text-gradient mb-3" id="oracle-tables-title">Oracle - יעד</h2>
+            @* תיבת חיפוש וסינון מהיר מבוססת לקוח *@
+            <div class="mb-3">
+                <label for="oracle-search-input" class="form-label text-secondary small" id="oracle-search-label">חיפוש מהיר</label>
+                <input type="text" class="form-control form-input-glass text-light w-100" id="oracle-search-input" placeholder="הקלידו שם טבלה או תצוגה לסינון..." autocomplete="off" />
+            </div>
+            @* תיבת בחירת האובייקט מהרשימה *@
+            <div class="mb-3">
+                <label for="oracle-table-select" class="form-label text-secondary fs-6" id="oracle-table-select-label">בחרו טבלה או תצוגה</label>
+                <select class="form-select form-input-glass text-light w-100" id="oracle-table-select" name="oracleTable" required>
+                    <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
+                    @foreach (var table in Model.OracleTables)
+                    {
+                        <option value="@table.Name">@table.Name (@(table.Type == "VIEW" ? "תצוגה" : "טבלה"))</option>
+                    }
+                </select>
+            </div>
+            @* תצוגת סיכום כמות האובייקטים שנמצאו *@
+            <div class="text-secondary small" id="oracle-count-info">
+                נמצאו @Model.OracleTables.Count טבלאות ותצוגות זמינות.
+            </div>
+        </div>
+
+    </div>
+
+    @* אזור כפתור המעבר לשלב הבא של מיפוי השדות *@
+    <div class="text-center" id="action-button-container">
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-proceed-fields">
+            המשך למיפוי שדות
+        </button>
+    </div>
+</form>
+
+@* הגדרת אזור הסקריפטים לביצוע סינון האפשרויות בצד הלקוח *@
+@section Scripts {
+    <script>
+        // האזנה לאירוע טעינת הדף במלואו
+        document.addEventListener("DOMContentLoaded", function() {
+            // שמירת רשימת האופציות המקורית של SQL Server (ללא אופציית ברירת המחדל הריקה)
+            const sqlSelect = document.getElementById("sql-table-select");
+            const sqlOptions = Array.from(sqlSelect.options).filter(o => o.value !== "");
+
+            // שמירת רשימת האופציות המקורית של Oracle (ללא אופציית ברירת המחדל הריקה)
+            const oracleSelect = document.getElementById("oracle-table-select");
+            const oracleOptions = Array.from(oracleSelect.options).filter(o => o.value !== "");
+
+            // פונקציית עזר לסינון תיבות הבחירה בצורה מהירה ונקייה
+            function filterDropdown(searchInput, selectElement, originalOptions) {
+                // המרת מחרוזת החיפוש לאותיות קטנות וניקוי רווחים מיותרים
+                const query = searchInput.value.toLowerCase().trim();
+                // איפוס תיבת הבחירה והשארת כותרת ברירת המחדל בלבד
+                selectElement.innerHTML = '<option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>';
+                
+                // סינון הרשימה המקורית בהתאם למילת החיפוש
+                const filtered = originalOptions.filter(o => o.text.toLowerCase().includes(query));
+                
+                // הוספת האופציות המסוננות בחזרה לתיבת הבחירה
+                filtered.forEach(o => {
+                    const newOpt = document.createElement("option");
+                    newOpt.value = o.value;
+                    newOpt.text = o.text;
+                    selectElement.appendChild(newOpt);
+                });
+            }
+
+            // הפעלת מאזין אירועים עבור קלט חיפוש ב-SQL Server
+            document.getElementById("sql-search-input").addEventListener("input", function() {
+                filterDropdown(this, sqlSelect, sqlOptions);
+            });
+
+            // הפעלת מאזין אירועים עבור קלט חיפוש ב-Oracle
+            document.getElementById("oracle-search-input").addEventListener("input", function() {
+                filterDropdown(this, oracleSelect, oracleOptions);
+            });
+        });
+    </script>
+}
