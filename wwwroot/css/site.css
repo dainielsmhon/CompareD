@@ -224,3 +224,23 @@ body::after {
     /* צבע טקסט לבן חם */
     color: var(--text-primary);
 }
+
+/* עיצוב כרטיס הבחירה הפעיל בדף המיפוי (אפשרות א / ב) */
+.active-option-card {
+    /* גבול כחול זוהר כדי להצביע על הבחירה הפעילה */
+    border-color: var(--accent-primary) !important;
+    /* צל פנימי קל בצבע הדגש לאפקט זוהר */
+    box-shadow: 0 0 18px rgba(59, 130, 246, 0.25), 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+}
+
+/* מחלקת מעבר חלק לקישורים וכפתורים ניווטיים */
+.transition-all {
+    /* אנימציית מעבר חלקה לכל תכונות ה-CSS */
+    transition: var(--transition-smooth);
+}
+
+/* עיצוב סמן עכבר להצבעה על אלמנטים לחיצים */
+.cursor-pointer {
+    cursor: pointer;
+}
+
