@@ -19,6 +19,7 @@ public class CompareController : Controller
 
     // פעולה (Action) המטפלת בקבלת מחרוזות החיבור ובדיקתן במקביל
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Connect(string sqlConnectionString, string oracleConnectionString)
     {
         // בדיקה שמחרוזות החיבור אינן ריקות
@@ -104,6 +105,7 @@ public class CompareController : Controller
 
     // פעולה (Action) המטפלת בקבלת הטבלאות/תצוגות שנבחרו ושליפת העמודות שלהן במקביל
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SelectFields(string sqlTable, string oracleTable)
     {
         // שליפת מחרוזות החיבור מהסשן
@@ -192,6 +194,7 @@ public class CompareController : Controller
 
     // פעולה (Action) המבצעת את אלגוריתם ההשוואה בפועל
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> CompareData(
         string sqlTable, 
         string oracleTable, 

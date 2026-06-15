@@ -11,8 +11,8 @@
     @* תיאור הדף לצורך קידום אתרים במנועי חיפוש *@
     <meta name="description" content="מערכת CompareD להשוואת נתונים מהירה, מדויקת ודינמית בין מסדי נתונים SQL Server ו-Oracle כחלק מתהליך מיגרציה." />
     
-    @* טעינת ספריית העיצוב Bootstrap בגרסה 5 לצורך פריסה נוחה *@
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" integrity="sha384-nU14brUcp6StFntEOOEBvcJm4huWjB0OcIeQ3fltAfSmuZFrkAif0T+UtNGlKKQv" crossorigin="anonymous" />
+    @* טעינת ספריית העיצוב Bootstrap בגרסה 5 לצורך פריסה נוחה מקומית ללא אינטרנט *@
+    <link rel="stylesheet" href="~/css/bootstrap.rtl.min.css" asp-append-version="true" />
     @* טעינת קובץ העיצוב המותאם אישית של הפרויקט הכולל את עקרונות ה-Deep Dark Mode *@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
@@ -58,8 +58,8 @@
         </div>
     </footer>
 
-    @* טעינת סקריפטים תומכים של Bootstrap *@
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    @* טעינת סקריפטים תומכים של Bootstrap מקומית *@
+    <script src="~/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
     @* רינדור סקריפטים נוספים הנדרשים בדפים ספציפיים *@
     @await RenderSectionAsync("Scripts", required: false)
 </body>

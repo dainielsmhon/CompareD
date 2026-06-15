@@ -29,7 +29,7 @@
 }
 
 @* טופס הגדרת החיבורים וההשוואה *@
-<form id="compare-config-form" method="post" action="/Compare/Connect">
+<form id="compare-config-form" method="post" asp-controller="Compare" asp-action="Connect">
     @* פריסת Bento Grid הכוללת את כרטיסי הגדרות החיבורים למסדי הנתונים *@
     <div class="bento-grid mb-5" id="db-config-grid">
         

@@ -13,7 +13,7 @@
 </div>
 
 @* טופס הגשת הבחירה להשוואה ומיפוי שדות *@
-<form id="select-tables-form" method="post" action="/Compare/SelectFields">
+<form id="select-tables-form" method="post" asp-controller="Compare" asp-action="SelectFields">
     @* פריסת בנטו גריד לחלוקה בין שני מסדי הנתונים *@
     <div class="bento-grid mb-5" id="tables-selection-grid">
         

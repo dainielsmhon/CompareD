@@ -18,7 +18,7 @@
 </div>
 
 @* טופס הגשת תצורת המיפוי והרצת ההשוואה *@
-<form id="fields-mapping-form" method="post" action="/Compare/CompareData">
+<form id="fields-mapping-form" method="post" asp-controller="Compare" asp-action="CompareData">
     @* שדות מוסתרים המכילים את שמות הטבלאות לצורך שליחה בטופס *@
     <input type="hidden" name="sqlTable" value="@Model.SqlTable" />
     <input type="hidden" name="oracleTable" value="@Model.OracleTable" />

@@ -20,6 +20,10 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     // מניעת גישה לקוקי דרך סקריפטים בצד לקוח לטובת אבטחת מידע
     options.Cookie.HttpOnly = true;
+    // הגדרת SameSite כ-Lax כהגנה נוספת מפני מתקפות CSRF
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    // שימוש באותה רמת אבטחה של הפרוטוקול המבוקש (HTTP/HTTPS) עבור הקוקי
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
 // בניית האפליקציה (Application) מתוך הגדרות הבונה
@@ -31,6 +35,9 @@ if (!app.Environment.IsDevelopment())
     // שימוש בנתיב טיפול בשגיאות ייעודי
     app.UseExceptionHandler("/Home/Error");
 }
+
+// הפעלת הפניית HTTPS אוטומטית לטובת תקשורת מוצפנת ומאובטחת במערכת
+app.UseHttpsRedirection();
 
 // הגדרת הגשת קבצים סטטיים מתיקיית wwwroot כגון עיצובים ותמונות
 app.UseStaticFiles();

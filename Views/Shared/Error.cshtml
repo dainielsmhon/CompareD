@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "שגיאה במערכת";
+}
+
+@* מיכל ראשי מעוצב עבור דף השגיאה הגנרי *@
+<div class="text-center py-5" id="error-page-container">
+    @* כרטיס זכוכית (Glassmorphic Card) להצגת הודעת השגיאה *@
+    <div class="glass-card mx-auto py-5 px-4" style="max-width: 600px; border-color: rgba(239, 68, 68, 0.3) !important;" id="error-card">
+        @* סמל שגיאה ייעודי בעיצוב אדום זוהר *@
+        <div class="mb-4" id="error-badge-wrapper">
+            <span class="display-1 text-danger d-block" id="error-visual-badge" style="user-select: none;">⚠</span>
+        </div>
+
+        @* כותרת ראשית של השגיאה *@
+        <h1 class="h2 text-gradient mb-3" id="error-main-heading">משהו השתבש במהלך הפעולה</h1>
+        
+        @* תיאור השגיאה ללא זליגת פרטים מזהים *@
+        <p class="text-secondary fs-5 mb-4" id="error-friendly-message">
+            אירעה שגיאה בלתי צפויה במערכת. 
+            על מנת להבטיח את אבטחת המידע שלך, לא נחשפו פרטים טכניים נוספים.
+        </p>
+
+        @* קישור חזרה לדף הבית *@
+        <div class="mt-4" id="error-actions-wrapper">
+            <a asp-controller="Home" asp-action="Index" class="btn-glow text-decoration-none px-5 py-3 fs-6" id="btn-error-go-home">
+                חזרה לדף הבית
+            </a>
+        </div>
+    </div>
+</div>

@@ -120,19 +120,40 @@ public class CompareService : ICompareService
         List<string> fieldRoles,
         int maxRows)
     {
+        // אימות אבטחה מבוסס קטלוג (Whitelisting) עבור שמות הטבלאות למניעת SQL Injection
+        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
+        {
+            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
+        }
+        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
+        {
+            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
+        }
+
+        // שליפת עמודות מאומתות מהקטלוג למניעת הזרקת קוד בשמות שדות
+        var validSqlCols = await GetSqlColumnsAsync(sqlConnectionString, sqlTable);
+        var validOracleCols = await GetOracleColumnsAsync(oracleConnectionString, oracleTable);
+
+        // הגבלת כמות השורות המקסימלית ומניעת ערכים שליליים כחלק מהגנה מפני עומס יתר (DoS)
+        if (maxRows <= 0)
+        {
+            maxRows = 1000; // ברירת מחדל מאובטחת
+        }
+        else if (maxRows > 10000)
+        {
+            maxRows = 10000; // גבול עליון קשיח למניעת נפילת שרת
+        }
+
         var keys = new List<(string SqlField, string OracleField)>();
         var compares = new List<(string SqlField, string OracleField)>();
 
         // טיפול במקרה של השוואה אוטומטית מלאה
         if (mappingMode == "Auto")
         {
-            var sqlCols = await GetSqlColumnsAsync(sqlConnectionString, sqlTable);
-            var oracleCols = await GetOracleColumnsAsync(oracleConnectionString, oracleTable);
-
             var matchedCols = new List<string>();
-            foreach (var sc in sqlCols)
+            foreach (var sc in validSqlCols)
             {
-                var oc = oracleCols.FirstOrDefault(c => string.Equals(c, sc, StringComparison.OrdinalIgnoreCase));
+                var oc = validOracleCols.FirstOrDefault(c => string.Equals(c, sc, StringComparison.OrdinalIgnoreCase));
                 if (oc != null)
                 {
                     matchedCols.Add(sc);
@@ -157,6 +178,22 @@ public class CompareService : ICompareService
                 sourceFields.Count != targetFields.Count || sourceFields.Count != fieldRoles.Count)
             {
                 throw new Exception("נתוני המיפוי הידני אינם תקינים או חסרים.");
+            }
+
+            // אימות אבטחה שכל השדות המבוקשים קיימים בקטלוג המערכת למניעת הזרקת עמודות בשאילתות
+            foreach (var field in sourceFields)
+            {
+                if (!validSqlCols.Contains(field))
+                {
+                    throw new ArgumentException($"שם עמודת המקור '{field}' אינו חוקי או אינו קיים בטבלת המקור.");
+                }
+            }
+            foreach (var field in targetFields)
+            {
+                if (!validOracleCols.Contains(field))
+                {
+                    throw new ArgumentException($"שם עמודת היעד '{field}' אינו חוקי או אינו קיים בטבלת היעד.");
+                }
             }
 
             for (int i = 0; i < sourceFields.Count; i++)
@@ -343,5 +380,39 @@ public class CompareService : ICompareService
             TotalMissingInSql = missingInSqlCount,
             Details = details
         };
+    }
+
+    // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-SQL Server למניעת הזרקות קוד
+    private async Task<bool> IsSqlTableValidAsync(string connectionString, string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName)) return false;
+        using (var connection = new SqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            string query = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @tableName AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')";
+            using (var command = new SqlCommand(query, connection))
+            {
+                command.Parameters.AddWithValue("@tableName", tableName);
+                var result = await command.ExecuteScalarAsync();
+                return Convert.ToInt32(result) > 0;
+            }
+        }
+    }
+
+    // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-Oracle למניעת הזרקות קוד
+    private async Task<bool> IsOracleTableValidAsync(string connectionString, string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName)) return false;
+        using (var connection = new OracleConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            string query = "SELECT COUNT(*) FROM (SELECT TABLE_NAME FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME FROM USER_VIEWS) WHERE UPPER(TABLE_NAME) = :tableName";
+            using (var command = new OracleCommand(query, connection))
+            {
+                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                var result = await command.ExecuteScalarAsync();
+                return Convert.ToInt32(result) > 0;
+            }
+        }
     }
 }

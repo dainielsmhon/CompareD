@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 
 namespace CompareD.Controllers;
 
@@ -9,6 +10,14 @@ public class HomeController : Controller
     public IActionResult Index()
     {
         // החזרת התצוגה התואמת (Index.cshtml) אל המשתמש
+        return View();
+    }
+
+    // פעולה לטיפול בשגיאות המערכת בסביבת ייצור (Production)
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error()
+    {
+        // החזרת תצוגת השגיאה הגנרית והמאובטחת
         return View();
     }
 }
