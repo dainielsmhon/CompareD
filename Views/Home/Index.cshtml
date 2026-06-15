@@ -1,3 +1,4 @@
+@model CompareD.Controllers.HomeViewModel
 @* הגדרת כותרת הדף לטובת כותרת ה-Title ב-Layout *@
 @{
     ViewData["Title"] = "הגדרת חיבורים";
@@ -37,10 +38,23 @@
         <div class="glass-card" id="sql-server-card">
             @* כותרת הכרטיס *@
             <h2 class="h4 text-gradient mb-4" id="sql-card-title">Legacy SQL Server</h2>
-            @* שדה קלט עבור מחרוזת החיבור (Connection String) *@
+            @* תיבת בחירה עבור פרופיל חיבור *@
             <div class="mb-3">
-                <label for="sql-conn-string" class="form-label text-secondary fs-6" id="sql-conn-string-label">מחרוזת חיבור (Connection String)</label>
-                <textarea class="form-control form-input-glass text-light w-100" id="sql-conn-string" name="sqlConnectionString" rows="4" required placeholder="Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;TrustServerCertificate=True;">@TempData["SqlConnString"]</textarea>
+                <label for="sql-profile-select" class="form-label text-secondary fs-6" id="sql-profile-select-label">בחרו פרופיל חיבור</label>
+                <select class="form-select form-input-glass text-light w-100" id="sql-profile-select" name="sqlProfileName" required>
+                    <option value="" disabled selected>-- בחרו פרופיל SQL --</option>
+                    @foreach (var name in Model.SqlProfileNames)
+                    {
+                        if (name == Model.SelectedSqlProfile)
+                        {
+                            <option value="@name" selected>@name</option>
+                        }
+                        else
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    }
+                </select>
             </div>
         </div>
 
@@ -48,10 +62,23 @@
         <div class="glass-card" id="oracle-card">
             @* כותרת הכרטיס *@
             <h2 class="h4 text-gradient mb-4" id="oracle-card-title">New Oracle Database</h2>
-            @* שדה קלט עבור מחרוזת החיבור (Connection String) *@
+            @* תיבת בחירה עבור פרופיל חיבור *@
             <div class="mb-3">
-                <label for="oracle-conn-string" class="form-label text-secondary fs-6" id="oracle-conn-string-label">מחרוזת חיבור (Connection String)</label>
-                <textarea class="form-control form-input-glass text-light w-100" id="oracle-conn-string" name="oracleConnectionString" rows="4" required placeholder="User Id=myUsername;Password=myPassword;Data Source=myOracleServer:1521/myServiceName;">@TempData["OracleConnString"]</textarea>
+                <label for="oracle-profile-select" class="form-label text-secondary fs-6" id="oracle-profile-select-label">בחרו פרופיל חיבור</label>
+                <select class="form-select form-input-glass text-light w-100" id="oracle-profile-select" name="oracleProfileName" required>
+                    <option value="" disabled selected>-- בחרו פרופיל Oracle --</option>
+                    @foreach (var name in Model.OracleProfileNames)
+                    {
+                        if (name == Model.SelectedOracleProfile)
+                        {
+                            <option value="@name" selected>@name</option>
+                        }
+                        else
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    }
+                </select>
             </div>
         </div>
 

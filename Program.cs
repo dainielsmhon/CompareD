@@ -7,6 +7,9 @@ builder.Services.AddControllersWithViews();
 // רישום שירות ההשוואה הייעודי לביצוע פונקציות החיבור והשוואת הנתונים
 builder.Services.AddScoped<CompareD.Services.ICompareService, CompareD.Services.CompareService>();
 
+// מיפוי ורישום הגדרות פרופילי החיבור מתוך קובץ הגדרות ה-JSON לטובת הזרקה במערכת
+builder.Services.Configure<CompareD.Controllers.DatabaseProfilesOptions>(builder.Configuration.GetSection("DatabaseProfiles"));
+
 
 // הוספת שירותי מטמון בזיכרון (Memory Cache) הנדרש להפעלת סשן באפליקציה
 builder.Services.AddDistributedMemoryCache();

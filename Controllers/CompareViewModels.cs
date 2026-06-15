@@ -91,3 +91,39 @@ public class FieldComparisonDetail
     // האם הערכים זהים
     public bool IsMatch { get; set; }
 }
+
+// מודל תצוגה עבור דף הבית המציג את רשימות פרופילי החיבור הזמינים
+public class HomeViewModel
+{
+    // רשימת שמות הפרופילים הזמינים עבור SQL Server
+    public List<string> SqlProfileNames { get; set; } = new();
+
+    // רשימת שמות הפרופילים הזמינים עבור Oracle
+    public List<string> OracleProfileNames { get; set; } = new();
+
+    // שם הפרופיל שנבחר עבור SQL Server (לשחזור קלט במקרה של שגיאה)
+    public string? SelectedSqlProfile { get; set; }
+
+    // שם הפרופיל שנבחר עבור Oracle (לשחזור קלט במקרה של שגיאה)
+    public string? SelectedOracleProfile { get; set; }
+}
+
+// הגדרת מחלקת אפשרויות למיפוי הגדרות החיבורים מתוך appsettings.json
+public class DatabaseProfilesOptions
+{
+    // רשימת פרופילי החיבור עבור SQL Server
+    public List<DatabaseProfile> SqlProfiles { get; set; } = new();
+
+    // רשימת פרופילי החיבור עבור Oracle
+    public List<DatabaseProfile> OracleProfiles { get; set; } = new();
+}
+
+// הגדרת מחלקה לייצוג פרופיל חיבור בודד
+public class DatabaseProfile
+{
+    // שם הפרופיל (למשל SQL-Prod או Oracle-Test)
+    public string Name { get; set; } = string.Empty;
+
+    // מחרוזת החיבור (ConnectionString)
+    public string ConnectionString { get; set; } = string.Empty;
+}

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using CompareD.Services;
 
@@ -10,26 +12,43 @@ namespace CompareD.Controllers;
 public class CompareController : Controller
 {
     private readonly ICompareService _compareService;
+    private readonly DatabaseProfilesOptions _profiles;
 
-    // בנאי הבקר המקבל את שירות ההשוואה דרך Dependency Injection
-    public CompareController(ICompareService compareService)
+    // בנאי הבקר המקבל את שירות ההשוואה ופרופילי החיבור באמצעות Dependency Injection
+    public CompareController(ICompareService compareService, IOptions<DatabaseProfilesOptions> profiles)
     {
         _compareService = compareService;
+        _profiles = profiles.Value;
     }
 
-    // פעולה (Action) המטפלת בקבלת מחרוזות החיבור ובדיקתן במקביל
+    // פעולה (Action) המטפלת בקבלת פרופילי החיבור ובדיקתם במקביל
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Connect(string sqlConnectionString, string oracleConnectionString)
+    public async Task<IActionResult> Connect(string sqlProfileName, string oracleProfileName)
     {
-        // בדיקה שמחרוזות החיבור אינן ריקות
-        if (string.IsNullOrWhiteSpace(sqlConnectionString) || string.IsNullOrWhiteSpace(oracleConnectionString))
+        // בדיקה ששמות הפרופילים אינם ריקים
+        if (string.IsNullOrWhiteSpace(sqlProfileName) || string.IsNullOrWhiteSpace(oracleProfileName))
         {
             // הגדרת שגיאה מתאימה להצגה
-            TempData["ErrorMessage"] = "יש להזין את שתי מחרוזות החיבור כדי להמשיך.";
+            TempData["ErrorMessage"] = "יש לבחור את שני פרופילי החיבור כדי להמשיך.";
             // חזרה לדף הבית
             return RedirectToAction("Index", "Home");
         }
+
+        // שליפת מחרוזות החיבור המתאימות מתוך הגדרות השרת מאחורי הקלעים
+        var sqlProfile = _profiles.SqlProfiles.FirstOrDefault(p => p.Name == sqlProfileName);
+        var oracleProfile = _profiles.OracleProfiles.FirstOrDefault(p => p.Name == oracleProfileName);
+
+        if (sqlProfile == null || oracleProfile == null)
+        {
+            TempData["ErrorMessage"] = "אחד מפרופילי החיבור שנבחרו אינו תקין או שאינו קיים במערכת.";
+            TempData["SelectedSqlProfile"] = sqlProfileName;
+            TempData["SelectedOracleProfile"] = oracleProfileName;
+            return RedirectToAction("Index", "Home");
+        }
+
+        string sqlConnectionString = sqlProfile.ConnectionString;
+        string oracleConnectionString = oracleProfile.ConnectionString;
 
         // רשימה לאחסון אובייקטים (טבלאות ותצוגות) מ-SQL Server
         var sqlObjects = new List<DatabaseObject>();
@@ -82,8 +101,8 @@ public class CompareController : Controller
             // שמירת הודעת השגיאה ב-TempData להצגה בדף הבית
             TempData["ErrorMessage"] = errorMessage;
             // שמירת הערכים שכבר הוזנו כדי שהמשתמש לא יצטרך להקליד שוב
-            TempData["SqlConnString"] = sqlConnectionString;
-            TempData["OracleConnString"] = oracleConnectionString;
+            TempData["SelectedSqlProfile"] = sqlProfileName;
+            TempData["SelectedOracleProfile"] = oracleProfileName;
             // חזרה לדף הבית
             return RedirectToAction("Index", "Home");
         }
