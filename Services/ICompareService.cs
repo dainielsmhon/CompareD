@@ -30,4 +30,22 @@ public interface ICompareService
         List<string> targetFields,
         List<string> fieldRoles,
         int maxRows);
+
+    // שליפת רשימת העמודות עם טיפוסי הנתונים שלהן מ-SQL Server
+    Task<List<(string ColumnName, string DataType)>> GetSqlColumnsWithTypesAsync(
+        string connectionString, 
+        string tableName);
+
+    // שליפת רשימת העמודות עם טיפוסי הנתונים שלהן מ-Oracle
+    Task<List<(string ColumnName, string DataType)>> GetOracleColumnsWithTypesAsync(
+        string connectionString, 
+        string tableName);
+
+    // ביצוע השוואת סכמה בין שתי הטבלאות ובניית מודל סקירת הסכמה למסך
+    Task<SchemaReviewViewModel> CompareSchemaAsync(
+        string sqlConnectionString, 
+        string oracleConnectionString, 
+        string sqlTable, 
+        string oracleTable);
 }
+

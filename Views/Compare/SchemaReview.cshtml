@@ -1,0 +1,473 @@
+@model CompareD.Controllers.SchemaReviewViewModel
+
+@{
+    ViewData["Title"] = "שלב 3 — סקירת סכמה ומיפוי שדות";
+}
+
+@* ===== מחוון שלבים (Step Indicator) — שלב 3 פעיל ===== *@
+<div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
+        @* שלב 1 — הושלם *@
+        <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-1-badge">✓ חיבור</span>
+        <span class="text-secondary">→</span>
+        @* שלב 2 — הושלם *@
+        <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-2-badge">✓ בחירת טבלה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 3 — פעיל כרגע *@
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-3-badge">3. סקירת סכמה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 4 — טרם הגענו (בדיקות מקדימות) *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-4-badge">4. בדיקות מקדימות</span>
+        <span class="text-secondary">→</span>
+        @* שלב 5 — השוואה *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-5-badge">5. השוואה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 6 — דוח תוצאות *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-6-badge">6. דוח תוצאות</span>
+    </div>
+</div>
+
+@* ===== כותרת הדף המרכזית ===== *@
+<div class="text-center mb-5" id="schema-header">
+    <h1 class="display-4 text-gradient mb-3" id="schema-title">סקירת סכמה ומיפוי שדות</h1>
+    <p class="lead text-secondary fs-5" id="schema-description">
+        בצעו סקירה של מבנה העמודות בין שני מסדי הנתונים והגדירו את השדות שברצונכם להשוות ואת שדות המפתח להתאמה.
+    </p>
+</div>
+
+@* ===== כרטיס סטטוס סכמה כללי ===== *@
+<div class="glass-card mb-5 p-4" id="schema-status-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex flex-column gap-1">
+            <h2 class="h5 text-light mb-1">השוואת מבנה הטבלאות</h2>
+            <div class="d-flex gap-3 text-secondary small flex-wrap">
+                <span>מקור (SQL Server): <strong class="text-light">@Model.SqlTable</strong></span>
+                <span>/</span>
+                <span>יעד (Oracle): <strong class="text-light">@Model.OracleTable</strong></span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @if (Model.IsSchemaIdentical)
+            {
+                <span class="badge bg-success/20 text-success border border-success/30 px-3 py-2 fs-6">
+                    ✓ מבנה הסכמה זהה לחלוטין
+                </span>
+            }
+            else
+            {
+                <span class="badge bg-warning/20 text-warning border border-warning/30 px-3 py-2 fs-6">
+                    ⚠ נמצאו הבדלים במבנה הסכמה (עמודות חסרות)
+                </span>
+            }
+        </div>
+    </div>
+</div>
+
+@* ===== טופס הגשת תצורת המיפוי והרצת ההשוואה ===== *@
+<form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData">
+    @* שדות מוסתרים המכילים את שמות הטבלאות וסוג המיפוי לצורך שליחה בטופס *@
+    <input type="hidden" name="sqlTable" value="@Model.SqlTable" />
+    <input type="hidden" name="oracleTable" value="@Model.OracleTable" />
+    <input type="hidden" name="mappingMode" value="Manual" /> @* תמיד נגיש כמיפוי ידני כי המערכת בונה אותו דינמית *@
+
+    @* ===== בנטו גריד: טבלת סקירת סכמה (שלב 4) ===== *@
+    <div class="glass-card mb-5 p-4" id="schema-table-card">
+        <h3 class="h5 text-gradient mb-3">סקירת עמודות וטיפוסים</h3>
+        
+        <div class="table-responsive">
+            <table class="table table-dark table-hover table-borderless align-middle" id="schema-comparison-table">
+                <thead>
+                    <tr class="text-secondary border-bottom border-white/10 small">
+                        <th style="width: 8%;" class="text-center">בחר</th>
+                        <th style="width: 15%;">סטטוס</th>
+                        <th style="width: 25%;">עמודת מקור (SQL Server)</th>
+                        <th style="width: 15%;">סוג נתונים (SQL)</th>
+                        <th style="width: 25%;">עמודת יעד (Oracle)</th>
+                        <th style="width: 12%;">סוג נתונים (Oracle)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var col in Model.Columns)
+                    {
+                        var isCommon = col.ExistsInBoth;
+                        var isTypeDiff = isCommon && !string.Equals(col.SqlDataType, col.OracleDataType, StringComparison.OrdinalIgnoreCase);
+                        
+                        <tr class="schema-row" data-column-name="@col.ColumnName" data-exists-both="@(isCommon ? "true" : "false")">
+                            <td class="text-center">
+                                @* תיבת סימון לבחירת השדה להשוואה - מסומן כברירת מחדל אם קיים בשניהם *@
+                                <input type="checkbox" class="form-check-input column-selector-check" 
+                                       data-col-name="@col.ColumnName"
+                                       @(isCommon ? "checked" : "") />
+                            </td>
+                            <td>
+                                @if (col.Source == "Both")
+                                {
+                                    if (isTypeDiff)
+                                    {
+                                        <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 small">⚠ סוג שונה</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success/10 text-success border border-success/20 px-2 py-1 small">✓ זהה</span>
+                                    }
+                                }
+                                else if (col.Source == "SqlOnly")
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small">✗ חסר ביעד</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small">✗ חסר במקור</span>
+                                }
+                            </td>
+                            <td class="@(col.Source == "OracleOnly" ? "text-muted text-decoration-line-through" : "text-light fw-bold")">
+                                @(col.Source == "OracleOnly" ? "—" : col.ColumnName)
+                            </td>
+                            <td class="text-secondary small">
+                                @(col.Source == "OracleOnly" ? "—" : col.SqlDataType)
+                            </td>
+                            <td class="@(col.Source == "SqlOnly" ? "text-muted text-decoration-line-through" : "text-light fw-bold")">
+                                @(col.Source == "SqlOnly" ? "—" : (col.Source == "Both" ? col.ColumnName : col.ColumnName))
+                            </td>
+                            <td class="text-secondary small">
+                                @(col.Source == "SqlOnly" ? "—" : col.OracleDataType)
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* ===== כרטיס מיפוי עמודות להשוואה בפועל (סנכרון והתערבות ידנית) ===== *@
+    <div class="glass-card mb-5 p-4" id="mapping-builder-card">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 text-gradient mb-1">הגדרת מיפוי והשוואה בפועל</h3>
+                <p class="text-secondary small mb-0">
+                    שנו את המיפויים הידניים, הגדירו את מפתחות ההתאמה או הוסיפו שדות חדשים להשוואה לפי הצורך.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline-primary transition-all rounded-pill px-4" id="btn-add-custom-mapping">
+                + הוסף שדה למיפוי
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless align-middle" id="active-mapping-table">
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/10">
+                        <th style="width: 35%;">שדה מקור (SQL Server)</th>
+                        <th style="width: 35%;">שדה יעד (Oracle)</th>
+                        <th style="width: 20%;">תפקיד השדה</th>
+                        <th style="width: 10%;" class="text-center">פעולות</th>
+                    </tr>
+                </thead>
+                <tbody id="active-mapping-rows">
+                    @* יאוכלס דינמית על ידי JavaScript בהתאם לבחירות ה-Checkboxes למעלה *@
+                </tbody>
+            </table>
+        </div>
+
+        <div class="text-center py-4 text-secondary d-none" id="no-mappings-alert">
+            לא נבחרו שדות להשוואה. בחרו שדות מטבלת הסכמה למעלה או לחצו על הוספת שדה.
+        </div>
+    </div>
+
+    @* ===== קביעת הגדרות הרצה (Max Rows + PK) ===== *@
+    <div class="row g-4 mb-5" id="run-config-section">
+        <div class="col-md-6">
+            <div class="glass-card h-100 p-4">
+                <h4 class="h6 text-gradient mb-3">בחירת מפתח ראשי להתאמה (Primary Key)</h4>
+                <div class="mb-3">
+                    <label for="pk-column-selector" class="form-label text-secondary small">מפתח ראשי מוצע</label>
+                    <select class="form-select form-input-glass text-light w-100" id="pk-column-selector" required>
+                        <option value="" disabled>-- בחרו מפתח ראשי --</option>
+                        @* יאוכלס דינמית על ידי JavaScript מהשדות שנבחרו בטבלת המיפוי *@
+                    </select>
+                </div>
+                <span class="text-secondary small d-block">
+                    שירות ההשוואה מזהה מפתח ראשוני מקטלוג הנתונים, אך באפשרותכם לשנותו לכל עמודה משותפת אחרת.
+                </span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="glass-card h-100 p-4 text-center d-flex flex-column justify-content-center">
+                <label for="max-rows-input" class="form-label text-secondary fs-6 fw-bold mb-3">הגבלת כמות רשומות לטעינה (Max Rows)</label>
+                <input type="number" class="form-control form-input-glass text-center text-light mx-auto mb-3" 
+                       id="max-rows-input" name="maxRows" value="@Model.MaxRows" min="1" max="10000" required style="max-width: 220px;" />
+                <span class="text-secondary small">
+                    הגבלת השורות מונעת עומס יתר על מסדי הנתונים. המערכת תומכת בטעינה של עד 10,000 שורות.
+                </span>
+            </div>
+        </div>
+    </div>
+
+    @* ===== כפתור אישור יוקרתי (Submit) ===== *@
+    <div class="text-center mb-5" id="action-button-container">
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-submit-mapping">
+            הרץ השוואת נתונים
+        </button>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        // האזנה לטעינת הדף במלואו
+        document.addEventListener("DOMContentLoaded", function() {
+            // שמירת רשימות העמודות המקוריות כמשתני JavaScript לשימוש דינמי
+            const allColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Columns));
+            // עמודות SQL בלבד או משותפות
+            const sqlColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
+            // עמודות Oracle בלבד או משותפות
+            const oracleColumns = allColumns.filter(c => c.Source !== "SqlOnly").map(c => c.ColumnName);
+            // המפתח הראשוני שהוצע על ידי השרת כברירת מחדל
+            const defaultPk = "@Html.Raw(Model.PrimaryKeyColumn)";
+
+            // הגדרת אלמנטים של ממשק המשתמש
+            const checkBoxes = document.querySelectorAll(".column-selector-check");
+            const mappingRows = document.getElementById("active-mapping-rows");
+            const noMappingsAlert = document.getElementById("no-mappings-alert");
+            const btnAddCustom = document.getElementById("btn-add-custom-mapping");
+            const pkSelector = document.getElementById("pk-column-selector");
+            const mainForm = document.getElementById("schema-review-form");
+
+            // פונקציה לבדיקה ורענון של הודעת "אין שדות"
+            function updateNoMappingsAlert() {
+                if (mappingRows.children.length === 0) {
+                    noMappingsAlert.classList.remove("d-none");
+                } else {
+                    noMappingsAlert.classList.add("d-none");
+                }
+            }
+
+            // פונקציה לעדכון תיבת בחירת המפתח הראשי
+            function updatePkSelector() {
+                // שמירת הערך הנוכחי שנבחר (אם קיים)
+                const currentSelected = pkSelector.value || defaultPk;
+                
+                // איפוס האפשרויות בתיבת הבחירה
+                pkSelector.innerHTML = '<option value="" disabled>-- בחרו מפתח ראשי --</option>';
+                
+                // שליפת כל שדות המקור שמופיעים כרגע בטבלת המיפוי הפעילה
+                const activeSourceFields = Array.from(mappingRows.querySelectorAll("select[name='sourceFields']"))
+                    .map(sel => sel.value)
+                    .filter(val => val !== "");
+
+                // הוספת השדות הפעילים כאפשרויות לבחירת מפתח ראשי
+                activeSourceFields.forEach(field => {
+                    const opt = document.createElement("option");
+                    opt.value = field;
+                    opt.text = field;
+                    if (field === currentSelected) {
+                        opt.selected = true;
+                    }
+                    pkSelector.appendChild(opt);
+                });
+
+                // אם אין ערך שנבחר באופן תקין, נבחר את האופציה הראשונה הזמינה
+                if (!pkSelector.value && pkSelector.options.length > 1) {
+                    pkSelector.options[1].selected = true;
+                }
+            }
+
+            // פונקציה להוספת שורת מיפוי לטבלה התחתונה
+            function addMappingRow(sqlColName = "", oracleColName = "", isPreselected = false) {
+                // יצירת שורת טבלה חדשה
+                const tr = document.createElement("tr");
+                tr.className = "mapping-row-item border-bottom border-white/5";
+                if (sqlColName) {
+                    tr.dataset.sourceField = sqlColName;
+                }
+
+                // עמודה א: שדה מקור (SQL Server) - Dropdown של כל עמודות SQL
+                const tdSource = document.createElement("td");
+                let sqlOptionsHtml = sqlColumns.map(c => 
+                    `<option value="${c}" ${c === sqlColName ? "selected" : ""}>${c}</option>`
+                ).join("");
+                tdSource.innerHTML = `
+                    <select class="form-select form-input-glass text-light w-100 source-field-select" name="sourceFields" required>
+                        <option value="" disabled ${!sqlColName ? "selected" : ""}>-- בחרו שדה מקור --</option>
+                        ${sqlOptionsHtml}
+                    </select>
+                `;
+
+                // עמודה ב: שדה יעד (Oracle) - Dropdown של כל עמודות Oracle
+                const tdTarget = document.createElement("td");
+                let oracleOptionsHtml = oracleColumns.map(c => 
+                    `<option value="${c}" ${c === oracleColName ? "selected" : ""}>${c}</option>`
+                ).join("");
+                tdTarget.innerHTML = `
+                    <select class="form-select form-input-glass text-light w-100 target-field-select" name="targetFields" required>
+                        <option value="" disabled ${!oracleColName ? "selected" : ""}>-- בחרו שדה יעד --</option>
+                        ${oracleOptionsHtml}
+                    </select>
+                `;
+
+                // עמודה ג: תפקיד השדה (מפתח או השוואה)
+                const tdRole = document.createElement("td");
+                // קביעת התפקיד כברירת מחדל: "Key" אם שם העמודה תואם למפתח המוצע
+                const isKey = sqlColName && sqlColName.toLowerCase() === defaultPk.toLowerCase();
+                tdRole.innerHTML = `
+                    <select class="form-select form-input-glass text-light w-100 role-field-select" name="fieldRoles" required>
+                        <option value="Compare" ${!isKey ? "selected" : ""}>שדה להשוואה</option>
+                        <option value="Key" ${isKey ? "selected" : ""}>מפתח התאמה (Key)</option>
+                    </select>
+                `;
+
+                // עמודה ד: כפתור מחיקה
+                const tdDelete = document.createElement("td");
+                tdDelete.className = "text-center";
+                tdDelete.innerHTML = `
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-circle p-2 transition-all" 
+                            style="width: 36px; height: 36px; line-height: 1;" title="מחק שורה">✕</button>
+                `;
+
+                // הגדרת מאזין לשינוי שדה המקור - כדי לעדכן את המפתח הראשי
+                tdSource.querySelector("select").addEventListener("change", function() {
+                    const selectedVal = this.value;
+                    tr.dataset.sourceField = selectedVal;
+                    
+                    // ניסיון התאמה אוטומטית לעמודת Oracle בעלת שם זהה
+                    const targetSelect = tdTarget.querySelector("select");
+                    const matchingOracle = oracleColumns.find(c => c.toLowerCase() === selectedVal.toLowerCase());
+                    if (matchingOracle) {
+                        targetSelect.value = matchingOracle;
+                    }
+                    
+                    updatePkSelector();
+                });
+
+                // הגדרת מאזין לשינוי תפקיד השדה - אם הוא מסומן כמפתח ראשי
+                tdRole.querySelector("select").addEventListener("change", function() {
+                    if (this.value === "Key") {
+                        // עדכון ה-Dropdown הראשי של ה-PK
+                        const srcVal = tdSource.querySelector("select").value;
+                        if (srcVal) {
+                            pkSelector.value = srcVal;
+                        }
+                    }
+                });
+
+                // הגדרת פעולת מחיקה
+                tdDelete.querySelector("button").addEventListener("click", function() {
+                    tr.remove();
+                    // אם השורה קושרה ל-Checkbox למעלה, נבטל את הסימון שלו
+                    if (sqlColName) {
+                        const chk = document.querySelector(`.column-selector-check[data-col-name='${sqlColName}']`);
+                        if (chk) {
+                            chk.checked = false;
+                        }
+                    }
+                    updateNoMappingsAlert();
+                    updatePkSelector();
+                });
+
+                // חיבור העמודות לשורה והוספתה לטבלה
+                tr.appendChild(tdSource);
+                tr.appendChild(tdTarget);
+                tr.appendChild(tdRole);
+                tr.appendChild(tdDelete);
+                mappingRows.appendChild(tr);
+
+                updateNoMappingsAlert();
+                updatePkSelector();
+            }
+
+            // פונקציית סנכרון ראשונית מטבלת הסכמה לטבלת המיפוי (טעינת כל השדות המשותפים שסומנו)
+            checkBoxes.forEach(chk => {
+                const colName = chk.dataset.colName;
+                const hasBoth = chk.closest("tr").dataset.existsBoth === "true";
+                
+                if (chk.checked) {
+                    // העתקה אוטומטית: אם העמודה קיימת בשניהם, נמפה אותה ישירות
+                    if (hasBoth) {
+                        addMappingRow(colName, colName, true);
+                    } else {
+                        // אם העמודה קיימת רק באחד הצדדים, נוסיף אותה ללא מיפוי אוטומטי מלא
+                        const colData = allColumns.find(c => c.ColumnName === colName);
+                        if (colData && colData.Source === "SqlOnly") {
+                            addMappingRow(colName, "", false);
+                        } else if (colData && colData.Source === "OracleOnly") {
+                            addMappingRow("", colName, false);
+                        }
+                    }
+                }
+
+                // האזנה לשינוי ב-Checkbox
+                chk.addEventListener("change", function() {
+                    if (this.checked) {
+                        // אם סומן, נוסיף שורה
+                        if (hasBoth) {
+                            addMappingRow(colName, colName, true);
+                        } else {
+                            const colData = allColumns.find(c => c.ColumnName === colName);
+                            if (colData && colData.Source === "SqlOnly") {
+                                addMappingRow(colName, "", false);
+                            } else {
+                                addMappingRow("", colName, false);
+                            }
+                        }
+                    } else {
+                        // אם בוטל הסימון, נסיר את השורה המתאימה
+                        const existingRow = mappingRows.querySelector(`tr[data-source-field='${colName}']`);
+                        if (existingRow) {
+                            existingRow.remove();
+                        }
+                        updateNoMappingsAlert();
+                        updatePkSelector();
+                    }
+                });
+            });
+
+            // האזנה לכפתור הוספת שורה מותאמת אישית ידנית
+            btnAddCustom.addEventListener("click", function() {
+                addMappingRow("", "", false);
+            });
+
+            // האזנה לשינוי בבחירת מפתח ראשי מוצע
+            pkSelector.addEventListener("change", function() {
+                const selectedPk = this.value;
+                // עדכון התפקיד (Role) בטבלה התחתונה עבור שדה זה להיות "Key" ואחרים "Compare"
+                const rows = mappingRows.querySelectorAll("tr.mapping-row-item");
+                rows.forEach(row => {
+                    const srcSelect = row.querySelector("select[name='sourceFields']");
+                    const roleSelect = row.querySelector("select[name='fieldRoles']");
+                    if (srcSelect && roleSelect) {
+                        if (srcSelect.value === selectedPk) {
+                            roleSelect.value = "Key";
+                        } else if (roleSelect.value === "Key") {
+                            // אם קודם הוא היה Key, נשנה ל-Compare (אלא אם כן המשתמש רוצה מפתח מורכב - אך כרגע תומכים במפתח יחיד קל)
+                            roleSelect.value = "Compare";
+                        }
+                    }
+                });
+            });
+
+            // אימות הגשת הטופס
+            mainForm.addEventListener("submit", function(e) {
+                // וידוא שנבחר לפחות שדה מפתח אחד
+                const roles = Array.from(mappingRows.querySelectorAll("select[name='fieldRoles']")).map(s => s.value);
+                const hasKey = roles.includes("Key");
+
+                if (!hasKey) {
+                    e.preventDefault();
+                    alert("שגיאה: חובה להגדיר לפחות שדה אחד כמפתח התאמה (Key) לצורך ביצוע ההשוואה.");
+                    return false;
+                }
+
+                // וידוא שכמות הרשומות תקינה
+                const maxRowsInput = document.getElementById("max-rows-input");
+                const maxRowsVal = parseInt(maxRowsInput.value);
+                if (isNaN(maxRowsVal) || maxRowsVal < 1 || maxRowsVal > 10000) {
+                    e.preventDefault();
+                    alert("שגיאה: כמות הרשומות לטעינה חייבת להיות מספר בין 1 ל-10,000.");
+                    return false;
+                }
+            });
+
+            // אתחול ראשוני של המפתח הראשי ב-UI
+            updatePkSelector();
+        });
+    </script>
+}

@@ -415,4 +415,247 @@ public class CompareService : ICompareService
             }
         }
     }
+
+    // שליפת עמודות וטיפוסי הנתונים שלהן מ-SQL Server בצורה מאובטחת ומבוססת פרמטרים
+    public async Task<List<(string ColumnName, string DataType)>> GetSqlColumnsWithTypesAsync(string connectionString, string tableName)
+    {
+        // יצירת רשימה המכילה צמדים של שם עמודה וטיפוס נתונים
+        var columns = new List<(string ColumnName, string DataType)>();
+        // יצירת חיבור מנוהל ל-SQL Server בתוך בלוק using לשחרור משאבים אוטומטי
+        using (var connection = new SqlConnection(connectionString))
+        {
+            // פתיחת החיבור למסד הנתונים באופן אסינכרוני
+            await connection.OpenAsync();
+            // שאילתת SQL קטלוגית השולפת את שם העמודה וטיפוסה באופן ממוקד וממוין
+            string query = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName ORDER BY COLUMN_NAME";
+            // בניית פקודת ההרצה
+            using (var command = new SqlCommand(query, connection))
+            {
+                // הוספת פרמטר שם הטבלה למניעת הזרקת קוד זדוני (SQL Injection)
+                command.Parameters.AddWithValue("@tableName", tableName);
+                // הרצת השאילתה וקבלת Reader לקריאת הנתונים בצורה אסינכרונית
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    // קריאה שורה אחר שורה של התוצאות
+                    while (await reader.ReadAsync())
+                    {
+                        // הוספת העמודה והטיפוס שלה כצמד לרשימה
+                        columns.Add((reader.GetString(0), reader.GetString(1)));
+                    }
+                }
+            }
+        }
+        // החזרת רשימת העמודות עם טיפוסי הנתונים
+        return columns;
+    }
+
+    // שליפת עמודות וטיפוסי הנתונים שלהן מ-Oracle בצורה מאובטחת ומבוססת פרמטרים
+    public async Task<List<(string ColumnName, string DataType)>> GetOracleColumnsWithTypesAsync(string connectionString, string tableName)
+    {
+        // יצירת רשימה לאחסון צמדי שם עמודה וטיפוס נתונים עבור Oracle
+        var columns = new List<(string ColumnName, string DataType)>();
+        // פתיחת חיבור מנוהל ל-Oracle בתוך בלוק using
+        using (var connection = new OracleConnection(connectionString))
+        {
+            // פתיחת החיבור בצורה אסינכרונית
+            await connection.OpenAsync();
+            // שאילתת SQL לטבלת הקטלוג של Oracle לשליפת שם העמודה וטיפוס הנתונים שלה
+            string query = "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :tableName ORDER BY COLUMN_NAME";
+            // בניית פקודת ההרצה מול Oracle
+            using (var command = new OracleCommand(query, connection))
+            {
+                // הוספת פרמטר שם הטבלה באותיות גדולות (Uppercase) כנדרש בקטלוג של Oracle
+                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                // הרצת השאילתה וקבלת ה-Reader
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    // לולאת קריאה של כל עמודה
+                    while (await reader.ReadAsync())
+                    {
+                        // שמירת שם העמודה וסוג הנתונים כצמד
+                        columns.Add((reader.GetString(0), reader.GetString(1)));
+                    }
+                }
+            }
+        }
+        // החזרת רשימת העמודות שנסרקו
+        return columns;
+    }
+
+    // ביצוע השוואת סכמה מקיפה ובניית מודל סקירת הסכמה
+    public async Task<SchemaReviewViewModel> CompareSchemaAsync(
+        string sqlConnectionString, 
+        string oracleConnectionString, 
+        string sqlTable, 
+        string oracleTable)
+    {
+        // אימות תקינות שם טבלת SQL Server בקטלוג למניעת SQL Injection
+        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
+        {
+            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
+        }
+        // אימות תקינות שם טבלת Oracle בקטלוג למניעת SQL Injection
+        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
+        {
+            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
+        }
+
+        // יצירת משתנים לאחסון זמני של הנתונים שיישלפו
+        var sqlCols = new List<(string Name, string Type)>();
+        var oracleCols = new List<(string Name, string Type)>();
+        string sqlPk = string.Empty;
+        string oraclePk = string.Empty;
+
+        // שליפה אסינכרונית ומקבילית של כלל נתוני הסכמה והמפתחות משני מסדי הנתונים לחיסכון בזמן
+        await Task.WhenAll(
+            Task.Run(async () => { sqlCols = await GetSqlColumnsWithTypesAsync(sqlConnectionString, sqlTable); }),
+            Task.Run(async () => { oracleCols = await GetOracleColumnsWithTypesAsync(oracleConnectionString, oracleTable); }),
+            Task.Run(async () => { sqlPk = await GetSqlPrimaryKeyAsync(sqlConnectionString, sqlTable); }),
+            Task.Run(async () => { oraclePk = await GetOraclePrimaryKeyAsync(oracleConnectionString, oracleTable); })
+        );
+
+        // אתחול מודל סקירת הסכמה
+        var model = new SchemaReviewViewModel
+        {
+            SqlTable = sqlTable,
+            OracleTable = oracleTable,
+            Columns = new List<ColumnSchemaInfo>()
+        };
+
+        // לולאת מעבר על כל עמודות SQL Server להתאמה מול Oracle
+        foreach (var sqlCol in sqlCols)
+        {
+            // חיפוש עמודה ב-Oracle בעלת שם זהה (ללא הבדלי רישיות)
+            var match = oracleCols.FirstOrDefault(oc => string.Equals(oc.Name, sqlCol.Name, StringComparison.OrdinalIgnoreCase));
+            
+            if (match.Name != null)
+            {
+                // אם העמודה קיימת בשני מסדי הנתונים
+                model.Columns.Add(new ColumnSchemaInfo
+                {
+                    ColumnName = sqlCol.Name,
+                    SqlDataType = sqlCol.Type,
+                    OracleDataType = match.Type,
+                    ExistsInBoth = true,
+                    Source = "Both"
+                });
+            }
+            else
+            {
+                // אם העמודה קיימת ב-SQL Server בלבד וחסרה ב-Oracle
+                model.Columns.Add(new ColumnSchemaInfo
+                {
+                    ColumnName = sqlCol.Name,
+                    SqlDataType = sqlCol.Type,
+                    OracleDataType = "חסר ביעד",
+                    ExistsInBoth = false,
+                    Source = "SqlOnly"
+                });
+            }
+        }
+
+        // לולאת מעבר על עמודות Oracle לאיתור עמודות שאינן קיימות ב-SQL Server
+        foreach (var oracleCol in oracleCols)
+        {
+            // בדיקה האם העמודה כבר מופתה בשלב הקודם
+            var hasCol = sqlCols.Any(sc => string.Equals(sc.Name, oracleCol.Name, StringComparison.OrdinalIgnoreCase));
+            if (!hasCol)
+            {
+                // הוספת העמודה כקיימת ב-Oracle בלבד
+                model.Columns.Add(new ColumnSchemaInfo
+                {
+                    ColumnName = oracleCol.Name,
+                    SqlDataType = "חסר במקור",
+                    OracleDataType = oracleCol.Type,
+                    ExistsInBoth = false,
+                    Source = "OracleOnly"
+                });
+            }
+        }
+
+        // קביעה האם מבנה הסכמה זהה לחלוטין (כל העמודות קיימות בשני הצדדים)
+        model.IsSchemaIdentical = model.Columns.All(c => c.ExistsInBoth);
+
+        // בחירת מפתח ראשי מוצע כברירת מחדל:
+        // נבדוק תחילה האם המפתח הראשי של SQL Server קיים ומשותף
+        if (!string.IsNullOrEmpty(sqlPk) && model.Columns.Any(c => string.Equals(c.ColumnName, sqlPk, StringComparison.OrdinalIgnoreCase) && c.ExistsInBoth))
+        {
+            model.PrimaryKeyColumn = sqlPk;
+        }
+        // אם לא נמצא, נבדוק האם המפתח הראשי של Oracle קיים ומשותף
+        else if (!string.IsNullOrEmpty(oraclePk) && model.Columns.Any(c => string.Equals(c.ColumnName, oraclePk, StringComparison.OrdinalIgnoreCase) && c.ExistsInBoth))
+        {
+            // שימוש בשם העמודה המדויק מתוך המודל
+            var matchCol = model.Columns.FirstOrDefault(c => string.Equals(c.ColumnName, oraclePk, StringComparison.OrdinalIgnoreCase));
+            model.PrimaryKeyColumn = matchCol?.ColumnName ?? oraclePk;
+        }
+        // ברירת מחדל אחרונה - נציע את העמודה המשותפת הראשונה שקיימת בשני הצדדים
+        else
+        {
+            var firstCommon = model.Columns.FirstOrDefault(c => c.ExistsInBoth);
+            if (firstCommon != null)
+            {
+                model.PrimaryKeyColumn = firstCommon.ColumnName;
+            }
+        }
+
+        // קביעת ערך ברירת מחדל לכמות שורות מקסימלית לטעינה להשוואה
+        model.MaxRows = 1000;
+
+        // החזרת המודל המוכן
+        return model;
+    }
+
+    // שליפת עמודת המפתח הראשי של טבלה ב-SQL Server מקטלוג המערכת בצורה מאובטחת
+    private async Task<string> GetSqlPrimaryKeyAsync(string connectionString, string tableName)
+    {
+        // פתיחת חיבור למסד SQL Server
+        using (var connection = new SqlConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            // שאילתה לאחזור עמודת המפתח הראשי המוגדרת על הטבלה
+            string query = @"
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1 
+                AND TABLE_NAME = @tableName";
+            using (var command = new SqlCommand(query, connection))
+            {
+                // מניעת הזרקת קוד
+                command.Parameters.AddWithValue("@tableName", tableName);
+                // הרצה וקבלת תוצאה בודדת
+                var result = await command.ExecuteScalarAsync();
+                // החזרת שם העמודה או מחרוזת ריקה אם לא נמצא
+                return result?.ToString() ?? string.Empty;
+            }
+        }
+    }
+
+    // שליפת עמודת המפתח הראשי של טבלה ב-Oracle מקטלוג המערכת בצורה מאובטחת
+    private async Task<string> GetOraclePrimaryKeyAsync(string connectionString, string tableName)
+    {
+        // פתיחת חיבור למסד Oracle
+        using (var connection = new OracleConnection(connectionString))
+        {
+            await connection.OpenAsync();
+            // שאילתה המשלבת Constraints וחלוקת עמודות כדי לאתר את המפתח הראשוני
+            string query = @"
+                SELECT cols.column_name 
+                FROM all_constraints cons, all_cons_columns cols 
+                WHERE cons.constraint_type = 'P' 
+                AND cons.constraint_name = cols.constraint_name 
+                AND cons.owner = cols.owner 
+                AND UPPER(cons.table_name) = :tableName";
+            using (var command = new OracleCommand(query, connection))
+            {
+                // העברת שם הטבלה באותיות גדולות ומניעת הזרקות קוד
+                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                // הרצה וקבלת התוצאה
+                var result = await command.ExecuteScalarAsync();
+                // החזרת התוצאה
+                return result?.ToString() ?? string.Empty;
+            }
+        }
+    }
 }
+

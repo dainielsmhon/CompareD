@@ -122,94 +122,50 @@ public class CompareController : Controller
         return View("SelectTables", viewModel);
     }
 
-    // פעולה (Action) המטפלת בקבלת הטבלאות/תצוגות שנבחרו ושליפת העמודות שלהן במקביל
+    // פעולה (Action) המטפלת בקבלת הטבלאות/תצוגות שנבחרו וביצוע השוואת סכמה להצגה במסך שלב 4
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SelectFields(string sqlTable, string oracleTable)
+    public async Task<IActionResult> SchemaReview(string sqlTable, string oracleTable)
     {
-        // שליפת מחרוזות החיבור מהסשן
+        // שליפת מחרוזות החיבור הפעילות מתוך ה-Session של המשתמש
         var sqlConnectionString = HttpContext.Session.GetString("SqlConnectionString");
         var oracleConnectionString = HttpContext.Session.GetString("OracleConnectionString");
 
-        // אם מחרוזות החיבור או בחירת הטבלאות אינן קיימות בסשן או בבקשה
+        // בדיקה האם פג תוקף הסשן או שלא הועברו טבלאות בבקשה
         if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString) ||
             string.IsNullOrEmpty(sqlTable) || string.IsNullOrEmpty(oracleTable))
         {
-            // הגדרת שגיאה להצגה
+            // הגדרת הודעת שגיאה מתאימה למשתמש
             TempData["ErrorMessage"] = "פג תוקף החיבור או שלא נבחרו טבלאות. נא להתחבר מחדש.";
-            // הפניה לדף הבית
+            // הפניה מחדש לדף הבית
             return RedirectToAction("Index", "Home");
         }
-
-        // רשימות לאחסון שמות העמודות
-        var sqlColumns = new List<string>();
-        var oracleColumns = new List<string>();
-        // משתנה לאחסון הודעת שגיאה
-        string? errorMessage = null;
 
         try
         {
-            // שליפת העמודות משני מסדי הנתונים במקביל לחסכון בזמן
-            await Task.WhenAll(
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        // שליפת עמודות עבור SQL Server באמצעות השירות
-                        sqlColumns = await _compareService.GetSqlColumnsAsync(sqlConnectionString, sqlTable);
-                    }
-                    catch (Exception ex)
-                    {
-                        // שגיאה ספציפית ל-SQL Server
-                        throw new Exception($"שגיאה בשליפת עמודות מ-SQL Server: {ex.Message}");
-                    }
-                }),
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        // שליפת עמודות עבור Oracle באמצעות השירות
-                        oracleColumns = await _compareService.GetOracleColumnsAsync(oracleConnectionString, oracleTable);
-                    }
-                    catch (Exception ex)
-                    {
-                        // שגיאה ספציפית ל-Oracle
-                        throw new Exception($"שגיאה בשליפת עמודות מ-Oracle: {ex.Message}");
-                    }
-                })
-            );
+            // קריאה לשירות ההשוואה לביצוע השוואת סכמה מקיפה בין הטבלאות במקביל
+            var schemaReviewModel = await _compareService.CompareSchemaAsync(
+                sqlConnectionString,
+                oracleConnectionString,
+                sqlTable,
+                oracleTable);
+
+            // שמירת שמות הטבלאות שנבחרו בסשן להמשך שלבי העבודה הבאים
+            HttpContext.Session.SetString("SelectedSqlTable", sqlTable);
+            HttpContext.Session.SetString("SelectedOracleTable", oracleTable);
+
+            // החזרת View סקירת הסכמה SchemaReview יחד עם המודל שנבנה
+            return View("SchemaReview", schemaReviewModel);
         }
         catch (Exception ex)
         {
-            // שמירת הודעת השגיאה
-            errorMessage = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-        }
-
-        // אם התרחשה שגיאה במהלך שליפת העמודות
-        if (errorMessage != null)
-        {
-            // הגדרת שגיאה
-            TempData["ErrorMessage"] = errorMessage;
-            // הפניה מחדש לדף הבית לביצוע התחברות חדשה ותקינה
+            // במקרה של שגיאה במהלך שליפת הסכמות, נשמור את הודעת השגיאה
+            TempData["ErrorMessage"] = $"שגיאה בטעינת סקירת הסכמה: {ex.Message}";
+            // החזרה לדף הבית לחיבור מחדש
             return RedirectToAction("Index", "Home");
         }
-
-        // שמירת שמות הטבלאות הנבחרות בסשן להמשך הדרך
-        HttpContext.Session.SetString("SelectedSqlTable", sqlTable);
-        HttpContext.Session.SetString("SelectedOracleTable", oracleTable);
-
-        // יצירת ה-ViewModel להעברת הנתונים לממשק המיפוי
-        var viewModel = new FieldMappingViewModel
-        {
-            SqlTable = sqlTable,
-            OracleTable = oracleTable,
-            SqlColumns = sqlColumns,
-            OracleColumns = oracleColumns
-        };
-
-        // החזרת תצוגת מיפוי השדות MapFields יחד עם המודל שנוצר
-        return View("MapFields", viewModel);
     }
+
 
     // פעולה (Action) המבצעת את אלגוריתם ההשוואה בפועל
     [HttpPost]

@@ -127,3 +127,45 @@ public class DatabaseProfile
     // מחרוזת החיבור (ConnectionString)
     public string ConnectionString { get; set; } = string.Empty;
 }
+
+// מחלקה המייצגת עמודה בודדת במסגרת השוואת הסכמה בין SQL Server ל-Oracle
+public class ColumnSchemaInfo
+{
+    // שם העמודה כפי שהוא מופיע במסדי הנתונים (שם משותף או שם מהמקור)
+    public string ColumnName { get; set; } = string.Empty;
+    
+    // טיפוס הנתונים של העמודה במסד SQL Server (למשל: int, nvarchar, datetime)
+    public string SqlDataType { get; set; } = string.Empty;
+    
+    // טיפוס הנתונים של העמודה במסד Oracle (למשל: NUMBER, VARCHAR2, DATE)
+    public string OracleDataType { get; set; } = string.Empty;
+    
+    // האם העמודה קיימת בשני מסדי הנתונים (על פי התאמת שם לא רגישה לרישיות)
+    public bool ExistsInBoth { get; set; }
+    
+    // מקור העמודה: "Both" (בשניהם), "SqlOnly" (ב-SQL Server בלבד), או "OracleOnly" (ב-Oracle בלבד)
+    public string Source { get; set; } = "Both";
+}
+
+// מודל תצוגה עבור מסך סקירת הסכמה המאגד את כל פרטי ההשוואה של העמודות
+public class SchemaReviewViewModel
+{
+    // שם טבלת המקור שנבחרה ב-SQL Server
+    public string SqlTable { get; set; } = string.Empty;
+    
+    // שם טבלת היעד שנבחרה ב-Oracle
+    public string OracleTable { get; set; } = string.Empty;
+    
+    // האם מבנה הסכמה של שתי הטבלאות זהה לחלוטין (אין עמודות חסרות באף צד)
+    public bool IsSchemaIdentical { get; set; }
+    
+    // רשימה מפורטת של כל העמודות משני הצדדים כולל מידע השוואתי
+    public List<ColumnSchemaInfo> Columns { get; set; } = new();
+    
+    // עמודת המפתח הראשי שהוצעה כברירת מחדל לאחר זיהוי אוטומטי במסדי הנתונים
+    public string PrimaryKeyColumn { get; set; } = string.Empty;
+    
+    // הגבלת כמות הרשומות המקסימלית לטעינה בעת ביצוע ההשוואה (ברירת מחדל 1000)
+    public int MaxRows { get; set; } = 1000;
+}
+
