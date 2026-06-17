@@ -1,50 +1,76 @@
 @model CompareD.Controllers.HomeViewModel
-@* הגדרת כותרת הדף לטובת כותרת ה-Title ב-Layout *@
+@* הגדרת כותרת הדף לטובת כותרת ה-Title ב-Layout — שלב 1: הגדרת חיבורים *@
 @{
-    ViewData["Title"] = "הגדרת חיבורים";
+    ViewData["Title"] = "שלב 1 — הגדרת חיבורים";
 }
 
-@* מיכל ראשי לדף הבית הכולל כותרת ואזור הגדרת חיבורים *@
+@* ===== מחוון שלבים (Step Indicator) — מציג את השלב הנוכחי מתוך 6 שלבים ===== *@
+<div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
+        @* שלב 1 — פעיל כרגע *@
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-1-badge">1. חיבור</span>
+        <span class="text-secondary">→</span>
+        @* שלב 2 — טרם הגענו *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-2-badge">2. בחירת טבלה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 3 — טרם הגענו *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-3-badge">3. סקירת סכמה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 4 — טרם הגענו *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-4-badge">4. בדיקות מקדימות</span>
+        <span class="text-secondary">→</span>
+        @* שלב 5 — טרם הגענו *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-5-badge">5. השוואה</span>
+        <span class="text-secondary">→</span>
+        @* שלב 6 — טרם הגענו *@
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-6-badge">6. דוח תוצאות</span>
+    </div>
+</div>
+
+@* ===== כותרת ראשית של שלב 1 ===== *@
 <div class="text-center mb-5" id="home-welcome-header">
     @* כותרת ראשית מעוצבת באמצעות גרדיאנט טקסט מרהיב *@
     <h1 class="display-4 text-gradient mb-3" id="main-landing-title">הגדרת חיבורי מסדי נתונים</h1>
-    @* תיאור קצר וממוקד מתחת לכותרת הראשית *@
+    @* תיאור קצר שמסביר את השלב הנוכחי *@
     <p class="lead text-secondary fs-5" id="main-landing-description">
-        הזינו את מחרוזות החיבור עבור שני מסדי הנתונים כדי לבדוק קישוריות ולהביא את רשימת הטבלאות.
+        בחרו את פרופילי החיבור עבור שני הצדדים שברצונכם להשוות. המערכת תתחבר לשניהם ותביא את רשימת הטבלאות.
     </p>
 </div>
 
-@* הצגת הודעת שגיאה מעוצבת בעיצוב Pro Max במידה וההתחברות נכשלה *@
+@* ===== הצגת הודעת שגיאה מעוצבת בעיצוב Pro Max במידה וההתחברות נכשלה ===== *@
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="glass-card mb-5" style="border-color: rgba(239, 68, 68, 0.3) !important;" id="error-message-box">
         <div class="d-flex align-items-center justify-content-center gap-3">
-            @* סימן שגיאה מובנה ללא שימוש באימוג'י *@
+            @* סימן שגיאה מובנה *@
             <span class="text-danger fw-bold fs-4" id="error-icon" style="user-select: none;">✕</span>
             <div class="text-start">
-                <h2 class="h6 mb-1 text-danger fw-bold" id="error-title">נכשל ניסיון ההתחברות למסדי הנתונים</h2>
+                <h2 class="h6 mb-1 text-danger fw-bold" id="error-title">שגיאה בהתחברות</h2>
                 <p class="mb-0 text-secondary small" id="error-details">@TempData["ErrorMessage"]</p>
             </div>
         </div>
     </div>
 }
 
-@* טופס הגדרת החיבורים וההשוואה *@
+@* ===== טופס בחירת פרופילי החיבור — שליחה לבקר Compare, פעולת Connect ===== *@
 <form id="compare-config-form" method="post" asp-controller="Compare" asp-action="Connect">
     @* פריסת Bento Grid הכוללת את כרטיסי הגדרות החיבורים למסדי הנתונים *@
     <div class="bento-grid mb-5" id="db-config-grid">
         
-        @* כרטיס הגדרות חיבור למסד הנתונים SQL Server *@
+        @* ===== כרטיס צד א׳ — SQL Server ===== *@
         <div class="glass-card" id="sql-server-card">
-            @* כותרת הכרטיס *@
-            <h2 class="h4 text-gradient mb-4" id="sql-card-title">Legacy SQL Server</h2>
-            @* תיבת בחירה עבור פרופיל חיבור *@
+            @* כותרת הכרטיס — מזהה את הצד והסוג *@
+            <h2 class="h4 text-gradient mb-2" id="sql-card-title">צד א׳ — מקור</h2>
+            <p class="text-secondary small mb-4" id="sql-card-subtitle">SQL Server</p>
+            @* תיבת בחירה עבור פרופיל חיבור — הפרופילים נטענים מ-appsettings.json *@
             <div class="mb-3">
                 <label for="sql-profile-select" class="form-label text-secondary fs-6" id="sql-profile-select-label">בחרו פרופיל חיבור</label>
                 <select class="form-select form-input-glass text-light w-100" id="sql-profile-select" name="sqlProfileName" required>
-                    <option value="" disabled selected>-- בחרו פרופיל SQL --</option>
+                    <option value="" disabled selected>-- בחרו פרופיל --</option>
+                    @* לולאה על כל שמות הפרופילים של SQL Server שהגיעו מהמודל *@
                     @foreach (var name in Model.SqlProfileNames)
                     {
+                        @* בדיקה האם פרופיל זה נבחר קודם — לשחזור הבחירה במקרה של שגיאה *@
                         if (name == Model.SelectedSqlProfile)
                         {
                             <option value="@name" selected>@name</option>
@@ -58,17 +84,20 @@
             </div>
         </div>
 
-        @* כרטיס הגדרות חיבור למסד הנתונים Oracle *@
+        @* ===== כרטיס צד ב׳ — Oracle ===== *@
         <div class="glass-card" id="oracle-card">
-            @* כותרת הכרטיס *@
-            <h2 class="h4 text-gradient mb-4" id="oracle-card-title">New Oracle Database</h2>
-            @* תיבת בחירה עבור פרופיל חיבור *@
+            @* כותרת הכרטיס — מזהה את הצד והסוג *@
+            <h2 class="h4 text-gradient mb-2" id="oracle-card-title">צד ב׳ — יעד</h2>
+            <p class="text-secondary small mb-4" id="oracle-card-subtitle">Oracle Database</p>
+            @* תיבת בחירה עבור פרופיל חיבור — הפרופילים נטענים מ-appsettings.json *@
             <div class="mb-3">
                 <label for="oracle-profile-select" class="form-label text-secondary fs-6" id="oracle-profile-select-label">בחרו פרופיל חיבור</label>
                 <select class="form-select form-input-glass text-light w-100" id="oracle-profile-select" name="oracleProfileName" required>
-                    <option value="" disabled selected>-- בחרו פרופיל Oracle --</option>
+                    <option value="" disabled selected>-- בחרו פרופיל --</option>
+                    @* לולאה על כל שמות הפרופילים של Oracle שהגיעו מהמודל *@
                     @foreach (var name in Model.OracleProfileNames)
                     {
+                        @* בדיקה האם פרופיל זה נבחר קודם — לשחזור הבחירה במקרה של שגיאה *@
                         if (name == Model.SelectedOracleProfile)
                         {
                             <option value="@name" selected>@name</option>
@@ -84,9 +113,9 @@
 
     </div>
 
-    @* אזור כפתור ההרצה הראשי המרכזי *@
+    @* ===== כפתור התחברות וקידום לשלב הבא ===== *@
     <div class="text-center" id="action-button-container">
-        @* כפתור ביצוע ההשוואה מעוצב עם אפקט זוהר מתקדם ומעבר חלק *@
+        @* כפתור זוהר מתקדם לביצוע ההתחברות *@
         <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-start-compare">
             התחבר והבא טבלאות
         </button>
