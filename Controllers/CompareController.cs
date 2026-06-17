@@ -167,7 +167,7 @@ public class CompareController : Controller
     }
 
 
-    // פעולה (Action) המבצעת את אלגוריתם ההשוואה בפועל
+    // פעולה (Action) המבצעת את אלגוריתם ההשוואה החכם בפועל (שלבים 5 ו-6)
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CompareData(
@@ -179,38 +179,39 @@ public class CompareController : Controller
         List<string> fieldRoles,
         int maxRows)
     {
-        // שליפת מחרוזות החיבור מהסשן
+        // שליפת מחרוזות החיבור מה-Session של המשתמש בצורה מאובטחת
         var sqlConnectionString = HttpContext.Session.GetString("SqlConnectionString");
         var oracleConnectionString = HttpContext.Session.GetString("OracleConnectionString");
 
-        // אם אין חיבורים פעילים
+        // בדיקה האם פג תוקף החיבור למסדי הנתונים
         if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString))
         {
+            // הגדרת הודעה והפניה לדף הבית
             TempData["ErrorMessage"] = "פג תוקף החיבור למסדי הנתונים. נא להתחבר מחדש.";
             return RedirectToAction("Index", "Home");
         }
 
         try
         {
-            // קריאה לשירות ההשוואה לביצוע השוואה בפועל
-            var resultsViewModel = await _compareService.CompareDataAsync(
+            // קריאה לשירות ההשוואה החכם לביצוע הרצת ההשוואה עם מנגנון הקיבוץ והנרמול
+            var smartResultsViewModel = await _compareService.SmartCompareAsync(
                 sqlConnectionString,
                 oracleConnectionString,
                 sqlTable,
                 oracleTable,
-                mappingMode,
                 sourceFields,
                 targetFields,
                 fieldRoles,
                 maxRows);
 
-            // החזרת תצוגת התוצאות Results יחד עם הנתונים שחושבו בשירות
-            return View("Results", resultsViewModel);
+            // החזרת תצוגת התוצאות Results יחד עם הנתונים והגרפים שחושבו
+            return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
-            // במקרה של שגיאה, החזרת הודעה והפניה לדף הבית
+            // במקרה של שגיאה במהלך ההשוואה, החזרת הודעה ממוקדת
             TempData["ErrorMessage"] = $"נכשלה הרצת השוואת הנתונים: {ex.Message}";
+            // הפניה לדף הבית
             return RedirectToAction("Index", "Home");
         }
     }

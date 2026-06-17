@@ -657,5 +657,349 @@ public class CompareService : ICompareService
             }
         }
     }
+
+    // פונקציית עזר להשוואת ערכים חכמה המנרמלת ערכים ריקים ו'0' (מניעת רעשי הבדלים)
+    private bool AreValuesEqual(object? sqlVal, object? oracleVal)
+    {
+        // נרמול שני הערכים למחרוזות נקיות
+        string s1 = NormalizeValue(sqlVal);
+        string s2 = NormalizeValue(oracleVal);
+
+        // אם הערכים זהים לחלוטין לאחר הנרמול
+        if (s1 == s2) return true;
+
+        // טיפול במקרה של '0' מול ערך ריק (נחשבים זהים לפי דרישת המשתמש)
+        if ((s1 == string.Empty && s2 == "0") || (s1 == "0" && s2 == string.Empty))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    // פונקציית עזר לנרמול ערכים למחרוזת אחידה לצורך השוואה
+    private string NormalizeValue(object? val)
+    {
+        // אם הערך null או DBNull, נחזיר מחרוזת ריקה
+        if (val == null || val == DBNull.Value)
+        {
+            return string.Empty;
+        }
+
+        // ניקוי רווחים מיותרים מהערך הטקסטואלי
+        string str = val.ToString()?.Trim() ?? string.Empty;
+
+        // התייחסות למחרוזת "NULL" כערך ריק
+        if (string.Equals(str, "NULL", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        return str;
+    }
+
+    // מנוע ההשוואה החכם - ביצוע השוואת נתונים, זיהוי כפילויות, חוסרים וקיבוץ לפי תבניות
+    public async Task<SmartComparisonResultViewModel> SmartCompareAsync(
+        string sqlConnectionString,
+        string oracleConnectionString,
+        string sqlTable,
+        string oracleTable,
+        List<string> sourceFields,
+        List<string> targetFields,
+        List<string> fieldRoles,
+        int maxRows)
+    {
+        // אימות אבטחה של שם טבלת SQL Server בקטלוג
+        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
+        {
+            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
+        }
+        // אימות אבטחה של שם טבלת Oracle בקטלוג
+        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
+        {
+            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
+        }
+
+        // שליפת עמודות מאומתות מהקטלוג למניעת הזרקת קוד בשמות שדות בשאילתות
+        var validSqlCols = await GetSqlColumnsAsync(sqlConnectionString, sqlTable);
+        var validOracleCols = await GetOracleColumnsAsync(oracleConnectionString, oracleTable);
+
+        // אימות שכל השדות המבוקשים קיימים בקטלוג המערכת
+        foreach (var field in sourceFields)
+        {
+            if (!validSqlCols.Contains(field))
+            {
+                throw new ArgumentException($"שם עמודת המקור '{field}' אינו חוקי או אינו קיים בטבלת המקור.");
+            }
+        }
+        foreach (var field in targetFields)
+        {
+            if (!validOracleCols.Contains(field))
+            {
+                throw new ArgumentException($"שם עמודת היעד '{field}' אינו חוקי או אינו קיים בטבלת היעד.");
+            }
+        }
+
+        // הגבלת כמות השורות המקסימלית ומניעת ערכים שליליים
+        if (maxRows <= 0)
+        {
+            maxRows = 1000; // ברירת מחדל
+        }
+        else if (maxRows > 10000)
+        {
+            maxRows = 10000; // גבול עליון קשיח
+        }
+
+        // פיצול השדות לשדות מפתח ושדות להשוואה
+        var keys = new List<(string SqlField, string OracleField)>();
+        var compares = new List<(string SqlField, string OracleField)>();
+
+        for (int i = 0; i < sourceFields.Count; i++)
+        {
+            if (fieldRoles[i] == "Key")
+            {
+                keys.Add((sourceFields[i], targetFields[i]));
+            }
+            else
+            {
+                compares.Add((sourceFields[i], targetFields[i]));
+            }
+        }
+
+        if (keys.Count == 0)
+        {
+            throw new Exception("חובה להגדיר לפחות שדה מפתח אחד לביצוע ההשוואה.");
+        }
+
+        // בניית שאילתת SQL Server מאובטחת
+        var sqlColsToSelect = keys.Select(k => k.SqlField).Union(compares.Select(c => c.SqlField)).Distinct().ToList();
+        string sqlSelectString = string.Join(", ", sqlColsToSelect.Select(c => $"[{c}]"));
+        string sqlQuery = $"SELECT TOP ({maxRows}) {sqlSelectString} FROM [{sqlTable}]";
+
+        // בניית שאילתת Oracle מאובטחת
+        var oracleColsToSelect = keys.Select(k => k.OracleField).Union(compares.Select(c => c.OracleField)).Distinct().ToList();
+        string oracleSelectString = string.Join(", ", oracleColsToSelect.Select(c => $"\"{c}\""));
+        string oracleQuery = $"SELECT {oracleSelectString} FROM \"{oracleTable}\" FETCH FIRST {maxRows} ROWS ONLY";
+
+        // שליפת הרשומות מ-SQL Server
+        var sqlRawData = new List<Dictionary<string, object>>();
+        using (var connection = new SqlConnection(sqlConnectionString))
+        {
+            await connection.OpenAsync();
+            using (var command = new SqlCommand(sqlQuery, connection))
+            using (var reader = await command.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = reader.GetValue(i);
+                    }
+                    sqlRawData.Add(row);
+                }
+            }
+        }
+
+        // שליפת הרשומות מ-Oracle
+        var oracleRawData = new List<Dictionary<string, object>>();
+        using (var connection = new OracleConnection(oracleConnectionString))
+        {
+            await connection.OpenAsync();
+            using (var command = new OracleCommand(oracleQuery, connection))
+            using (var reader = await command.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var row = new Dictionary<string, object>();
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        row[reader.GetName(i)] = reader.GetValue(i);
+                    }
+                    oracleRawData.Add(row);
+                }
+            }
+        }
+
+        // זיהוי וספירה של מפתחות ב-SQL Server
+        var sqlKeyCounts = new Dictionary<string, int>();
+        var sqlDataFiltered = new Dictionary<string, Dictionary<string, object>>();
+        
+        foreach (var row in sqlRawData)
+        {
+            var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
+            string compositeKey = string.Join("|", keyParts);
+            
+            if (sqlKeyCounts.ContainsKey(compositeKey))
+            {
+                sqlKeyCounts[compositeKey]++;
+            }
+            else
+            {
+                sqlKeyCounts[compositeKey] = 1;
+                sqlDataFiltered[compositeKey] = row;
+            }
+        }
+
+        // זיהוי וספירה של מפתחות ב-Oracle
+        var oracleKeyCounts = new Dictionary<string, int>();
+        var oracleDataFiltered = new Dictionary<string, Dictionary<string, object>>();
+        
+        foreach (var row in oracleRawData)
+        {
+            var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
+            string compositeKey = string.Join("|", keyParts);
+            
+            if (oracleKeyCounts.ContainsKey(compositeKey))
+            {
+                oracleKeyCounts[compositeKey]++;
+            }
+            else
+            {
+                oracleKeyCounts[compositeKey] = 1;
+                oracleDataFiltered[compositeKey] = row;
+            }
+        }
+
+        // יצירת מודל תוצאות חכם
+        var result = new SmartComparisonResultViewModel
+        {
+            SqlTable = sqlTable,
+            OracleTable = oracleTable,
+            PrimaryKeyColumn = string.Join(", ", keys.Select(k => k.SqlField)),
+            TotalRowsInSql = sqlRawData.Count,
+            TotalRowsInOracle = oracleRawData.Count
+        };
+
+        // זיהוי מפתחות כפולים והוצאתם מההשוואה הראשית
+        var duplicateKeys = new HashSet<string>();
+        foreach (var kvp in sqlKeyCounts.Where(k => k.Value > 1))
+        {
+            duplicateKeys.Add(kvp.Key);
+            result.Duplicates.Add(new DuplicateKeyRecord
+            {
+                KeyValue = kvp.Key,
+                SqlCount = kvp.Value,
+                OracleCount = oracleKeyCounts.ContainsKey(kvp.Key) ? oracleKeyCounts[kvp.Key] : 0
+            });
+        }
+        foreach (var kvp in oracleKeyCounts.Where(k => k.Value > 1))
+        {
+            if (!duplicateKeys.Contains(kvp.Key))
+            {
+                duplicateKeys.Add(kvp.Key);
+                result.Duplicates.Add(new DuplicateKeyRecord
+                {
+                    KeyValue = kvp.Key,
+                    SqlCount = sqlKeyCounts.ContainsKey(kvp.Key) ? sqlKeyCounts[kvp.Key] : 0,
+                    OracleCount = kvp.Value
+                });
+            }
+        }
+
+        // סכימת סך כל השורות המושפעות מהכפילויות
+        result.TotalDuplicates = result.Duplicates.Sum(d => d.SqlCount + d.OracleCount);
+
+        // ניקוי המילונים הראשיים משורות כפולות
+        foreach (var dk in duplicateKeys)
+        {
+            sqlDataFiltered.Remove(dk);
+            oracleDataFiltered.Remove(dk);
+        }
+
+        // ביצוע השוואת 1-ל-1 בזיכרון של השורות התקינות
+        var discrepancyPatternsMap = new Dictionary<string, DiscrepancyPattern>();
+
+        foreach (var sqlKvp in sqlDataFiltered)
+        {
+            string compositeKey = sqlKvp.Key;
+            var sqlRow = sqlKvp.Value;
+
+            if (oracleDataFiltered.TryGetValue(compositeKey, out var oracleRow))
+            {
+                // המפתח קיים בשניהם - נשווה את ערכי השדות
+                var differentFields = new List<FieldComparisonDetail>();
+                var diffFieldNames = new List<string>();
+
+                foreach (var c in compares)
+                {
+                    sqlRow.TryGetValue(c.SqlField, out var sqlVal);
+                    oracleRow.TryGetValue(c.OracleField, out var oracleVal);
+
+                    if (!AreValuesEqual(sqlVal, oracleVal))
+                    {
+                        differentFields.Add(new FieldComparisonDetail
+                        {
+                            FieldName = $"{c.SqlField} / {c.OracleField}",
+                            SqlValue = sqlVal?.ToString()?.Trim() ?? "NULL",
+                            OracleValue = oracleVal?.ToString()?.Trim() ?? "NULL",
+                            IsMatch = false
+                        });
+                        diffFieldNames.Add(c.SqlField);
+                    }
+                }
+
+                if (differentFields.Count == 0)
+                {
+                    // השורות זהות לחלוטין
+                    result.TotalMatched++;
+                }
+                else
+                {
+                    // נמצאו הבדלים בשורה - נקבץ לפי תבנית (השדות השונים)
+                    string patternKey = string.Join(", ", diffFieldNames);
+                    
+                    if (!discrepancyPatternsMap.TryGetValue(patternKey, out var pattern))
+                    {
+                        pattern = new DiscrepancyPattern
+                        {
+                            PatternDescription = $"הפרש נתונים בשדות: {patternKey}",
+                            Fields = differentFields,
+                            ExampleKeys = new List<string>()
+                        };
+                        discrepancyPatternsMap[patternKey] = pattern;
+                    }
+
+                    pattern.Count++;
+                    result.TotalDiscrepancyRows++;
+
+                    // הוספת מפתח לדוגמה (עד 4 מפתחות לכל תבנית)
+                    if (pattern.ExampleKeys.Count < 4)
+                    {
+                        pattern.ExampleKeys.Add(compositeKey);
+                    }
+                }
+            }
+            else
+            {
+                // המפתח קיים ב-SQL Server אך חסר ב-Oracle
+                result.TotalMissingInOracle++;
+                if (result.MissingInOracle.Count < 50)
+                {
+                    result.MissingInOracle.Add(compositeKey);
+                }
+            }
+        }
+
+        // מציאת מפתחות שקיימים ב-Oracle אך חסרים ב-SQL Server
+        foreach (var oracleKvp in oracleDataFiltered)
+        {
+            string compositeKey = oracleKvp.Key;
+            if (!sqlDataFiltered.ContainsKey(compositeKey))
+            {
+                result.TotalMissingInSql++;
+                if (result.MissingInSql.Count < 50)
+                {
+                    result.MissingInSql.Add(compositeKey);
+                }
+            }
+        }
+
+        // העברת תבניות ההבדלים לרשימה במודל התצוגה, ממוינות לפי כמות המופעים בסדר יורד
+        result.DiscrepancyPatterns = discrepancyPatternsMap.Values.OrderByDescending(p => p.Count).ToList();
+
+        return result;
+    }
 }
+
 

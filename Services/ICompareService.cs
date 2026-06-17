@@ -47,5 +47,17 @@ public interface ICompareService
         string oracleConnectionString, 
         string sqlTable, 
         string oracleTable);
+
+    // מנוע ההשוואה החכם - ביצוע השוואת הנתונים בפועל, זיהוי כפילויות, הבדלים וקיבוצם לתבניות
+    Task<SmartComparisonResultViewModel> SmartCompareAsync(
+        string sqlConnectionString,
+        string oracleConnectionString,
+        string sqlTable,
+        string oracleTable,
+        List<string> sourceFields,
+        List<string> targetFields,
+        List<string> fieldRoles,
+        int maxRows);
 }
+
 

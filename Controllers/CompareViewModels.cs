@@ -169,3 +169,79 @@ public class SchemaReviewViewModel
     public int MaxRows { get; set; } = 1000;
 }
 
+// מחלקה לייצוג תבנית של הבדל נתונים מקובץ (Discrepancy Pattern)
+public class DiscrepancyPattern
+{
+    // תיאור התבנית (באילו שדות נמצאו הבדלים, למשל: "NAME, AGE")
+    public string PatternDescription { get; set; } = string.Empty;
+    
+    // סה"כ השורות שנמצאו השייכות לתבנית הבדל זו
+    public int Count { get; set; }
+    
+    // רשימה של עד 4 מפתחות לדוגמה השייכים לתבנית הבדל זו
+    public List<string> ExampleKeys { get; set; } = new();
+    
+    // רשימת פרטי ההשוואה של השדות השונים עבור תבנית זו
+    public List<FieldComparisonDetail> Fields { get; set; } = new();
+}
+
+// מחלקה לייצוג רשומת מפתח כפול (בדיקת קדם-השוואה)
+public class DuplicateKeyRecord
+{
+    // ערך המפתח הראשי
+    public string KeyValue { get; set; } = string.Empty;
+    
+    // מספר המופעים שנמצאו ב-SQL Server עם מפתח זה
+    public int SqlCount { get; set; }
+    
+    // מספר המופעים שנמצאו ב-Oracle עם מפתח זה
+    public int OracleCount { get; set; }
+}
+
+// מודל תוצאות ההשוואה החכם והסטטיסטי עבור שלב 6
+public class SmartComparisonResultViewModel
+{
+    // שם טבלת המקור (SQL Server)
+    public string SqlTable { get; set; } = string.Empty;
+    
+    // שם טבלת היעד (Oracle)
+    public string OracleTable { get; set; } = string.Empty;
+    
+    // שם עמודת המפתח הראשי המשמשת להתאמת שורות
+    public string PrimaryKeyColumn { get; set; } = string.Empty;
+    
+    // סה"כ השורות שנטענו מ-SQL Server
+    public int TotalRowsInSql { get; set; }
+    
+    // סה"כ השורות שנטענו מ-Oracle
+    public int TotalRowsInOracle { get; set; }
+    
+    // סה"כ השורות שנמצאו זהות לחלוטין
+    public int TotalMatched { get; set; }
+    
+    // רשימת מפתחות שקיימים ב-SQL אך חסרים ב-Oracle (עד 50 מפתחות לדוגמה)
+    public List<string> MissingInOracle { get; set; } = new();
+    
+    // סה"כ השורות שקיימות ב-SQL וחסרות ב-Oracle
+    public int TotalMissingInOracle { get; set; }
+    
+    // רשימת מפתחות שקיימים ב-Oracle אך חסרים ב-SQL (עד 50 מפתחות לדוגמה)
+    public List<string> MissingInSql { get; set; } = new();
+    
+    // סה"כ השורות שקיימות ב-Oracle וחסרות ב-SQL
+    public int TotalMissingInSql { get; set; }
+    
+    // רשימה של כפילויות מפתח שנמצאו במסדים
+    public List<DuplicateKeyRecord> Duplicates { get; set; } = new();
+    
+    // סה"כ השורות הכפולות שהוחרגו מההשוואה
+    public int TotalDuplicates { get; set; }
+    
+    // רשימה של תבניות הבדלי הנתונים המקובצות
+    public List<DiscrepancyPattern> DiscrepancyPatterns { get; set; } = new();
+    
+    // סה"כ השורות שבהן נמצאו הבדלי נתונים
+    public int TotalDiscrepancyRows { get; set; }
+}
+
+
