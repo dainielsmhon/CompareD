@@ -15,7 +15,7 @@
 <div class="text-center mb-5" id="csv-setup-header">
     <h1 class="display-4 text-gradient mb-3" id="csv-setup-title">השוואה ישירה של קובצי CSV / Excel</h1>
     <p class="lead text-secondary fs-5" id="csv-setup-description">
-        העלו שני קובצי נתונים בפורמט CSV (מקור ויעד) כדי לבצע השוואת ערכים וסכמה מיידית בזיכרון, ללא צורך בחיבור פיזי למסדי נתונים.
+        העלו שני קובצי נתונים בפורמט CSV או Excel כדי לבצע השוואת ערכים וסכמה מיידית בזיכרון, ללא צורך בחיבור פיזי למסדי נתונים.
     </p>
 </div>
 
@@ -43,10 +43,10 @@
         <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="source-file-card" style="min-height: 250px;">
             <div class="fs-1 text-primary mb-3">📁</div>
             <h3 class="h4 text-gradient mb-2">קובץ מקור (Table 1)</h3>
-            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV של המקור</p>
+            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV או Excel של המקור</p>
             
             <div class="w-100 px-3">
-                <input type="file" id="file1-input" name="file1" class="form-control form-input-glass text-light w-100" accept=".csv" required style="display:none;" />
+                <input type="file" id="file1-input" name="file1" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx, .xls" required style="display:none;" />
                 <button type="button" class="btn btn-outline-primary transition-all w-100 py-3" onclick="document.getElementById('file1-input').click();">
                     📂 בחר קובץ מקור
                 </button>
@@ -60,10 +60,10 @@
         <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="target-file-card" style="min-height: 250px;">
             <div class="fs-1 text-secondary mb-3" style="color: var(--accent-secondary) !important;">📁</div>
             <h3 class="h4 text-gradient mb-2">קובץ יעד (Table 2)</h3>
-            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV של היעד</p>
+            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV או Excel של היעד</p>
             
             <div class="w-100 px-3">
-                <input type="file" id="file2-input" name="file2" class="form-control form-input-glass text-light w-100" accept=".csv" required style="display:none;" />
+                <input type="file" id="file2-input" name="file2" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx, .xls" required style="display:none;" />
                 <button type="button" class="btn btn-outline-secondary transition-all w-100 py-3" style="border-color: var(--accent-secondary); color: var(--accent-secondary);" onclick="document.getElementById('file2-input').click();">
                     📂 בחר קובץ יעד
                 </button>

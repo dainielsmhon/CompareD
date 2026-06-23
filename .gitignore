@@ -8,13 +8,15 @@ obj/
 *.userosscache
 *.sln.docstates
 
+# תיקיות קבצים זמניים
+temp_uploads/
+/temp_uploads/
+temp_uploads/*
+**/temp_uploads/*
+
 # הגדרות של סביבות עבודה אחרות
 .vscode/
 .idea/
 
 # קובץ הגדרות סביבת פיתוח מקומית (מניעת העלאת סודות)
 appsettings.Development.json
-
-# תיקיות קבצים זמניים
-temp_uploads/
-
