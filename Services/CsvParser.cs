@@ -65,7 +65,7 @@ public static class CsvParser
     public static List<Dictionary<string, object>> ParseXlsx(Stream stream)
     {
         var result = new List<Dictionary<string, object>>();
-        var rows = MiniExcel.Query(stream);
+        var rows = MiniExcel.Query(stream, useHeaderRow: true);
         foreach (var row in rows)
         {
             var dict = row as IDictionary<string, object>;
@@ -89,7 +89,7 @@ public static class CsvParser
         {
             using (var stream = File.OpenRead(filePath))
             {
-                var firstRow = MiniExcel.Query(stream).FirstOrDefault() as IDictionary<string, object>;
+                var firstRow = MiniExcel.Query(stream, useHeaderRow: true).FirstOrDefault() as IDictionary<string, object>;
                 if (firstRow != null)
                 {
                     return firstRow.Keys.ToList();
