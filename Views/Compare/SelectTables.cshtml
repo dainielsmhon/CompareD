@@ -126,17 +126,33 @@
             function filterDropdown(searchInput, selectElement, originalOptions) {
                 // המרת מחרוזת החיפוש לאותיות קטנות וניקוי רווחים מיותרים
                 const query = searchInput.value.toLowerCase().trim();
+                
                 // איפוס תיבת הבחירה והשארת כותרת ברירת המחדל בלבד
                 selectElement.innerHTML = '<option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>';
                 
+                if (query === "") {
+                    // אם מילת החיפוש ריקה, מחזירים את כל האפשרויות ללא בחירה אוטומטית
+                    originalOptions.forEach(o => {
+                        const newOpt = document.createElement("option");
+                        newOpt.value = o.value;
+                        newOpt.text = o.text;
+                        selectElement.appendChild(newOpt);
+                    });
+                    return;
+                }
+
                 // סינון הרשימה המקורית בהתאם למילת החיפוש
                 const filtered = originalOptions.filter(o => o.text.toLowerCase().includes(query));
                 
                 // הוספת האופציות המסוננות בחזרה לתיבת הבחירה
-                filtered.forEach(o => {
+                filtered.forEach((o, index) => {
                     const newOpt = document.createElement("option");
                     newOpt.value = o.value;
                     newOpt.text = o.text;
+                    // בחירה אוטומטית של התוצאה המסוננת הראשונה
+                    if (index === 0) {
+                        newOpt.selected = true;
+                    }
                     selectElement.appendChild(newOpt);
                 });
             }

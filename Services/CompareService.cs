@@ -14,6 +14,16 @@ public class CompareService : ICompareService
     // הבאת טבלאות ותצוגות מ-SQL Server באמצעות ADO.NET נקי ובשאילתה מאובטחת
     public async Task<List<DatabaseObject>> GetSqlObjectsAsync(string connectionString)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            return new List<DatabaseObject>
+            {
+                new DatabaseObject { Name = "USERS", Type = "TABLE" },
+                new DatabaseObject { Name = "ORDERS", Type = "TABLE" },
+                new DatabaseObject { Name = "PRODUCTS", Type = "VIEW" }
+            };
+        }
+
         var objects = new List<DatabaseObject>();
         using (var connection = new SqlConnection(connectionString))
         {
@@ -41,6 +51,16 @@ public class CompareService : ICompareService
     // הבאת טבלאות ותצוגות מ-Oracle באמצעות ADO.NET נקי ובשאילתה מאובטחת
     public async Task<List<DatabaseObject>> GetOracleObjectsAsync(string connectionString)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            return new List<DatabaseObject>
+            {
+                new DatabaseObject { Name = "USERS", Type = "TABLE" },
+                new DatabaseObject { Name = "ORDERS", Type = "TABLE" },
+                new DatabaseObject { Name = "PRODUCTS", Type = "VIEW" }
+            };
+        }
+
         var objects = new List<DatabaseObject>();
         using (var connection = new OracleConnection(connectionString))
         {
@@ -65,6 +85,23 @@ public class CompareService : ICompareService
     // שליפת עמודות מ-SQL Server באמצעות שאילתה מבוססת פרמטרים ומאובטחת
     public async Task<List<string>> GetSqlColumnsAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "ID", "NAME", "EMAIL", "AGE", "CREATED_AT" };
+            }
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "ORDER_ID", "USER_ID", "AMOUNT", "STATUS" };
+            }
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "PRODUCT_ID", "NAME", "PRICE" };
+            }
+            return new List<string> { "ID", "NAME" };
+        }
+
         var columns = new List<string>();
         using (var connection = new SqlConnection(connectionString))
         {
@@ -88,6 +125,23 @@ public class CompareService : ICompareService
     // שליפת עמודות מ-Oracle באמצעות שאילתה מבוססת פרמטרים ומאובטחת
     public async Task<List<string>> GetOracleColumnsAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "ID", "NAME", "EMAIL", "AGE", "CREATED_AT" };
+            }
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "ORDER_ID", "USER_ID", "AMOUNT", "STATUS" };
+            }
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<string> { "PRODUCT_ID", "NAME", "PRICE" };
+            }
+            return new List<string> { "ID", "NAME" };
+        }
+
         var columns = new List<string>();
         using (var connection = new OracleConnection(connectionString))
         {
@@ -226,46 +280,72 @@ public class CompareService : ICompareService
 
         // שליפת הרשומות מ-SQL Server
         var sqlData = new Dictionary<string, Dictionary<string, object>>();
-        using (var connection = new SqlConnection(sqlConnectionString))
+        if (sqlConnectionString == "MockConnectionString")
         {
-            await connection.OpenAsync();
-            using (var command = new SqlCommand(sqlQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            var mockRaw = CompareMockData.GetMockData(sqlTable, "SQL");
+            foreach (var row in mockRaw)
             {
-                while (await reader.ReadAsync())
+                var keyParts = keys.Select(k => row.TryGetValue(k.SqlField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
+                string compositeKey = string.Join("|", keyParts);
+                sqlData[compositeKey] = row;
+            }
+        }
+        else
+        {
+            using (var connection = new SqlConnection(sqlConnectionString))
+            {
+                await connection.OpenAsync();
+                using (var command = new SqlCommand(sqlQuery, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    var row = new Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    while (await reader.ReadAsync())
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
-                    }
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.GetValue(i);
+                        }
 
-                    var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
-                    string compositeKey = string.Join("|", keyParts);
-                    sqlData[compositeKey] = row;
+                        var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
+                        string compositeKey = string.Join("|", keyParts);
+                        sqlData[compositeKey] = row;
+                    }
                 }
             }
         }
 
         // שליפת הרשומות מ-Oracle
         var oracleData = new Dictionary<string, Dictionary<string, object>>();
-        using (var connection = new OracleConnection(oracleConnectionString))
+        if (oracleConnectionString == "MockConnectionString")
         {
-            await connection.OpenAsync();
-            using (var command = new OracleCommand(oracleQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            var mockRaw = CompareMockData.GetMockData(oracleTable, "Oracle");
+            foreach (var row in mockRaw)
             {
-                while (await reader.ReadAsync())
+                var keyParts = keys.Select(k => row.TryGetValue(k.OracleField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
+                string compositeKey = string.Join("|", keyParts);
+                oracleData[compositeKey] = row;
+            }
+        }
+        else
+        {
+            using (var connection = new OracleConnection(oracleConnectionString))
+            {
+                await connection.OpenAsync();
+                using (var command = new OracleCommand(oracleQuery, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    var row = new Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    while (await reader.ReadAsync())
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
-                    }
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.GetValue(i);
+                        }
 
-                    var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
-                    string compositeKey = string.Join("|", keyParts);
-                    oracleData[compositeKey] = row;
+                        var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
+                        string compositeKey = string.Join("|", keyParts);
+                        oracleData[compositeKey] = row;
+                    }
                 }
             }
         }
@@ -385,6 +465,13 @@ public class CompareService : ICompareService
     // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-SQL Server למניעת הזרקות קוד
     private async Task<bool> IsSqlTableValidAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            return string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase);
+        }
+
         if (string.IsNullOrWhiteSpace(tableName)) return false;
         using (var connection = new SqlConnection(connectionString))
         {
@@ -402,6 +489,13 @@ public class CompareService : ICompareService
     // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-Oracle למניעת הזרקות קוד
     private async Task<bool> IsOracleTableValidAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            return string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase);
+        }
+
         if (string.IsNullOrWhiteSpace(tableName)) return false;
         using (var connection = new OracleConnection(connectionString))
         {
@@ -419,6 +513,41 @@ public class CompareService : ICompareService
     // שליפת עמודות וטיפוסי הנתונים שלהן מ-SQL Server בצורה מאובטחת ומבוססת פרמטרים
     public async Task<List<(string ColumnName, string DataType)>> GetSqlColumnsWithTypesAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("ID", "int"),
+                    ("NAME", "nvarchar"),
+                    ("EMAIL", "nvarchar"),
+                    ("AGE", "int"),
+                    ("CREATED_AT", "datetime")
+                };
+            }
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("ORDER_ID", "int"),
+                    ("USER_ID", "int"),
+                    ("AMOUNT", "decimal"),
+                    ("STATUS", "nvarchar")
+                };
+            }
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("PRODUCT_ID", "int"),
+                    ("NAME", "nvarchar"),
+                    ("PRICE", "decimal")
+                };
+            }
+            return new List<(string ColumnName, string DataType)> { ("ID", "int"), ("NAME", "nvarchar") };
+        }
+
         // יצירת רשימה המכילה צמדים של שם עמודה וטיפוס נתונים
         var columns = new List<(string ColumnName, string DataType)>();
         // יצירת חיבור מנוהל ל-SQL Server בתוך בלוק using לשחרור משאבים אוטומטי
@@ -452,6 +581,41 @@ public class CompareService : ICompareService
     // שליפת עמודות וטיפוסי הנתונים שלהן מ-Oracle בצורה מאובטחת ומבוססת פרמטרים
     public async Task<List<(string ColumnName, string DataType)>> GetOracleColumnsWithTypesAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("ID", "NUMBER"),
+                    ("NAME", "VARCHAR2"),
+                    ("EMAIL", "VARCHAR2"),
+                    ("AGE", "NUMBER"),
+                    ("CREATED_AT", "DATE")
+                };
+            }
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("ORDER_ID", "NUMBER"),
+                    ("USER_ID", "NUMBER"),
+                    ("AMOUNT", "NUMBER"),
+                    ("STATUS", "VARCHAR2")
+                };
+            }
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<(string ColumnName, string DataType)>
+                {
+                    ("PRODUCT_ID", "NUMBER"),
+                    ("NAME", "VARCHAR2"),
+                    ("PRICE", "NUMBER")
+                };
+            }
+            return new List<(string ColumnName, string DataType)> { ("ID", "NUMBER"), ("NAME", "VARCHAR2") };
+        }
+
         // יצירת רשימה לאחסון צמדי שם עמודה וטיפוס נתונים עבור Oracle
         var columns = new List<(string ColumnName, string DataType)>();
         // פתיחת חיבור מנוהל ל-Oracle בתוך בלוק using
@@ -609,6 +773,14 @@ public class CompareService : ICompareService
     // שליפת עמודת המפתח הראשי של טבלה ב-SQL Server מקטלוג המערכת בצורה מאובטחת
     private async Task<string> GetSqlPrimaryKeyAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase)) return "ID";
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase)) return "ORDER_ID";
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase)) return "PRODUCT_ID";
+            return "ID";
+        }
+
         // פתיחת חיבור למסד SQL Server
         using (var connection = new SqlConnection(connectionString))
         {
@@ -634,6 +806,14 @@ public class CompareService : ICompareService
     // שליפת עמודת המפתח הראשי של טבלה ב-Oracle מקטלוג המערכת בצורה מאובטחת
     private async Task<string> GetOraclePrimaryKeyAsync(string connectionString, string tableName)
     {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase)) return "ID";
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase)) return "ORDER_ID";
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase)) return "PRODUCT_ID";
+            return "ID";
+        }
+
         // פתיחת חיבור למסד Oracle
         using (var connection = new OracleConnection(connectionString))
         {
@@ -709,6 +889,8 @@ public class CompareService : ICompareService
         List<string> fieldRoles,
         int maxRows)
     {
+
+
         // אימות אבטחה של שם טבלת SQL Server בקטלוג
         if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
         {
@@ -783,40 +965,54 @@ public class CompareService : ICompareService
 
         // שליפת הרשומות מ-SQL Server
         var sqlRawData = new List<Dictionary<string, object>>();
-        using (var connection = new SqlConnection(sqlConnectionString))
+        if (sqlConnectionString == "MockConnectionString")
         {
-            await connection.OpenAsync();
-            using (var command = new SqlCommand(sqlQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            sqlRawData = CompareMockData.GetMockData(sqlTable, "SQL");
+        }
+        else
+        {
+            using (var connection = new SqlConnection(sqlConnectionString))
             {
-                while (await reader.ReadAsync())
+                await connection.OpenAsync();
+                using (var command = new SqlCommand(sqlQuery, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    var row = new Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    while (await reader.ReadAsync())
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.GetValue(i);
+                        }
+                        sqlRawData.Add(row);
                     }
-                    sqlRawData.Add(row);
                 }
             }
         }
 
         // שליפת הרשומות מ-Oracle
         var oracleRawData = new List<Dictionary<string, object>>();
-        using (var connection = new OracleConnection(oracleConnectionString))
+        if (oracleConnectionString == "MockConnectionString")
         {
-            await connection.OpenAsync();
-            using (var command = new OracleCommand(oracleQuery, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            oracleRawData = CompareMockData.GetMockData(oracleTable, "Oracle");
+        }
+        else
+        {
+            using (var connection = new OracleConnection(oracleConnectionString))
             {
-                while (await reader.ReadAsync())
+                await connection.OpenAsync();
+                using (var command = new OracleCommand(oracleQuery, connection))
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    var row = new Dictionary<string, object>();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    while (await reader.ReadAsync())
                     {
-                        row[reader.GetName(i)] = reader.GetValue(i);
+                        var row = new Dictionary<string, object>();
+                        for (int i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[reader.GetName(i)] = reader.GetValue(i);
+                        }
+                        oracleRawData.Add(row);
                     }
-                    oracleRawData.Add(row);
                 }
             }
         }
