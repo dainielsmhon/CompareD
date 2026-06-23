@@ -93,10 +93,11 @@
                     {
                         var isPreChecked = Model.TargetColumns.Any(tc => string.Equals(tc, col, System.StringComparison.OrdinalIgnoreCase));
                         
-                        // זיהוי אוטומטי מראש של שדות מפתח מועמדים כדי להקל על המשתמש
-                        var isDefaultKey = string.Equals(col, "DAF", StringComparison.OrdinalIgnoreCase) || 
-                                           string.Equals(col, "DAF_NOSAF", StringComparison.OrdinalIgnoreCase) || 
-                                           string.Equals(col, "RowId", StringComparison.OrdinalIgnoreCase);
+                        // זיהוי אוטומטי של שדות מפתח מועמדים בצורה גנרית (עמודות שמכילות ID או KEY או העמודה הראשונה)
+                        var isFirstCol = Model.SourceColumns.IndexOf(col) == 0;
+                        var isDefaultKey = string.Equals(col, "id", StringComparison.OrdinalIgnoreCase) || 
+                                           col.Contains("key", StringComparison.OrdinalIgnoreCase) ||
+                                           (isFirstCol && !Model.SourceColumns.Any(c => string.Equals(c, "id", StringComparison.OrdinalIgnoreCase) || c.Contains("key", StringComparison.OrdinalIgnoreCase)));
 
                         <tr class="border-bottom border-white/5 py-3">
                             <td class="text-center">

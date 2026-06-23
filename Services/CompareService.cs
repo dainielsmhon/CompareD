@@ -838,23 +838,14 @@ public class CompareService : ICompareService
         }
     }
 
-    // פונקציית עזר להשוואת ערכים חכמה המנרמלת ערכים ריקים ו'0' (מניעת רעשי הבדלים)
+    // פונקציית עזר להשוואת ערכים כללית המנרמלת ערכים ריקים
     private bool AreValuesEqual(object? sqlVal, object? oracleVal)
     {
         // נרמול שני הערכים למחרוזות נקיות
         string s1 = NormalizeValue(sqlVal);
         string s2 = NormalizeValue(oracleVal);
 
-        // אם הערכים זהים לחלוטין לאחר הנרמול
-        if (s1 == s2) return true;
-
-        // טיפול במקרה של '0' מול ערך ריק (נחשבים זהים לפי דרישת המשתמש)
-        if ((s1 == string.Empty && s2 == "0") || (s1 == "0" && s2 == string.Empty))
-        {
-            return true;
-        }
-
-        return false;
+        return s1 == s2;
     }
 
     // פונקציית עזר לנרמול ערכים למחרוזת אחידה לצורך השוואה
