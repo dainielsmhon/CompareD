@@ -331,9 +331,243 @@
     </div>
 </div>
 
-@* ===== כפתור חזרה לדף הבית להתחלת השוואה חדשה ===== *@
-<div class="text-center mb-5" id="restart-action-container">
+@* ===== כפתור חזרה לדף הבית להתחלת השוואה חדשה וכפתורי ייצוא ===== *@
+<div class="text-center mb-5 d-flex justify-content-center align-items-center gap-3 flex-wrap" id="restart-action-container">
+    <button type="button" onclick="exportToExcel()" class="btn btn-outline-success btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-excel" style="border-radius: 0.75rem;">
+        📊 ייצוא לאקסל (Excel)
+    </button>
+    <button type="button" onclick="exportToWord()" class="btn btn-outline-info btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-word" style="border-radius: 0.75rem;">
+        📝 ייצוא לוורד (Word)
+    </button>
     <a asp-controller="Home" asp-action="Index" class="btn-glow btn-lg text-decoration-none px-5 py-3 fs-5" id="btn-restart-compare">
         התחל השוואה חדשה
     </a>
 </div>
+
+@section Scripts {
+    <script>
+        // סירליזציה של המודל ל-JavaScript לטובת בניית הדוחות
+        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+        function exportToExcel() {
+            let csv = "";
+            csv += "דוח השוואת נתונים חכם\n";
+            csv += `טבלת מקור (SQL Server),${model.SqlTable}\n`;
+            csv += `טבלת יעד (Oracle),${model.OracleTable}\n`;
+            csv += `מפתח התאמה,${model.PrimaryKeyColumn}\n`;
+            csv += `שורות זהות,${model.TotalMatched}\n`;
+            csv += `הפרשי נתונים,${model.TotalDiscrepancyRows}\n`;
+            csv += `חסר ביעד (Oracle),${model.TotalMissingInOracle}\n`;
+            csv += `חסר במקור (SQL),${model.TotalMissingInSql}\n`;
+            csv += `כפילויות מפתח,${model.TotalDuplicates}\n`;
+            csv += "\n";
+
+            csv += "תבניות הבדלים\n";
+            csv += "תיאור תבנית,כמות שורות,מפתחות לדוגמה,שדה,ערך במקור (SQL),ערך ביעד (Oracle)\n";
+            model.DiscrepancyPatterns.forEach(p => {
+                const keys = p.ExampleKeys.join(" | ");
+                p.Fields.forEach((f, idx) => {
+                    const patternDesc = idx === 0 ? `"${p.PatternDescription}"` : "";
+                    const count = idx === 0 ? p.Count : "";
+                    const keysShow = idx === 0 ? `"${keys}"` : "";
+                    csv += `${patternDesc},${count},${keysShow},"${f.FieldName}","${f.SqlValue}","${f.OracleValue}"\n`;
+                });
+            });
+            csv += "\n";
+
+            csv += "רשומות חסרות ביעד (Oracle)\n";
+            csv += "ערך מפתח\n";
+            model.MissingInOracle.forEach(k => {
+                csv += `"${k}"\n`;
+            });
+            csv += "\n";
+
+            csv += "רשומות חסרות במקור (SQL)\n";
+            csv += "ערך מפתח\n";
+            model.MissingInSql.forEach(k => {
+                csv += `"${k}"\n`;
+            });
+            csv += "\n";
+
+            csv += "כפילויות מפתח\n";
+            csv += "ערך מפתח,כמות במקור (SQL),כמות ביעד (Oracle)\n";
+            model.Duplicates.forEach(d => {
+                csv += `"${d.KeyValue}",${d.SqlCount},${d.OracleCount}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `דוח_השוואה_${model.SqlTable}_מול_${model.OracleTable}.csv`;
+            link.click();
+        }
+
+        function exportToWord() {
+            let html = `
+            <html dir="rtl" lang="he">
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; text-align: right; }
+                    h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; text-align: center; }
+                    h2 { color: #2563eb; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; direction: rtl; }
+                    th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
+                    th { background-color: #f3f4f6; color: #1f2937; }
+                    .font-mono { font-family: Consolas, monospace; }
+                    .text-center { text-align: center; }
+                </style>
+            </head>
+            <body>
+                <h1>דוח השוואת נתונים חכם</h1>
+                <p><strong>טבלת מקור (SQL Server):</strong> ${model.SqlTable}</p>
+                <p><strong>טבלת יעד (Oracle):</strong> ${model.OracleTable}</p>
+                <p><strong>מפתח השוואה (Primary Key):</strong> ${model.PrimaryKeyColumn}</p>
+                <p><strong>תאריך הפקה:</strong> ${new Date().toLocaleString('he-IL')}</p>
+
+                <h2>סיכום ממצאים</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>קטגוריה</th>
+                            <th>כמות שורות</th>
+                            <th>אחוז / פירוט</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>רשומות זהות</td>
+                            <td><strong>${model.TotalMatched}</strong></td>
+                            <td>${(model.TotalRowsInSql > 0 ? (model.TotalMatched / model.TotalRowsInSql * 100).toFixed(2) : 100)}% תאימות</td>
+                        </tr>
+                        <tr>
+                            <td>הפרשי נתונים</td>
+                            <td style="color: red; font-weight: bold;">${model.TotalDiscrepancyRows}</td>
+                            <td>ערכים שונים בשורות בעלות מפתח זהה</td>
+                        </tr>
+                        <tr>
+                            <td>חסר ביעד (Oracle)</td>
+                            <td style="color: orange; font-weight: bold;">${model.TotalMissingInOracle}</td>
+                            <td>קיימות במקור בלבד</td>
+                        </tr>
+                        <tr>
+                            <td>חסר במקור (SQL)</td>
+                            <td style="color: blue; font-weight: bold;">${model.TotalMissingInSql}</td>
+                            <td>קיימות ביעד בלבד</td>
+                        </tr>
+                        <tr>
+                            <td>כפילויות מפתח (הוחרגו)</td>
+                            <td>${model.TotalDuplicates}</td>
+                            <td>מפתחות כפולים שהוצאו מההשוואה</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h2>תבניות הפרשי נתונים (${model.DiscrepancyPatterns.length})</h2>
+            `;
+
+            if (model.DiscrepancyPatterns.length === 0) {
+                html += "<p>לא נמצאו הפרשי נתונים בשורות המשותפות.</p>";
+            } else {
+                model.DiscrepancyPatterns.forEach((p, idx) => {
+                    html += `
+                        <h3>תבנית ${idx + 1}: ${p.PatternDescription}</h3>
+                        <p><strong>כמות שורות מושפעות:</strong> ${p.Count}</p>
+                        <p><strong>מפתחות לדוגמה:</strong> <span class="font-mono">${p.ExampleKeys.join(" | ")}</span></p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>שם שדה</th>
+                                    <th>ערך במקור (SQL)</th>
+                                    <th>ערך ביעד (Oracle)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    p.Fields.forEach(f => {
+                        html += `
+                            <tr>
+                                <td class="font-mono">${f.FieldName}</td>
+                                <td class="font-mono" style="color: red;">${f.SqlValue}</td>
+                                <td class="font-mono" style="color: red;">${f.OracleValue}</td>
+                            </tr>
+                        `;
+                    });
+                    html += `
+                            </tbody>
+                        </table>
+                    `;
+                });
+            }
+
+            html += `
+                <h2>שורות חסרות ביעד (Oracle) (${model.TotalMissingInOracle})</h2>
+            `;
+            if (model.MissingInOracle.length === 0) {
+                html += "<p>אין שורות חסרות ביעד.</p>";
+            } else {
+                html += "<ul>";
+                model.MissingInOracle.forEach(k => {
+                    html += `<li class="font-mono">${k}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            html += `
+                <h2>שורות חסרות במקור (SQL) (${model.TotalMissingInSql})</h2>
+            `;
+            if (model.MissingInSql.length === 0) {
+                html += "<p>אין שורות חסרות במקור.</p>";
+            } else {
+                html += "<ul>";
+                model.MissingInSql.forEach(k => {
+                    html += `<li class="font-mono">${k}</li>`;
+                });
+                html += "</ul>";
+            }
+
+            html += `
+                <h2>כפילויות מפתח (${model.Duplicates.length})</h2>
+            `;
+            if (model.Duplicates.length === 0) {
+                html += "<p>לא נמצאו כפילויות מפתח.</p>";
+            } else {
+                html += `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ערך מפתח כפול</th>
+                                <th class="text-center">מופעים במקור (SQL)</th>
+                                <th class="text-center">מופעים ביעד (Oracle)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                model.Duplicates.forEach(d => {
+                    html += `
+                        <tr>
+                            <td class="font-mono">${d.KeyValue}</td>
+                            <td class="text-center">${d.SqlCount}</td>
+                            <td class="text-center">${d.OracleCount}</td>
+                        </tr>
+                    `;
+                });
+                html += `
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            html += `
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob(["\uFEFF" + html], { type: "application/msword" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `דוח_השוואה_${model.SqlTable}_מול_${model.OracleTable}.doc`;
+            link.click();
+        }
+    </script>
+}

@@ -148,9 +148,14 @@
                     שנו את המיפויים הידניים, הגדירו את מפתחות ההתאמה או הוסיפו שדות חדשים להשוואה לפי הצורך.
                 </p>
             </div>
-            <button type="button" class="btn btn-outline-primary transition-all rounded-pill px-4" id="btn-add-custom-mapping">
-                + הוסף שדה למיפוי
-            </button>
+            <div class="d-flex gap-2">
+                <button type="button" onclick="saveMappingConfig()" class="btn btn-outline-success transition-all rounded-pill px-4" id="btn-save-mapping-config">
+                    💾 שמור תצורת מיפוי
+                </button>
+                <button type="button" class="btn btn-outline-primary transition-all rounded-pill px-4" id="btn-add-custom-mapping">
+                    + הוסף שדה למיפוי
+                </button>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -469,5 +474,36 @@
             // אתחול ראשוני של המפתח הראשי ב-UI
             updatePkSelector();
         });
+
+        // פונקציה לשמירת תצורת המיפוי לקובץ JSON חיצוני
+        window.saveMappingConfig = function() {
+            const sqlTable = document.querySelector("input[name='sqlTable']").value;
+            const oracleTable = document.querySelector("input[name='oracleTable']").value;
+            const maxRows = parseInt(document.getElementById("max-rows-input").value) || 1000;
+            
+            const sourceFields = Array.from(document.querySelectorAll("select[name='sourceFields']")).map(s => s.value);
+            const targetFields = Array.from(document.querySelectorAll("select[name='targetFields']")).map(s => s.value);
+            const fieldRoles = Array.from(document.querySelectorAll("select[name='fieldRoles']")).map(s => s.value);
+
+            if (sourceFields.length === 0) {
+                alert("אין שדות ממופים לשמירה.");
+                return;
+            }
+
+            const config = {
+                sqlTable: sqlTable,
+                oracleTable: oracleTable,
+                sourceFields: sourceFields,
+                targetFields: targetFields,
+                fieldRoles: fieldRoles,
+                maxRows: maxRows
+            };
+
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `${sqlTable}_vs_${oracleTable}_compare_config.json`;
+            link.click();
+        };
     </script>
 }

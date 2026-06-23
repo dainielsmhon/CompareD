@@ -36,6 +36,20 @@
     </p>
 </div>
 
+@* ===== כרטיס ייבוא תצורת מיפוי מוכנה ===== *@
+<div class="glass-card mb-5 p-4 text-center" id="import-config-card" style="max-width: 700px; margin: 0 auto;">
+    <h3 class="h5 text-gradient mb-2">ייבוא תצורת מיפוי מוכנה (JSON)</h3>
+    <p class="text-secondary small mb-3">
+        אם כבר ביצעתם והגדרתם מיפוי בין הטבלאות בעבר ושמרתם את התצורה, תוכלו להעלות את הקובץ כאן כדי להריץ את ההשוואה באופן מיידי.
+    </p>
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+        <input type="file" id="import-config-file" class="form-control form-input-glass text-light" accept=".json" style="max-width: 350px;" />
+        <button type="button" onclick="importMappingConfig()" class="btn btn-outline-primary transition-all px-4" style="border-radius: 0.75rem;">
+            📂 טען והרץ השוואה
+        </button>
+    </div>
+</div>
+
 @* ===== טופס הגשת הבחירה — שולח לפעולת SelectFields בבקר Compare ===== *@
 <form id="select-tables-form" method="post" asp-controller="Compare" asp-action="SchemaReview">
     @* פריסת בנטו גריד — כרטיס לכל צד *@
@@ -167,5 +181,65 @@
                 filterDropdown(this, oracleSelect, oracleOptions);
             });
         });
+
+        // פונקציה לייבוא תצורת מיפוי מתוך קובץ JSON חיצוני והרצה מיידית
+        window.importMappingConfig = function() {
+            const fileInput = document.getElementById("import-config-file");
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert("אנא בחרו קובץ JSON לייבוא.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    
+                    // בדיקת תקינות השדות הנדרשים בקובץ התצורה
+                    if (!config.sqlTable || !config.oracleTable || !config.sourceFields || !config.targetFields || !config.fieldRoles) {
+                        alert("קובץ התצורה אינו תקין או שחסרים בו שדות חובה.");
+                        return;
+                    }
+
+                    // יצירת טופס מוסתר דינמי לצורך שליחה ישירה לתוצאות ההשוואה
+                    const form = document.createElement("form");
+                    form.method = "POST";
+                    form.action = "/Compare/CompareData";
+
+                    // העתקת האסימון למניעת מתקפות CSRF מהטופס הקיים בעמוד
+                    const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                    if (tokenInput) {
+                        const tokenClone = tokenInput.cloneNode(true);
+                        form.appendChild(tokenClone);
+                    }
+
+                    // פונקציית עזר להוספת שדה מוסתר
+                    const addInput = (name, value) => {
+                        const input = document.createElement("input");
+                        input.type = "hidden";
+                        input.name = name;
+                        input.value = value;
+                        form.appendChild(input);
+                    };
+
+                    addInput("sqlTable", config.sqlTable);
+                    addInput("oracleTable", config.oracleTable);
+                    addInput("mappingMode", config.mappingMode || "Manual");
+                    addInput("maxRows", config.maxRows || 1000);
+
+                    // הוספת מערכי השדות והתפקידים
+                    config.sourceFields.forEach(f => addInput("sourceFields", f));
+                    config.targetFields.forEach(f => addInput("targetFields", f));
+                    config.fieldRoles.forEach(r => addInput("fieldRoles", r));
+
+                    document.body.appendChild(form);
+                    form.submit();
+                } catch (err) {
+                    alert("נכשלה קריאת קובץ ה-JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        };
     </script>
 }
