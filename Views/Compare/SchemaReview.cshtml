@@ -78,7 +78,12 @@
             <table class="table table-dark table-hover table-borderless align-middle" id="schema-comparison-table">
                 <thead>
                     <tr class="text-secondary border-bottom border-white/10 small">
-                        <th style="width: 8%;" class="text-center">בחר</th>
+                        <th style="width: 8%;" class="text-center">
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <input type="checkbox" class="form-check-input" id="master-schema-select-all" style="width: 1.4rem; height: 1.4rem; cursor: pointer;" title="בחר הכל / בטל הכל" />
+                                <span class="small" style="font-size: 0.65rem;">בחר הכל</span>
+                            </div>
+                        </th>
                         <th style="width: 15%;">סטטוס</th>
                         <th style="width: 25%;">עמודת מקור (SQL Server)</th>
                         <th style="width: 15%;">סוג נתונים (SQL)</th>
@@ -97,7 +102,7 @@
                                 @* תיבת סימון לבחירת השדה להשוואה - מסומן כברירת מחדל אם קיים בשניהם *@
                                 <input type="checkbox" class="form-check-input column-selector-check" 
                                        data-col-name="@col.ColumnName"
-                                       @(isCommon ? "checked" : "") />
+                                       />
                             </td>
                             <td>
                                 @if (col.Source == "Both")
@@ -230,6 +235,7 @@
 
             // הגדרת אלמנטים של ממשק המשתמש
             const checkBoxes = document.querySelectorAll(".column-selector-check");
+            const masterSchemaCheckbox = document.getElementById("master-schema-select-all");
             const mappingRows = document.getElementById("active-mapping-rows");
             const noMappingsAlert = document.getElementById("no-mappings-alert");
             const btnAddCustom = document.getElementById("btn-add-custom-mapping");
@@ -373,30 +379,16 @@
                 updateKeysDisplay();
             }
 
-            // פונקציית סנכרון ראשונית מטבלת הסכמה לטבלת המיפוי (טעינת כל השדות המשותפים שסומנו)
+            // Initial sync: default is ALL unchecked — no mapping rows added on load
+            // User must explicitly select columns
             checkBoxes.forEach(chk => {
                 const colName = chk.dataset.colName;
                 const hasBoth = chk.closest("tr").dataset.existsBoth === "true";
-                
-                if (chk.checked) {
-                    // העתקה אוטומטית: אם העמודה קיימת בשניהם, נמפה אותה ישירות
-                    if (hasBoth) {
-                        addMappingRow(colName, colName, true);
-                    } else {
-                        // אם העמודה קיימת רק באחד הצדדים, נוסיף אותה ללא מיפוי אוטומטי מלא
-                        const colData = allColumns.find(c => c.ColumnName === colName);
-                        if (colData && colData.Source === "SqlOnly") {
-                            addMappingRow(colName, "", false);
-                        } else if (colData && colData.Source === "OracleOnly") {
-                            addMappingRow("", colName, false);
-                        }
-                    }
-                }
 
-                // האזנה לשינוי ב-Checkbox
+                // On checkbox change
                 chk.addEventListener("change", function() {
                     if (this.checked) {
-                        // אם סומן, נוסיף שורה
+                        // Add mapping row when checked
                         if (hasBoth) {
                             addMappingRow(colName, colName, true);
                         } else {
@@ -408,7 +400,7 @@
                             }
                         }
                     } else {
-                        // אם בוטל הסימון, נסיר את השורה המתאימה
+                        // Remove mapping row when unchecked
                         const existingRow = mappingRows.querySelector(`tr[data-source-field='${colName}']`);
                         if (existingRow) {
                             existingRow.remove();
@@ -416,8 +408,32 @@
                         updateNoMappingsAlert();
                         updateKeysDisplay();
                     }
+                    updateMasterSchemaCheckboxState();
                 });
             });
+
+            // Master Select All / Deselect All for schema table
+            masterSchemaCheckbox.addEventListener("change", function() {
+                const isChecked = masterSchemaCheckbox.checked;
+                checkBoxes.forEach(chk => {
+                    const wasPreviouslyChecked = chk.checked;
+                    chk.checked = isChecked;
+                    // Fire change event only if state actually changed
+                    if (wasPreviouslyChecked !== isChecked) {
+                        chk.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+
+            // Sync master checkbox visual state
+            function updateMasterSchemaCheckboxState() {
+                const allChecked = Array.from(checkBoxes).every(cb => cb.checked);
+                const anyChecked = Array.from(checkBoxes).some(cb => cb.checked);
+                masterSchemaCheckbox.checked = allChecked;
+                masterSchemaCheckbox.indeterminate = !allChecked && anyChecked;
+            }
+
+            updateMasterSchemaCheckboxState();
 
             // האזנה לכפתור הוספת שורה מותאמת אישית ידנית
             btnAddCustom.addEventListener("click", function() {

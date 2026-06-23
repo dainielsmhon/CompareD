@@ -1011,7 +1011,7 @@ public class CompareService : ICompareService
         return CompareInMemoryDatasets(sqlRawData, oracleRawData, sqlTable, oracleTable, sourceFields, targetFields, fieldRoles);
     }
 
-    // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי)
+    // QA Workflow comparison engine — executes sequential validation steps (A → B → C)
     public SmartComparisonResultViewModel CompareInMemoryDatasets(
         List<Dictionary<string, object>> sqlRawData,
         List<Dictionary<string, object>> oracleRawData,
@@ -1021,7 +1021,7 @@ public class CompareService : ICompareService
         List<string> targetFields,
         List<string> fieldRoles)
     {
-        // פיצול השדות לשדות מפתח ושדות להשוואה
+        // Split fields into key fields and compare fields
         var keys = new List<(string SqlField, string OracleField)>();
         var compares = new List<(string SqlField, string OracleField)>();
 
@@ -1037,15 +1037,59 @@ public class CompareService : ICompareService
             }
         }
 
-        // זיהוי וספירה של מפתחות ב-SQL Server
+        // Initialize result model with basic statistics
+        var result = new SmartComparisonResultViewModel
+        {
+            SqlTable = sqlTable,
+            OracleTable = oracleTable,
+            PrimaryKeyColumn = string.Join(", ", keys.Select(k => k.SqlField)),
+            TotalRowsInSql = sqlRawData.Count,
+            TotalRowsInOracle = oracleRawData.Count
+        };
+
+        // =====================================================================
+        // STEP A: Row Count Validation — compare total row counts
+        // =====================================================================
+        var stepA = new QaStepResult
+        {
+            StepName = "A",
+            StepTitle = "בדיקת שלמות שורות"
+        };
+
+        if (sqlRawData.Count == oracleRawData.Count)
+        {
+            stepA.Status = "Pass";
+            stepA.Summary = $"ספירת השורות זהה בשני הצדדים: {sqlRawData.Count} שורות.";
+            result.HasRowCountMismatch = false;
+        }
+        else
+        {
+            stepA.Status = "Warning";
+            stepA.Summary = $"פער בספירת שורות: מקור ({sqlTable}) מכיל {sqlRawData.Count} שורות, יעד ({oracleTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות.";
+            result.HasRowCountMismatch = true;
+        }
+
+        result.RowCountSummary = $"מקור: {sqlRawData.Count} שורות | יעד: {oracleRawData.Count} שורות";
+        result.QaSteps.Add(stepA);
+
+        // =====================================================================
+        // STEP B: Primary Key Validation — identify missing IDs and duplicates
+        // =====================================================================
+        var stepB = new QaStepResult
+        {
+            StepName = "B",
+            StepTitle = "זיהוי מפתחות חסרים"
+        };
+
+        // Build key index for source
         var sqlKeyCounts = new Dictionary<string, int>();
         var sqlDataFiltered = new Dictionary<string, Dictionary<string, object>>();
-        
+
         foreach (var row in sqlRawData)
         {
             var keyParts = keys.Select(k => row.TryGetValue(k.SqlField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
             string compositeKey = string.Join("|", keyParts);
-            
+
             if (sqlKeyCounts.ContainsKey(compositeKey))
             {
                 sqlKeyCounts[compositeKey]++;
@@ -1057,15 +1101,15 @@ public class CompareService : ICompareService
             }
         }
 
-        // זיהוי וספירה של מפתחות ב-Oracle
+        // Build key index for target
         var oracleKeyCounts = new Dictionary<string, int>();
         var oracleDataFiltered = new Dictionary<string, Dictionary<string, object>>();
-        
+
         foreach (var row in oracleRawData)
         {
             var keyParts = keys.Select(k => row.TryGetValue(k.OracleField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
             string compositeKey = string.Join("|", keyParts);
-            
+
             if (oracleKeyCounts.ContainsKey(compositeKey))
             {
                 oracleKeyCounts[compositeKey]++;
@@ -1077,17 +1121,7 @@ public class CompareService : ICompareService
             }
         }
 
-        // יצירת מודל תוצאות חכם
-        var result = new SmartComparisonResultViewModel
-        {
-            SqlTable = sqlTable,
-            OracleTable = oracleTable,
-            PrimaryKeyColumn = string.Join(", ", keys.Select(k => k.SqlField)),
-            TotalRowsInSql = sqlRawData.Count,
-            TotalRowsInOracle = oracleRawData.Count
-        };
-
-        // זיהוי מפתחות כפולים והוצאתם מההשוואה הראשית
+        // Detect duplicate keys and exclude them from main comparison
         var duplicateKeys = new HashSet<string>();
         foreach (var kvp in sqlKeyCounts.Where(k => k.Value > 1))
         {
@@ -1113,17 +1147,72 @@ public class CompareService : ICompareService
             }
         }
 
-        // סכימת סך כל השורות המושפעות מהכפילויות
         result.TotalDuplicates = result.Duplicates.Sum(d => d.SqlCount + d.OracleCount);
 
-        // ניקוי המילונים הראשיים משורות כפולות
+        // Remove duplicate keys from the filtered dictionaries
         foreach (var dk in duplicateKeys)
         {
             sqlDataFiltered.Remove(dk);
             oracleDataFiltered.Remove(dk);
         }
 
-        // ביצוע השוואת 1-ל-1 בזיכרון של השורות התקינות
+        // Find missing keys: exist in source but not in target
+        foreach (var sqlKvp in sqlDataFiltered)
+        {
+            if (!oracleDataFiltered.ContainsKey(sqlKvp.Key))
+            {
+                result.TotalMissingInOracle++;
+                if (result.MissingInOracle.Count < 50)
+                {
+                    result.MissingInOracle.Add(sqlKvp.Key);
+                }
+            }
+        }
+
+        // Find missing keys: exist in target but not in source
+        foreach (var oracleKvp in oracleDataFiltered)
+        {
+            if (!sqlDataFiltered.ContainsKey(oracleKvp.Key))
+            {
+                result.TotalMissingInSql++;
+                if (result.MissingInSql.Count < 50)
+                {
+                    result.MissingInSql.Add(oracleKvp.Key);
+                }
+            }
+        }
+
+        // Set Step B status based on findings
+        int totalMissing = result.TotalMissingInOracle + result.TotalMissingInSql;
+        if (totalMissing == 0 && result.TotalDuplicates == 0)
+        {
+            stepB.Status = "Pass";
+            stepB.Summary = "כל המפתחות קיימים בשני הצדדים ואין כפילויות.";
+        }
+        else
+        {
+            stepB.Status = totalMissing > 0 ? "Fail" : "Warning";
+            var parts = new List<string>();
+            if (result.TotalMissingInOracle > 0)
+                parts.Add($"{result.TotalMissingInOracle} מפתחות חסרים ביעד ({oracleTable})");
+            if (result.TotalMissingInSql > 0)
+                parts.Add($"{result.TotalMissingInSql} מפתחות חסרים במקור ({sqlTable})");
+            if (result.TotalDuplicates > 0)
+                parts.Add($"{result.Duplicates.Count} מפתחות כפולים ({result.TotalDuplicates} שורות מושפעות)");
+            stepB.Summary = string.Join(" | ", parts);
+        }
+
+        result.QaSteps.Add(stepB);
+
+        // =====================================================================
+        // STEP C: Data Consistency Check — deep value comparison
+        // =====================================================================
+        var stepC = new QaStepResult
+        {
+            StepName = "C",
+            StepTitle = "ניתוח עקביות נתונים"
+        };
+
         var discrepancyPatternsMap = new Dictionary<string, DiscrepancyPattern>();
 
         foreach (var sqlKvp in sqlDataFiltered)
@@ -1133,7 +1222,7 @@ public class CompareService : ICompareService
 
             if (oracleDataFiltered.TryGetValue(compositeKey, out var oracleRow))
             {
-                // המפתח קיים בשניהם - נשווה את ערכי השדות
+                // Key exists in both — compare field values
                 var differentFields = new List<FieldComparisonDetail>();
                 var diffFieldNames = new List<string>();
 
@@ -1144,6 +1233,9 @@ public class CompareService : ICompareService
 
                     if (!AreValuesEqual(sqlVal, oracleVal))
                     {
+                        string sqlStr = NormalizeValue(sqlVal);
+                        string oracleStr = NormalizeValue(oracleVal);
+
                         differentFields.Add(new FieldComparisonDetail
                         {
                             FieldName = $"{c.SqlField} / {c.OracleField}",
@@ -1152,19 +1244,39 @@ public class CompareService : ICompareService
                             IsMatch = false
                         });
                         diffFieldNames.Add(c.SqlField);
+
+                        // Data Integrity Gap detection:
+                        // One side has a real value, the other is empty/null/zero
+                        bool sqlIsEmpty = IsEmptyOrZero(sqlStr);
+                        bool oracleIsEmpty = IsEmptyOrZero(oracleStr);
+
+                        if (sqlIsEmpty != oracleIsEmpty)
+                        {
+                            // One side has data, the other doesn't
+                            if (result.DataIntegrityGaps.Count < 200)
+                            {
+                                result.DataIntegrityGaps.Add(new DataIntegrityGap
+                                {
+                                    KeyValue = compositeKey,
+                                    FieldName = $"{c.SqlField} / {c.OracleField}",
+                                    PresentSide = sqlIsEmpty ? "Target" : "Source",
+                                    PresentValue = sqlIsEmpty ? oracleStr : sqlStr
+                                });
+                            }
+                        }
                     }
                 }
 
                 if (differentFields.Count == 0)
                 {
-                    // השורות זהות לחלוטין
+                    // Rows are completely identical
                     result.TotalMatched++;
                 }
                 else
                 {
-                    // נמצאו הבדלים בשורה - נקבץ לפי תבנית (השדות השונים)
+                    // Differences found — group into discrepancy patterns
                     string patternKey = string.Join(", ", diffFieldNames);
-                    
+
                     if (!discrepancyPatternsMap.TryGetValue(patternKey, out var pattern))
                     {
                         pattern = new DiscrepancyPattern
@@ -1179,42 +1291,54 @@ public class CompareService : ICompareService
                     pattern.Count++;
                     result.TotalDiscrepancyRows++;
 
-                    // הוספת מפתח לדוגמה (עד 4 מפתחות לכל תבנית)
+                    // Add example keys (up to 4 per pattern)
                     if (pattern.ExampleKeys.Count < 4)
                     {
                         pattern.ExampleKeys.Add(compositeKey);
                     }
                 }
             }
-            else
-            {
-                // המפתח קיים ב-SQL Server אך חסר ב-Oracle
-                result.TotalMissingInOracle++;
-                if (result.MissingInOracle.Count < 50)
-                {
-                    result.MissingInOracle.Add(compositeKey);
-                }
-            }
+            // Note: missing keys were already handled in Step B
         }
 
-        // מציאת מפתחות שקיימים ב-Oracle אך חסרים ב-SQL Server
-        foreach (var oracleKvp in oracleDataFiltered)
-        {
-            string compositeKey = oracleKvp.Key;
-            if (!sqlDataFiltered.ContainsKey(compositeKey))
-            {
-                result.TotalMissingInSql++;
-                if (result.MissingInSql.Count < 50)
-                {
-                    result.MissingInSql.Add(compositeKey);
-                }
-            }
-        }
-
-        // העברת תבניות ההבדלים לרשימה במודל התצוגה, ממוינות לפי כמות המופעים בסדר יורד
+        // Sort discrepancy patterns by count descending
         result.DiscrepancyPatterns = discrepancyPatternsMap.Values.OrderByDescending(p => p.Count).ToList();
 
+        // Set Step C status based on findings
+        int totalIssues = result.TotalDiscrepancyRows + result.DataIntegrityGaps.Count;
+        if (totalIssues == 0)
+        {
+            stepC.Status = "Pass";
+            stepC.Summary = $"כל {result.TotalMatched} הרשומות המשותפות תואמות לחלוטין. אין הבדלי נתונים.";
+        }
+        else
+        {
+            stepC.Status = "Fail";
+            var parts = new List<string>();
+            if (result.TotalDiscrepancyRows > 0)
+                parts.Add($"{result.TotalDiscrepancyRows} שורות עם הפרשי ערכים ב-{result.DiscrepancyPatterns.Count} תבניות");
+            if (result.DataIntegrityGaps.Count > 0)
+                parts.Add($"{result.DataIntegrityGaps.Count} פערי שלמות נתונים (ערך מול ריק/אפס)");
+            if (result.TotalMatched > 0)
+                parts.Add($"{result.TotalMatched} שורות תואמות");
+            stepC.Summary = string.Join(" | ", parts);
+        }
+
+        result.QaSteps.Add(stepC);
+
         return result;
+    }
+
+    // Helper: check if a normalized value is empty, null, or zero
+    private bool IsEmptyOrZero(string normalizedValue)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedValue))
+            return true;
+        if (normalizedValue == "0")
+            return true;
+        if (normalizedValue == "0.0" || normalizedValue == "0.00")
+            return true;
+        return false;
     }
 }
 

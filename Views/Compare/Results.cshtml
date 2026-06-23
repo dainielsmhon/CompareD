@@ -18,320 +18,373 @@
         <span class="text-secondary">→</span>
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-3-badge">✓ סקירת סכמה</span>
         <span class="text-secondary">→</span>
-        <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-4-badge">✓ בדיקות מקדימות</span>
-        <span class="text-secondary">→</span>
-        <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-5-badge">✓ השוואה</span>
-        <span class="text-secondary">→</span>
-        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-6-badge">6. דוח תוצאות</span>
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-4-badge">דוח תוצאות QA</span>
     </div>
 </div>
 
 @* ===== כותרת הדף המרכזית ===== *@
 <div class="text-center mb-5" id="results-header">
-    <h1 class="display-4 text-gradient mb-3" id="results-title">דוח השוואת נתונים חכם</h1>
+    <h1 class="display-4 text-gradient mb-3" id="results-title">דוח השוואת נתונים — QA Workflow</h1>
     <p class="lead text-secondary fs-5" id="results-description">
-        סיכום וממצאים אנליטיים מהשוואת @Model.SqlTable (צד א׳) ל-@Model.OracleTable (צד ב׳).
+        דוח בדיקות אוטומטי בנוי לפי 3 שלבי אימות סדרתיים: ספירת שורות → מפתחות חסרים → עקביות נתונים.
     </p>
-</div>
-
-@* ===== דשבורד סיכום בפריסת Bento Grid מודרנית ===== *@
-<div class="row g-4 mb-5" id="results-bento-grid">
-    @* כרטיס שורות זהות לחלוטין *@
-    <div class="col-md-3">
-        <div class="glass-card text-center h-100 py-4" style="border-color: rgba(16, 185, 129, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">רשומות זהות</h2>
-            <div class="display-6 fw-bold text-success">@Model.TotalMatched</div>
-            <span class="badge bg-success/10 text-success mt-2">@matchPercentage% תאימות</span>
-        </div>
-    </div>
-    
-    @* כרטיס שורות עם הבדלי נתונים *@
-    <div class="col-md-3">
-        <div class="glass-card text-center h-100 py-4" style="border-color: rgba(239, 68, 68, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">הפרשי נתונים</h2>
-            <div class="display-6 fw-bold text-danger">@Model.TotalDiscrepancyRows</div>
-            <span class="text-secondary small d-block mt-2">מפתח זהה, ערכים שונים</span>
-        </div>
-    </div>
-
-    @* כרטיס שורות חסרות ביעד (Oracle) *@
-    <div class="col-md-3">
-        <div class="glass-card text-center h-100 py-4" style="border-color: rgba(245, 158, 11, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">חסר ביעד (@Model.OracleTable)</h2>
-            <div class="display-6 fw-bold text-warning">@Model.TotalMissingInOracle</div>
-            <span class="text-secondary small d-block mt-2">קיימות במקור בלבד</span>
-        </div>
-    </div>
-
-    @* כרטיס שורות חסרות במקור (SQL Server) *@
-    <div class="col-md-3">
-        <div class="glass-card text-center h-100 py-4" style="border-color: rgba(59, 130, 246, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">חסר במקור (@Model.SqlTable)</h2>
-            <div class="display-6 fw-bold text-primary">@Model.TotalMissingInSql</div>
-            <span class="text-secondary small d-block mt-2">קיימות ביעד בלבד</span>
-        </div>
+    <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
+        <span class="badge bg-primary px-3 py-2 fs-6">מקור: @Model.SqlTable</span>
+        <span class="badge px-3 py-2 fs-6" style="background-color: var(--accent-secondary) !important;">יעד: @Model.OracleTable</span>
+        <span class="badge bg-dark text-light border border-white/10 px-3 py-2 fs-6 font-monospace">מפתח: @Model.PrimaryKeyColumn</span>
     </div>
 </div>
 
-@* ===== מידע סטטיסטי משלים וכפילויות מפתח ===== *@
-<div class="row g-4 mb-5" id="stats-summary-section">
-    <div class="col-md-6">
-        <div class="glass-card p-4 h-100">
-            <h3 class="h5 text-gradient mb-3">סטטיסטיקת טעינה</h3>
-            <ul class="list-group list-group-flush bg-transparent">
-                <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
-                    <span>שורות שנטענו מ-@Model.SqlTable:</span>
-                    <strong class="text-light">@Model.TotalRowsInSql</strong>
-                </li>
-                <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
-                    <span>שורות שנטענו מ-@Model.OracleTable:</span>
-                    <strong class="text-light">@Model.TotalRowsInOracle</strong>
-                </li>
-                <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
-                    <span>מפתח השוואה (Primary Key):</span>
-                    <strong class="text-light font-monospace">@Model.PrimaryKeyColumn</strong>
-                </li>
-            </ul>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
-            <div>
-                <h3 class="h5 text-gradient mb-2">כפילויות מפתח שהוחרגו</h3>
-                <p class="text-secondary small mb-3">
-                    מפתחות המופיעים יותר מפעם אחת באותו מסד נתונים מוחרגים מהשוואת הנתונים הרגילה כדי למנוע השוואה כפולה.
-                </p>
+@* ===== דשבורד סיכום QA ===== *@
+<div class="row g-4 mb-5" id="qa-summary-grid">
+    @foreach (var step in Model.QaSteps)
+    {
+        string badgeClass = step.Status switch
+        {
+            "Pass" => "bg-success/20 text-success border-success/30",
+            "Warning" => "bg-warning/20 text-warning border-warning/30",
+            _ => "bg-danger/20 text-danger border-danger/30"
+        };
+        string icon = step.Status switch
+        {
+            "Pass" => "✓",
+            "Warning" => "⚠",
+            _ => "✕"
+        };
+        <div class="col-md-4">
+            <div class="glass-card text-center h-100 py-4" style="border-color: @(step.Status == "Pass" ? "rgba(16,185,129,0.3)" : step.Status == "Warning" ? "rgba(245,158,11,0.3)" : "rgba(239,68,68,0.3)") !important;">
+                <span class="badge @badgeClass px-3 py-2 fs-6 border mb-2">@icon שלב @step.StepName</span>
+                <h2 class="h6 text-secondary mb-2">@step.StepTitle</h2>
+                <div class="text-secondary small px-3">@step.Summary</div>
             </div>
-            <div class="text-center py-3">
-                @if (Model.TotalDuplicates > 0)
-                {
-                    <div class="display-6 fw-bold text-warning mb-1">@Model.TotalDuplicates</div>
-                    <span class="badge bg-warning/10 text-warning border border-warning/20">נמצאו מפתחות כפולים</span>
-                }
-                else
-                {
-                    <div class="display-6 fw-bold text-success mb-1">0</div>
-                    <span class="badge bg-success/10 text-success border border-success/20">אין מפתחות כפולים</span>
-                }
+        </div>
+    }
+</div>
+
+@* =================================================================== *@
+@* ===== שלב א: בדיקת שלמות שורות (Row Count Validation) ===== *@
+@* =================================================================== *@
+<div class="glass-card mb-5 p-4" id="step-a-card">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        @{
+            var stepAData = Model.QaSteps.FirstOrDefault(s => s.StepName == "A");
+            string stepABadge = stepAData?.Status == "Pass" ? "bg-success text-white" : "bg-warning text-dark";
+            string stepAIcon = stepAData?.Status == "Pass" ? "✓" : "⚠";
+        }
+        <span class="badge @stepABadge px-3 py-2 fs-5">@stepAIcon</span>
+        <h3 class="h4 text-gradient mb-0">שלב א — בדיקת שלמות שורות</h3>
+    </div>
+
+    @if (Model.HasRowCountMismatch)
+    {
+        <div class="p-4 mb-3 rounded-3" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
+            <div class="d-flex align-items-center gap-3">
+                <span class="fs-2">⚠</span>
+                <div>
+                    <h4 class="h6 text-warning fw-bold mb-1">פער בספירת שורות — Critical Integrity Warning</h4>
+                    <p class="text-secondary small mb-0">@stepAData?.Summary</p>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+                <div class="text-secondary small mb-1">שורות במקור (@Model.SqlTable)</div>
+                <div class="display-6 fw-bold text-light">@Model.TotalRowsInSql</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+                <div class="text-secondary small mb-1">שורות ביעד (@Model.OracleTable)</div>
+                <div class="display-6 fw-bold text-light">@Model.TotalRowsInOracle</div>
             </div>
         </div>
     </div>
 </div>
 
-@* ===== מערכת כרטיסיות (Tabs) לניווט בממצאי הדוח ===== *@
-<div class="glass-card mb-5 p-4" id="detailed-findings-card">
-    @* כותרות הכרטיסיות *@
-    <ul class="nav nav-tabs border-white/10 mb-4" id="findingsTab" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link active text-light px-4 py-3" id="discrepancies-tab" data-bs-toggle="tab" data-bs-target="#discrepancies" type="button" role="tab" aria-controls="discrepancies" aria-selected="true">
-                תבניות הבדלי נתונים (@Model.DiscrepancyPatterns.Count)
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link text-light px-4 py-3" id="missing-tab" data-bs-toggle="tab" data-bs-target="#missing" type="button" role="tab" aria-controls="missing" aria-selected="false">
-                שורות חסרות (@(Model.TotalMissingInOracle + Model.TotalMissingInSql))
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link text-light px-4 py-3" id="duplicates-tab" data-bs-toggle="tab" data-bs-target="#duplicates" type="button" role="tab" aria-controls="duplicates" aria-selected="false">
-                כפילויות מפתח (@Model.Duplicates.Count)
-            </button>
-        </li>
-    </ul>
+@* =================================================================== *@
+@* ===== שלב ב: זיהוי מפתחות חסרים (Primary Key Validation) ===== *@
+@* =================================================================== *@
+<div class="glass-card mb-5 p-4" id="step-b-card">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        @{
+            var stepBData = Model.QaSteps.FirstOrDefault(s => s.StepName == "B");
+            string stepBBadge = stepBData?.Status == "Pass" ? "bg-success text-white" : stepBData?.Status == "Warning" ? "bg-warning text-dark" : "bg-danger text-white";
+            string stepBIcon = stepBData?.Status == "Pass" ? "✓" : stepBData?.Status == "Warning" ? "⚠" : "✕";
+        }
+        <span class="badge @stepBBadge px-3 py-2 fs-5">@stepBIcon</span>
+        <h3 class="h4 text-gradient mb-0">שלב ב — זיהוי מפתחות חסרים</h3>
+    </div>
 
-    @* תוכן הכרטיסיות *@
-    <div class="tab-content" id="findingsTabContent">
-        
-        @* ===== כרטיסיית תבניות הבדלי נתונים ===== *@
-        <div class="tab-pane fade show active" id="discrepancies" role="tabpanel" aria-labelledby="discrepancies-tab">
-            @if (Model.DiscrepancyPatterns.Count == 0)
+    <div class="row g-4 mb-4">
+        @* כרטיס חסרים ביעד *@
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalMissingInOracle > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">חסר ביעד (@Model.OracleTable)</div>
+                <div class="display-6 fw-bold @(Model.TotalMissingInOracle > 0 ? "text-warning" : "text-success")">@Model.TotalMissingInOracle</div>
+            </div>
+        </div>
+        @* כרטיס חסרים במקור *@
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalMissingInSql > 0 ? "rgba(59,130,246,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">חסר במקור (@Model.SqlTable)</div>
+                <div class="display-6 fw-bold @(Model.TotalMissingInSql > 0 ? "text-primary" : "text-success")">@Model.TotalMissingInSql</div>
+            </div>
+        </div>
+        @* כרטיס כפילויות *@
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalDuplicates > 0 ? "rgba(139,92,246,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">כפילויות מפתח (הוחרגו)</div>
+                <div class="display-6 fw-bold @(Model.TotalDuplicates > 0 ? "text-info" : "text-success")">@Model.TotalDuplicates</div>
+            </div>
+        </div>
+    </div>
+
+    @* רשימות מפתחות חסרים *@
+    @if (Model.TotalMissingInOracle > 0 || Model.TotalMissingInSql > 0)
+    {
+        <div class="row g-4 mb-4">
+            @if (Model.TotalMissingInOracle > 0)
             {
-                <div class="text-center py-5 text-success">
-                    <span class="fs-1 d-block mb-3">✓</span>
-                    <h4 class="fw-bold">אין הבדלי נתונים!</h4>
-                    <p class="text-secondary mb-0">כל הרשומות המשותפות שנבדקו תואמות לחלוטין.</p>
+                <div class="col-md-6">
+                    <h5 class="h6 text-warning mb-2">מפתחות חסרים ביעד (@Model.OracleTable):</h5>
+                    <div class="list-group list-group-flush border-white/5" style="max-height: 300px; overflow-y: auto;">
+                        @foreach (var key in Model.MissingInOracle)
+                        {
+                            <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2 small">
+                                @key
+                            </div>
+                        }
+                    </div>
+                    @if (Model.TotalMissingInOracle > 50)
+                    {
+                        <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInOracle.</span>
+                    }
                 </div>
             }
-            else
+            @if (Model.TotalMissingInSql > 0)
             {
-                <div class="accordion accordion-flush" id="patternsAccordion">
-                    @for (int i = 0; i < Model.DiscrepancyPatterns.Count; i++)
-                    {
-                        var pattern = Model.DiscrepancyPatterns[i];
-                        // חישוב שכיחות התבנית באחוזים
-                        double percentage = Model.TotalDiscrepancyRows > 0 
-                            ? Math.Round((double)pattern.Count / Model.TotalDiscrepancyRows * 100, 1) 
-                            : 0;
-
-                        <div class="accordion-item bg-transparent border-bottom border-white/5 mb-3" style="border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.01);">
-                            <h2 class="accordion-header" id="heading-@i">
-                                <button class="accordion-button collapsed bg-transparent text-light py-3 px-4 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@i" aria-expanded="false" aria-controls="collapse-@i" style="box-shadow: none;">
-                                    <div class="d-flex align-items-center gap-3 w-100 justify-content-between pe-3">
-                                        <span class="fw-bold text-light">@pattern.PatternDescription</span>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <span class="badge bg-danger/10 text-danger border border-danger/20 px-3 py-2 fs-7">
-                                                @pattern.Count שורות
-                                            </span>
-                                            <span class="badge bg-secondary/20 text-secondary border border-white/10 px-2 py-2 small">
-                                                שכיחות: @percentage%
-                                            </span>
-                                        </div>
-                                    </div>
-                                </button>
-                            </h2>
-                            <div id="collapse-@i" class="accordion-collapse collapse" aria-labelledby="heading-@i" data-bs-parent="#patternsAccordion">
-                                <div class="accordion-body p-4 border-top border-white/5" style="background: rgba(0,0,0,0.2);">
-                                    
-                                    @* טבלת הערכים והשוואת השדות בתבנית *@
-                                    <h5 class="h6 text-gradient mb-3">ערכים לדוגמה ושדות שונים:</h5>
-                                    <div class="table-responsive mb-4">
-                                        <table class="table table-dark table-sm table-borderless align-middle">
-                                            <thead>
-                                                <tr class="text-secondary border-bottom border-white/5 small">
-                                                    <th style="width: 30%;">שם שדה</th>
-                                                    <th style="width: 35%;">ערך במקור (@Model.SqlTable)</th>
-                                                    <th style="width: 35%;">ערך ביעד (@Model.OracleTable)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (var field in pattern.Fields)
-                                                {
-                                                    <tr class="border-bottom border-white/5">
-                                                        <td class="text-secondary small fw-bold">@field.FieldName</td>
-                                                        <td class="text-danger font-monospace">@field.SqlValue</td>
-                                                        <td class="text-danger font-monospace">@field.OracleValue</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    @* הצגת מפתחות לדוגמה המשתייכים לתבנית זו *@
-                                    <h5 class="h6 text-gradient mb-2">מפתחות שורה לדוגמה (עד 4 מפתחות):</h5>
-                                    <div class="d-flex gap-2 flex-wrap">
-                                        @foreach (var key in pattern.ExampleKeys)
-                                        {
-                                            <span class="badge bg-dark text-light border border-white/10 px-3 py-2 font-monospace">
-                                                @key
-                                            </span>
-                                        }
-                                    </div>
-                                </div>
+                <div class="col-md-6">
+                    <h5 class="h6 text-primary mb-2">מפתחות חסרים במקור (@Model.SqlTable):</h5>
+                    <div class="list-group list-group-flush border-white/5" style="max-height: 300px; overflow-y: auto;">
+                        @foreach (var key in Model.MissingInSql)
+                        {
+                            <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2 small">
+                                @key
                             </div>
-                        </div>
+                        }
+                    </div>
+                    @if (Model.TotalMissingInSql > 50)
+                    {
+                        <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInSql.</span>
                     }
                 </div>
             }
         </div>
+    }
 
-        @* ===== כרטיסיית שורות חסרות ===== *@
-        <div class="tab-pane fade" id="missing" role="tabpanel" aria-labelledby="missing-tab">
-            <div class="row g-4">
-                @* חסר ביעד *@
-                <div class="col-md-6">
-                    <div class="glass-card p-4">
-                        <h4 class="h5 text-gradient mb-3">שורות שחסרות ביעד (@Model.OracleTable) (קיימות במקור @Model.SqlTable)</h4>
-                        <div class="text-secondary small mb-3">
-                            נמצאו סך הכל <strong class="text-warning">@Model.TotalMissingInOracle</strong> שורות.
-                        </div>
-                        
-                        @if (Model.MissingInOracle.Count == 0)
-                        {
-                            <div class="text-success small py-3">אין שורות חסרות ביעד.</div>
-                        }
-                        else
-                        {
-                            <div class="list-group list-group-flush border-white/5" style="max-height: 350px; overflow-y: auto;">
-                                @foreach (var key in Model.MissingInOracle)
-                                {
-                                    <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2">
-                                        @key
-                                    </div>
-                                }
-                            </div>
-                            @if (Model.TotalMissingInOracle > 50)
-                            {
-                                <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInOracle.</span>
-                            }
-                        }
-                    </div>
-                </div>
-
-                @* חסר במקור *@
-                <div class="col-md-6">
-                    <div class="glass-card p-4">
-                        <h4 class="h5 text-gradient mb-3">שורות שחסרות במקור (@Model.SqlTable) (קיימות ביעד @Model.OracleTable)</h4>
-                        <div class="text-secondary small mb-3">
-                            נמצאו סך הכל <strong class="text-primary">@Model.TotalMissingInSql</strong> שורות.
-                        </div>
-                        
-                        @if (Model.MissingInSql.Count == 0)
-                        {
-                            <div class="text-success small py-3">אין שורות חסרות במקור.</div>
-                        }
-                        else
-                        {
-                            <div class="list-group list-group-flush border-white/5" style="max-height: 350px; overflow-y: auto;">
-                                @foreach (var key in Model.MissingInSql)
-                                {
-                                    <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2">
-                                        @key
-                                    </div>
-                                }
-                            </div>
-                            @if (Model.TotalMissingInSql > 50)
-                            {
-                                <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInSql.</span>
-                            }
-                        }
-                    </div>
-                </div>
-            </div>
+    @* טבלת כפילויות מפתח *@
+    @if (Model.Duplicates.Count > 0)
+    {
+        <h5 class="h6 text-info mb-2">כפילויות מפתח שהוחרגו (@Model.Duplicates.Count):</h5>
+        <div class="table-responsive">
+            <table class="table table-dark table-sm table-borderless align-middle">
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/5">
+                        <th style="width: 50%;">ערך מפתח כפול</th>
+                        <th style="width: 25%;" class="text-center">מופעים במקור</th>
+                        <th style="width: 25%;" class="text-center">מופעים ביעד</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dup in Model.Duplicates)
+                    {
+                        <tr class="border-bottom border-white/5">
+                            <td class="font-monospace text-light small">@dup.KeyValue</td>
+                            <td class="text-center @(dup.SqlCount > 1 ? "text-warning fw-bold" : "")">@dup.SqlCount</td>
+                            <td class="text-center @(dup.OracleCount > 1 ? "text-warning fw-bold" : "")">@dup.OracleCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
+    }
 
-        @* ===== כרטיסיית כפילויות מפתח ===== *@
-        <div class="tab-pane fade" id="duplicates" role="tabpanel" aria-labelledby="duplicates-tab">
-            @if (Model.Duplicates.Count == 0)
-            {
-                <div class="text-center py-5 text-success">
-                    <span class="fs-1 d-block mb-3">✓</span>
-                    <h4 class="fw-bold">לא נמצאו מפתחות כפולים!</h4>
-                    <p class="text-secondary mb-0">שלמות המפתחות תקינה לחלוטין בשני מסדי הנתונים.</p>
-                </div>
-            }
-            else
-            {
-                <div class="text-secondary small mb-3">
-                    מוצגות כפילויות מפתח שגרמו להחרגת שורות (סך הכל <strong class="text-warning">@Model.Duplicates.Count</strong> מפתחות כפולים):
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-dark table-borderless align-middle">
-                        <thead>
-                            <tr class="text-secondary small border-bottom border-white/5">
-                                <th style="width: 50%;">ערך מפתח כפול (Key Value)</th>
-                                <th style="width: 25%;" class="text-center">מופעים במקור (@Model.SqlTable)</th>
-                                <th style="width: 25%;" class="text-center">מופעים ביעד (@Model.OracleTable)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var dup in Model.Duplicates)
-                            {
-                                <tr class="border-bottom border-white/5">
-                                    <td class="font-monospace text-light">@dup.KeyValue</td>
-                                    <td class="text-center @(dup.SqlCount > 1 ? "text-warning fw-bold" : "")">@dup.SqlCount</td>
-                                    <td class="text-center @(dup.OracleCount > 1 ? "text-warning fw-bold" : "")">@dup.OracleCount</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+    @if (Model.TotalMissingInOracle == 0 && Model.TotalMissingInSql == 0 && Model.Duplicates.Count == 0)
+    {
+        <div class="text-center py-3 text-success">
+            <span class="fs-2 d-block mb-2">✓</span>
+            <h5 class="fw-bold">כל המפתחות קיימים בשני הצדדים ואין כפילויות!</h5>
         </div>
-
-    </div>
+    }
 </div>
 
-@* ===== כפתור חזרה לדף הבית להתחלת השוואה חדשה וכפתורי ייצוא ===== *@
+@* =================================================================== *@
+@* ===== שלב ג: ניתוח עקביות נתונים (Data Consistency Check) ===== *@
+@* =================================================================== *@
+<div class="glass-card mb-5 p-4" id="step-c-card">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        @{
+            var stepCData = Model.QaSteps.FirstOrDefault(s => s.StepName == "C");
+            string stepCBadge = stepCData?.Status == "Pass" ? "bg-success text-white" : "bg-danger text-white";
+            string stepCIcon = stepCData?.Status == "Pass" ? "✓" : "✕";
+        }
+        <span class="badge @stepCBadge px-3 py-2 fs-5">@stepCIcon</span>
+        <h3 class="h4 text-gradient mb-0">שלב ג — ניתוח עקביות נתונים</h3>
+    </div>
+
+    @* סיכום שורות תואמות *@
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(16, 185, 129, 0.3);">
+                <div class="text-secondary small mb-1">רשומות זהות</div>
+                <div class="display-6 fw-bold text-success">@Model.TotalMatched</div>
+                <span class="badge bg-success/10 text-success mt-1">@matchPercentage% תאימות</span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalDiscrepancyRows > 0 ? "rgba(239,68,68,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">שורות עם הפרשי ערכים</div>
+                <div class="display-6 fw-bold @(Model.TotalDiscrepancyRows > 0 ? "text-danger" : "text-success")">@Model.TotalDiscrepancyRows</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.DataIntegrityGaps.Count > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">פערי שלמות (ערך מול ריק/אפס)</div>
+                <div class="display-6 fw-bold @(Model.DataIntegrityGaps.Count > 0 ? "text-warning" : "text-success")">@Model.DataIntegrityGaps.Count</div>
+            </div>
+        </div>
+    </div>
+
+    @* תבניות הבדלי נתונים *@
+    @if (Model.DiscrepancyPatterns.Count > 0)
+    {
+        <h5 class="h6 text-gradient mb-3">תבניות הבדלי נתונים (@Model.DiscrepancyPatterns.Count תבניות):</h5>
+        <div class="accordion accordion-flush mb-4" id="patternsAccordion">
+            @for (int i = 0; i < Model.DiscrepancyPatterns.Count; i++)
+            {
+                var pattern = Model.DiscrepancyPatterns[i];
+                double percentage = Model.TotalDiscrepancyRows > 0 
+                    ? Math.Round((double)pattern.Count / Model.TotalDiscrepancyRows * 100, 1) 
+                    : 0;
+
+                <div class="accordion-item bg-transparent border-bottom border-white/5 mb-3" style="border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.01);">
+                    <h2 class="accordion-header" id="heading-@i">
+                        <button class="accordion-button collapsed bg-transparent text-light py-3 px-4 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@i" aria-expanded="false" aria-controls="collapse-@i" style="box-shadow: none;">
+                            <div class="d-flex align-items-center gap-3 w-100 justify-content-between pe-3">
+                                <span class="fw-bold text-light">@pattern.PatternDescription</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-3 py-2 fs-7">
+                                        @pattern.Count שורות
+                                    </span>
+                                    <span class="badge bg-secondary/20 text-secondary border border-white/10 px-2 py-2 small">
+                                        שכיחות: @percentage%
+                                    </span>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-@i" class="accordion-collapse collapse" aria-labelledby="heading-@i" data-bs-parent="#patternsAccordion">
+                        <div class="accordion-body p-4 border-top border-white/5" style="background: rgba(0,0,0,0.2);">
+                            
+                            @* טבלת הערכים והשוואת השדות בתבנית *@
+                            <h5 class="h6 text-gradient mb-3">ערכים לדוגמה ושדות שונים:</h5>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-dark table-sm table-borderless align-middle">
+                                    <thead>
+                                        <tr class="text-secondary border-bottom border-white/5 small">
+                                            <th style="width: 30%;">שם שדה</th>
+                                            <th style="width: 35%;">ערך במקור (@Model.SqlTable)</th>
+                                            <th style="width: 35%;">ערך ביעד (@Model.OracleTable)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var field in pattern.Fields)
+                                        {
+                                            <tr class="border-bottom border-white/5">
+                                                <td class="text-secondary small fw-bold">@field.FieldName</td>
+                                                <td class="text-danger font-monospace">@field.SqlValue</td>
+                                                <td class="text-danger font-monospace">@field.OracleValue</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @* הצגת מפתחות לדוגמה *@
+                            <h5 class="h6 text-gradient mb-2">מפתחות שורה לדוגמה (עד 4 מפתחות):</h5>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @foreach (var key in pattern.ExampleKeys)
+                                {
+                                    <span class="badge bg-dark text-light border border-white/10 px-3 py-2 font-monospace">
+                                        @key
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (Model.TotalDiscrepancyRows == 0)
+    {
+        <div class="text-center py-3 text-success mb-4">
+            <span class="fs-2 d-block mb-2">✓</span>
+            <h5 class="fw-bold">אין הבדלי נתונים!</h5>
+            <p class="text-secondary mb-0">כל הרשומות המשותפות שנבדקו תואמות לחלוטין.</p>
+        </div>
+    }
+
+    @* פערי שלמות נתונים (Data Integrity Gaps) *@
+    @if (Model.DataIntegrityGaps.Count > 0)
+    {
+        <h5 class="h6 text-gradient mb-3">פערי שלמות נתונים — ערך מול ריק/אפס (@Model.DataIntegrityGaps.Count ממצאים):</h5>
+        <p class="text-secondary small mb-3">
+            מקרים בהם ערך קיים בצד אחד אך בצד השני הוא ריק, null, או 0. ממצאים אלו מעידים על בעיית שלמות נתונים.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-dark table-sm table-borderless align-middle">
+                <thead>
+                    <tr class="text-secondary border-bottom border-white/5 small">
+                        <th style="width: 25%;">ערך מפתח</th>
+                        <th style="width: 30%;">שם שדה</th>
+                        <th style="width: 20%;">צד עם ערך</th>
+                        <th style="width: 25%;">הערך שנמצא</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var gap in Model.DataIntegrityGaps.Take(100))
+                    {
+                        <tr class="border-bottom border-white/5">
+                            <td class="font-monospace text-light small">@gap.KeyValue</td>
+                            <td class="text-secondary small fw-bold">@gap.FieldName</td>
+                            <td>
+                                @if (gap.PresentSide == "Source")
+                                {
+                                    <span class="badge bg-primary/10 text-primary border border-primary/20 px-2 py-1 small">מקור</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-info/10 text-info border border-info/20 px-2 py-1 small">יעד</span>
+                                }
+                            </td>
+                            <td class="text-warning font-monospace small">@gap.PresentValue</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.DataIntegrityGaps.Count > 100)
+        {
+            <span class="text-secondary small d-block mt-2">מציג 100 ממצאים ראשונים מתוך @Model.DataIntegrityGaps.Count.</span>
+        }
+    }
+</div>
+
+@* ===== כפתורי פעולה — ייצוא וחזרה ===== *@
 <div class="text-center mb-5 d-flex justify-content-center align-items-center gap-3 flex-wrap" id="restart-action-container">
     <button type="button" onclick="exportToExcel()" class="btn btn-outline-success btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-excel" style="border-radius: 0.75rem;">
         📊 ייצוא לאקסל (Excel)
@@ -346,63 +399,88 @@
 
 @section Scripts {
     <script>
-        // סירליזציה של המודל ל-JavaScript לטובת בניית הדוחות
+        // Serialize model for JavaScript export functions
         const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
 
         function exportToExcel() {
             let csv = "";
-            csv += "דוח השוואת נתונים חכם\n";
-            csv += `טבלת מקור (SQL Server),${model.SqlTable}\n`;
-            csv += `טבלת יעד (Oracle),${model.OracleTable}\n`;
-            csv += `מפתח התאמה,${model.PrimaryKeyColumn}\n`;
-            csv += `שורות זהות,${model.TotalMatched}\n`;
-            csv += `הפרשי נתונים,${model.TotalDiscrepancyRows}\n`;
-            csv += `חסר ביעד (Oracle),${model.TotalMissingInOracle}\n`;
-            csv += `חסר במקור (SQL),${model.TotalMissingInSql}\n`;
-            csv += `כפילויות מפתח,${model.TotalDuplicates}\n`;
-            csv += "\n";
+            csv += "דוח השוואת נתונים — QA Workflow\n";
+            csv += `מקור,${model.SqlTable}\n`;
+            csv += `יעד,${model.OracleTable}\n`;
+            csv += `מפתח השוואה,${model.PrimaryKeyColumn}\n\n`;
 
-            csv += "תבניות הבדלים\n";
-            csv += "תיאור תבנית,כמות שורות,מפתחות לדוגמה,שדה,ערך במקור (SQL),ערך ביעד (Oracle)\n";
-            model.DiscrepancyPatterns.forEach(p => {
-                const keys = p.ExampleKeys.join(" | ");
-                p.Fields.forEach((f, idx) => {
-                    const patternDesc = idx === 0 ? `"${p.PatternDescription}"` : "";
-                    const count = idx === 0 ? p.Count : "";
-                    const keysShow = idx === 0 ? `"${keys}"` : "";
-                    csv += `${patternDesc},${count},${keysShow},"${f.FieldName}","${f.SqlValue}","${f.OracleValue}"\n`;
+            // Step A
+            csv += "=== שלב א: בדיקת שלמות שורות ===\n";
+            csv += `שורות במקור,${model.TotalRowsInSql}\n`;
+            csv += `שורות ביעד,${model.TotalRowsInOracle}\n`;
+            csv += `סטטוס,${model.HasRowCountMismatch ? "פער בספירה" : "ספירה זהה"}\n\n`;
+
+            // Step B
+            csv += "=== שלב ב: זיהוי מפתחות חסרים ===\n";
+            csv += `חסר ביעד,${model.TotalMissingInOracle}\n`;
+            csv += `חסר במקור,${model.TotalMissingInSql}\n`;
+            csv += `כפילויות מפתח,${model.TotalDuplicates}\n\n`;
+
+            if (model.MissingInOracle.length > 0) {
+                csv += "מפתחות חסרים ביעד\n";
+                model.MissingInOracle.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
+
+            if (model.MissingInSql.length > 0) {
+                csv += "מפתחות חסרים במקור\n";
+                model.MissingInSql.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
+
+            if (model.Duplicates.length > 0) {
+                csv += "כפילויות מפתח\n";
+                csv += "ערך מפתח,כמות במקור,כמות ביעד\n";
+                model.Duplicates.forEach(d => {
+                    csv += `"${d.KeyValue}",${d.SqlCount},${d.OracleCount}\n`;
                 });
-            });
-            csv += "\n";
+                csv += "\n";
+            }
 
-            csv += "רשומות חסרות ביעד (Oracle)\n";
-            csv += "ערך מפתח\n";
-            model.MissingInOracle.forEach(k => {
-                csv += `"${k}"\n`;
-            });
-            csv += "\n";
+            // Step C
+            csv += "=== שלב ג: ניתוח עקביות נתונים ===\n";
+            csv += `רשומות זהות,${model.TotalMatched}\n`;
+            csv += `הפרשי ערכים,${model.TotalDiscrepancyRows}\n`;
+            csv += `פערי שלמות,${model.DataIntegrityGaps.length}\n\n`;
 
-            csv += "רשומות חסרות במקור (SQL)\n";
-            csv += "ערך מפתח\n";
-            model.MissingInSql.forEach(k => {
-                csv += `"${k}"\n`;
-            });
-            csv += "\n";
+            if (model.DiscrepancyPatterns.length > 0) {
+                csv += "תבניות הבדלים\n";
+                csv += "תיאור תבנית,כמות שורות,מפתחות לדוגמה,שדה,ערך במקור,ערך ביעד\n";
+                model.DiscrepancyPatterns.forEach(p => {
+                    const keys = p.ExampleKeys.join(" | ");
+                    p.Fields.forEach((f, idx) => {
+                        const desc = idx === 0 ? `"${p.PatternDescription}"` : "";
+                        const count = idx === 0 ? p.Count : "";
+                        const keysShow = idx === 0 ? `"${keys}"` : "";
+                        csv += `${desc},${count},${keysShow},"${f.FieldName}","${f.SqlValue}","${f.OracleValue}"\n`;
+                    });
+                });
+                csv += "\n";
+            }
 
-            csv += "כפילויות מפתח\n";
-            csv += "ערך מפתח,כמות במקור (SQL),כמות ביעד (Oracle)\n";
-            model.Duplicates.forEach(d => {
-                csv += `"${d.KeyValue}",${d.SqlCount},${d.OracleCount}\n`;
-            });
+            if (model.DataIntegrityGaps.length > 0) {
+                csv += "פערי שלמות נתונים\n";
+                csv += "ערך מפתח,שם שדה,צד עם ערך,הערך שנמצא\n";
+                model.DataIntegrityGaps.forEach(g => {
+                    csv += `"${g.KeyValue}","${g.FieldName}","${g.PresentSide === 'Source' ? 'מקור' : 'יעד'}","${g.PresentValue}"\n`;
+                });
+            }
 
             const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `דוח_השוואה_${model.SqlTable}_מול_${model.OracleTable}.csv`;
+            link.download = `QA_Report_${model.SqlTable}_vs_${model.OracleTable}.csv`;
             link.click();
         }
 
         function exportToWord() {
+            const stepAStatus = model.HasRowCountMismatch ? '<span style="color:orange; font-weight:bold;">⚠ פער בספירה</span>' : '<span style="color:green; font-weight:bold;">✓ ספירה זהה</span>';
+            
             let html = `
             <html dir="rtl" lang="he">
             <head>
@@ -411,162 +489,96 @@
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; text-align: right; }
                     h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; text-align: center; }
                     h2 { color: #2563eb; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+                    h3 { color: #374151; margin-top: 20px; }
                     table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; direction: rtl; }
                     th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
                     th { background-color: #f3f4f6; color: #1f2937; }
-                    .font-mono { font-family: Consolas, monospace; }
+                    .mono { font-family: Consolas, monospace; }
                     .text-center { text-align: center; }
+                    .warning-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 15px 0; }
+                    .pass-box { background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin: 15px 0; }
                 </style>
             </head>
             <body>
-                <h1>דוח השוואת נתונים חכם</h1>
-                <p><strong>טבלת מקור (SQL Server):</strong> ${model.SqlTable}</p>
-                <p><strong>טבלת יעד (Oracle):</strong> ${model.OracleTable}</p>
-                <p><strong>מפתח השוואה (Primary Key):</strong> ${model.PrimaryKeyColumn}</p>
+                <h1>דוח השוואת נתונים — QA Workflow</h1>
+                <p><strong>מקור:</strong> ${model.SqlTable}</p>
+                <p><strong>יעד:</strong> ${model.OracleTable}</p>
+                <p><strong>מפתח השוואה:</strong> ${model.PrimaryKeyColumn}</p>
                 <p><strong>תאריך הפקה:</strong> ${new Date().toLocaleString('he-IL')}</p>
 
-                <h2>סיכום ממצאים</h2>
+                <h2>שלב א — בדיקת שלמות שורות</h2>
+                <p><strong>סטטוס:</strong> ${stepAStatus}</p>
                 <table>
-                    <thead>
-                        <tr>
-                            <th>קטגוריה</th>
-                            <th>כמות שורות</th>
-                            <th>אחוז / פירוט</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>רשומות זהות</td>
-                            <td><strong>${model.TotalMatched}</strong></td>
-                            <td>${(model.TotalRowsInSql > 0 ? (model.TotalMatched / model.TotalRowsInSql * 100).toFixed(2) : 100)}% תאימות</td>
-                        </tr>
-                        <tr>
-                            <td>הפרשי נתונים</td>
-                            <td style="color: red; font-weight: bold;">${model.TotalDiscrepancyRows}</td>
-                            <td>ערכים שונים בשורות בעלות מפתח זהה</td>
-                        </tr>
-                        <tr>
-                            <td>חסר ביעד (Oracle)</td>
-                            <td style="color: orange; font-weight: bold;">${model.TotalMissingInOracle}</td>
-                            <td>קיימות במקור בלבד</td>
-                        </tr>
-                        <tr>
-                            <td>חסר במקור (SQL)</td>
-                            <td style="color: blue; font-weight: bold;">${model.TotalMissingInSql}</td>
-                            <td>קיימות ביעד בלבד</td>
-                        </tr>
-                        <tr>
-                            <td>כפילויות מפתח (הוחרגו)</td>
-                            <td>${model.TotalDuplicates}</td>
-                            <td>מפתחות כפולים שהוצאו מההשוואה</td>
-                        </tr>
-                    </tbody>
+                    <tr><th>מקור (${model.SqlTable})</th><th>יעד (${model.OracleTable})</th></tr>
+                    <tr><td class="text-center"><strong>${model.TotalRowsInSql}</strong> שורות</td><td class="text-center"><strong>${model.TotalRowsInOracle}</strong> שורות</td></tr>
                 </table>
 
-                <h2>תבניות הפרשי נתונים (${model.DiscrepancyPatterns.length})</h2>
+                <h2>שלב ב — זיהוי מפתחות חסרים</h2>
+                <table>
+                    <tr><th>קטגוריה</th><th>כמות</th></tr>
+                    <tr><td>חסר ביעד</td><td style="color: orange; font-weight: bold;">${model.TotalMissingInOracle}</td></tr>
+                    <tr><td>חסר במקור</td><td style="color: blue; font-weight: bold;">${model.TotalMissingInSql}</td></tr>
+                    <tr><td>כפילויות מפתח</td><td>${model.TotalDuplicates}</td></tr>
+                </table>
             `;
 
-            if (model.DiscrepancyPatterns.length === 0) {
-                html += "<p>לא נמצאו הפרשי נתונים בשורות המשותפות.</p>";
-            } else {
+            if (model.MissingInOracle.length > 0) {
+                html += `<h3>מפתחות חסרים ביעד (${model.TotalMissingInOracle})</h3><ul>`;
+                model.MissingInOracle.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            if (model.MissingInSql.length > 0) {
+                html += `<h3>מפתחות חסרים במקור (${model.TotalMissingInSql})</h3><ul>`;
+                model.MissingInSql.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            html += `
+                <h2>שלב ג — ניתוח עקביות נתונים</h2>
+                <table>
+                    <tr><th>קטגוריה</th><th>כמות</th><th>פירוט</th></tr>
+                    <tr><td>רשומות זהות</td><td style="color: green; font-weight: bold;">${model.TotalMatched}</td><td>${(model.TotalRowsInSql > 0 ? (model.TotalMatched / model.TotalRowsInSql * 100).toFixed(2) : 100)}% תאימות</td></tr>
+                    <tr><td>הפרשי ערכים</td><td style="color: red; font-weight: bold;">${model.TotalDiscrepancyRows}</td><td>${model.DiscrepancyPatterns.length} תבניות</td></tr>
+                    <tr><td>פערי שלמות</td><td style="color: orange; font-weight: bold;">${model.DataIntegrityGaps.length}</td><td>ערך מול ריק/אפס</td></tr>
+                </table>
+            `;
+
+            if (model.DiscrepancyPatterns.length > 0) {
                 model.DiscrepancyPatterns.forEach((p, idx) => {
                     html += `
                         <h3>תבנית ${idx + 1}: ${p.PatternDescription}</h3>
-                        <p><strong>כמות שורות מושפעות:</strong> ${p.Count}</p>
-                        <p><strong>מפתחות לדוגמה:</strong> <span class="font-mono">${p.ExampleKeys.join(" | ")}</span></p>
+                        <p><strong>כמות שורות:</strong> ${p.Count} | <strong>מפתחות לדוגמה:</strong> <span class="mono">${p.ExampleKeys.join(" | ")}</span></p>
                         <table>
-                            <thead>
-                                <tr>
-                                    <th>שם שדה</th>
-                                    <th>ערך במקור (SQL)</th>
-                                    <th>ערך ביעד (Oracle)</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th>שם שדה</th><th>ערך במקור</th><th>ערך ביעד</th></tr></thead>
                             <tbody>
                     `;
                     p.Fields.forEach(f => {
-                        html += `
-                            <tr>
-                                <td class="font-mono">${f.FieldName}</td>
-                                <td class="font-mono" style="color: red;">${f.SqlValue}</td>
-                                <td class="font-mono" style="color: red;">${f.OracleValue}</td>
-                            </tr>
-                        `;
+                        html += `<tr><td class="mono">${f.FieldName}</td><td class="mono" style="color:red;">${f.SqlValue}</td><td class="mono" style="color:red;">${f.OracleValue}</td></tr>`;
                     });
-                    html += `
-                            </tbody>
-                        </table>
-                    `;
+                    html += `</tbody></table>`;
                 });
             }
 
-            html += `
-                <h2>שורות חסרות ביעד (Oracle) (${model.TotalMissingInOracle})</h2>
-            `;
-            if (model.MissingInOracle.length === 0) {
-                html += "<p>אין שורות חסרות ביעד.</p>";
-            } else {
-                html += "<ul>";
-                model.MissingInOracle.forEach(k => {
-                    html += `<li class="font-mono">${k}</li>`;
-                });
-                html += "</ul>";
-            }
-
-            html += `
-                <h2>שורות חסרות במקור (SQL) (${model.TotalMissingInSql})</h2>
-            `;
-            if (model.MissingInSql.length === 0) {
-                html += "<p>אין שורות חסרות במקור.</p>";
-            } else {
-                html += "<ul>";
-                model.MissingInSql.forEach(k => {
-                    html += `<li class="font-mono">${k}</li>`;
-                });
-                html += "</ul>";
-            }
-
-            html += `
-                <h2>כפילויות מפתח (${model.Duplicates.length})</h2>
-            `;
-            if (model.Duplicates.length === 0) {
-                html += "<p>לא נמצאו כפילויות מפתח.</p>";
-            } else {
+            if (model.DataIntegrityGaps.length > 0) {
                 html += `
+                    <h3>פערי שלמות נתונים (${model.DataIntegrityGaps.length})</h3>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>ערך מפתח כפול</th>
-                                <th class="text-center">מופעים במקור (SQL)</th>
-                                <th class="text-center">מופעים ביעד (Oracle)</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>ערך מפתח</th><th>שם שדה</th><th>צד עם ערך</th><th>הערך</th></tr></thead>
                         <tbody>
                 `;
-                model.Duplicates.forEach(d => {
-                    html += `
-                        <tr>
-                            <td class="font-mono">${d.KeyValue}</td>
-                            <td class="text-center">${d.SqlCount}</td>
-                            <td class="text-center">${d.OracleCount}</td>
-                        </tr>
-                    `;
+                model.DataIntegrityGaps.forEach(g => {
+                    html += `<tr><td class="mono">${g.KeyValue}</td><td>${g.FieldName}</td><td>${g.PresentSide === 'Source' ? 'מקור' : 'יעד'}</td><td class="mono" style="color:orange;">${g.PresentValue}</td></tr>`;
                 });
-                html += `
-                        </tbody>
-                    </table>
-                `;
+                html += `</tbody></table>`;
             }
 
-            html += `
-            </body>
-            </html>
-            `;
+            html += `</body></html>`;
 
             const blob = new Blob(["\uFEFF" + html], { type: "application/msword" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `דוח_השוואה_${model.SqlTable}_מול_${model.OracleTable}.doc`;
+            link.download = `QA_Report_${model.SqlTable}_vs_${model.OracleTable}.doc`;
             link.click();
         }
     </script>

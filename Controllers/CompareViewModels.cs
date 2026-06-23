@@ -198,6 +198,38 @@ public class DuplicateKeyRecord
     public int OracleCount { get; set; }
 }
 
+// QA step result representing the outcome of a single validation step
+public class QaStepResult
+{
+    // Step identifier ("A", "B", "C")
+    public string StepName { get; set; } = string.Empty;
+    
+    // Display title in Hebrew
+    public string StepTitle { get; set; } = string.Empty;
+    
+    // Status: "Pass", "Warning", "Fail"
+    public string Status { get; set; } = "Pass";
+    
+    // Summary message describing the step outcome
+    public string Summary { get; set; } = string.Empty;
+}
+
+// Data integrity gap: value exists on one side but is zero/null/empty on the other
+public class DataIntegrityGap
+{
+    // Primary key value of the affected row
+    public string KeyValue { get; set; } = string.Empty;
+    
+    // Column name where the gap was detected
+    public string FieldName { get; set; } = string.Empty;
+    
+    // Which side has the real value: "Source" or "Target"
+    public string PresentSide { get; set; } = string.Empty;
+    
+    // The actual value found on the present side
+    public string PresentValue { get; set; } = string.Empty;
+}
+
 // מודל תוצאות ההשוואה החכם והסטטיסטי עבור שלב 6
 public class SmartComparisonResultViewModel
 {
@@ -242,6 +274,20 @@ public class SmartComparisonResultViewModel
     
     // סה"כ השורות שבהן נמצאו הבדלי נתונים
     public int TotalDiscrepancyRows { get; set; }
+
+    // === QA Workflow Properties ===
+    
+    // Ordered list of QA step results (A, B, C)
+    public List<QaStepResult> QaSteps { get; set; } = new();
+    
+    // Quick flag: true if source and target row counts differ (Step A)
+    public bool HasRowCountMismatch { get; set; }
+    
+    // Summary message for row count comparison
+    public string RowCountSummary { get; set; } = string.Empty;
+    
+    // List of data integrity gaps (value vs zero/null/empty)
+    public List<DataIntegrityGap> DataIntegrityGaps { get; set; } = new();
 }
 
 // מודל תצוגה עבור סקירה ומיפוי של קובצי CSV/Excel

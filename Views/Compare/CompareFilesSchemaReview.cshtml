@@ -82,7 +82,12 @@
             <table class="table table-dark table-borderless align-middle" id="files-mapping-table">
                 <thead>
                     <tr class="text-secondary border-bottom border-white/5 small">
-                        <th style="width: 10%;" class="text-center">לכלול?</th>
+                        <th style="width: 10%;" class="text-center">
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <input type="checkbox" class="form-check-input" id="master-select-all" style="width: 1.4rem; height: 1.4rem; cursor: pointer;" title="בחר הכל / בטל הכל" />
+                                <span class="small" style="font-size: 0.65rem;">בחר הכל</span>
+                            </div>
+                        </th>
                         <th style="width: 30%;">עמודת מקור (Table 1)</th>
                         <th style="width: 35%;">עמודת יעד תואמת (Table 2)</th>
                         <th style="width: 25%;">תפקיד העמודה</th>
@@ -91,7 +96,7 @@
                 <tbody>
                     @foreach (var col in Model.SourceColumns)
                     {
-                        var isPreChecked = Model.TargetColumns.Any(tc => string.Equals(tc, col, System.StringComparison.OrdinalIgnoreCase));
+                        // All columns start UNCHECKED by default — user explicitly selects what to include
                         
                         // זיהוי אוטומטי של שדות מפתח מועמדים בצורה גנרית (עמודות שמכילות ID או KEY או העמודה הראשונה)
                         var isFirstCol = Model.SourceColumns.IndexOf(col) == 0;
@@ -101,7 +106,7 @@
 
                         <tr class="border-bottom border-white/5 py-3">
                             <td class="text-center">
-                                <input type="checkbox" name="selectedSourceFields" value="@col" @(isPreChecked ? "checked" : "") class="form-check-input" style="width: 1.4rem; height: 1.4rem; cursor: pointer;" id="check_@col" />
+                                <input type="checkbox" name="selectedSourceFields" value="@col" class="form-check-input column-check" style="width: 1.4rem; height: 1.4rem; cursor: pointer;" id="check_@col" />
                             </td>
                             <td>
                                 <label for="check_@col" class="text-light fw-bold cursor-pointer small">@col</label>
@@ -166,7 +171,7 @@
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // הוספת מאזינים לשינוי כיוון ההשוואה
+            // Direction swap listeners
             const sourceSelect = document.getElementById("compare-source-select");
             const targetSelect = document.getElementById("compare-target-select");
 
@@ -182,22 +187,51 @@
                 }
             });
 
-            const checkboxes = document.querySelectorAll('input[name="selectedSourceFields"]');
+            // Column checkboxes and their associated dropdowns
+            const checkboxes = document.querySelectorAll('.column-check');
+            const masterCheckbox = document.getElementById('master-select-all');
+
             checkboxes.forEach(cb => {
-                const targetSelect = document.getElementById("target_" + cb.value);
-                const roleSelect = document.getElementById("role_" + cb.value);
+                const tSelect = document.getElementById("target_" + cb.value);
+                const rSelect = document.getElementById("role_" + cb.value);
                 
                 function updateSelectsState() {
-                    if (targetSelect) targetSelect.disabled = !cb.checked;
-                    if (roleSelect) roleSelect.disabled = !cb.checked;
+                    if (tSelect) tSelect.disabled = !cb.checked;
+                    if (rSelect) rSelect.disabled = !cb.checked;
                 }
 
-                // Initial state
+                // Initial state — all unchecked, so disable dropdowns
                 updateSelectsState();
 
-                // On toggle
-                cb.addEventListener("change", updateSelectsState);
+                // On individual toggle
+                cb.addEventListener("change", function() {
+                    updateSelectsState();
+                    // Update master checkbox state
+                    updateMasterCheckboxState();
+                });
             });
+
+            // Master Select All / Deselect All checkbox
+            masterCheckbox.addEventListener("change", function() {
+                const isChecked = masterCheckbox.checked;
+                checkboxes.forEach(cb => {
+                    cb.checked = isChecked;
+                    const tSelect = document.getElementById("target_" + cb.value);
+                    const rSelect = document.getElementById("role_" + cb.value);
+                    if (tSelect) tSelect.disabled = !isChecked;
+                    if (rSelect) rSelect.disabled = !isChecked;
+                });
+            });
+
+            // Sync master checkbox with individual state
+            function updateMasterCheckboxState() {
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                masterCheckbox.checked = allChecked;
+                masterCheckbox.indeterminate = !allChecked && anyChecked;
+            }
+
+            updateMasterCheckboxState();
         });
     </script>
 }
