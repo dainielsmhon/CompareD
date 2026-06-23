@@ -280,6 +280,26 @@ public class CompareController : Controller
         }
     }
 
+    // פעולה (Action) המאפשרת להחליף בין קובץ המקור לקובץ היעד דינמית
+    [HttpGet]
+    public IActionResult SwapFiles()
+    {
+        var path1 = HttpContext.Session.GetString("CsvSourceFilePath");
+        var path2 = HttpContext.Session.GetString("CsvTargetFilePath");
+        var name1 = HttpContext.Session.GetString("CsvSourceFileName");
+        var name2 = HttpContext.Session.GetString("CsvTargetFileName");
+
+        if (!string.IsNullOrEmpty(path1) && !string.IsNullOrEmpty(path2))
+        {
+            HttpContext.Session.SetString("CsvSourceFilePath", path2);
+            HttpContext.Session.SetString("CsvTargetFilePath", path1);
+            HttpContext.Session.SetString("CsvSourceFileName", name2 ?? "");
+            HttpContext.Session.SetString("CsvTargetFileName", name1 ?? "");
+        }
+
+        return RedirectToAction("CompareFilesSchemaReview");
+    }
+
     // פעולה (Action) המציגה את מסך סקירת הסכמה ומיפוי השדות עבור קבצים
     [HttpGet]
     public IActionResult CompareFilesSchemaReview()
@@ -327,7 +347,6 @@ public class CompareController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult RunFilesComparison(
-        string primaryKey,
         List<string> selectedSourceFields,
         int maxRows = 1000)
     {
@@ -353,35 +372,32 @@ public class CompareController : Controller
                 return RedirectToAction("CompareFilesSetup");
             }
 
-            // Build final mapping
-            var finalSourceFields = new List<string> { primaryKey };
+            // Build final mapping lists
+            var finalSourceFields = new List<string>();
             var finalTargetFields = new List<string>();
+            var finalFieldRoles = new List<string>();
 
-            // Get target column mapped to primaryKey
-            string? targetPk = Request.Form["targetMapping_" + primaryKey];
-            if (string.IsNullOrEmpty(targetPk))
-            {
-                targetPk = primaryKey;
-            }
-            finalTargetFields.Add(targetPk);
-            var finalFieldRoles = new List<string> { "Key" };
-
-            // Add selected compare fields
             if (selectedSourceFields != null)
             {
                 foreach (var sf in selectedSourceFields)
                 {
-                    if (string.Equals(sf, primaryKey, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
                     string? tf = Request.Form["targetMapping_" + sf];
-                    if (!string.IsNullOrEmpty(tf))
+                    string? role = Request.Form["roleMapping_" + sf];
+
+                    if (!string.IsNullOrEmpty(tf) && !string.IsNullOrEmpty(role))
                     {
                         finalSourceFields.Add(sf);
                         finalTargetFields.Add(tf);
-                        finalFieldRoles.Add("Compare");
+                        finalFieldRoles.Add(role);
                     }
                 }
+            }
+
+            // Verify that at least one Key field was selected
+            if (!finalFieldRoles.Contains("Key"))
+            {
+                TempData["ErrorMessage"] = "חובה לבחור לפחות עמודת מפתח אחת (Key) לביצוע ההשוואה.";
+                return RedirectToAction("CompareFilesSchemaReview");
             }
 
             if (maxRows <= 0) maxRows = 1000;
@@ -407,6 +423,7 @@ public class CompareController : Controller
             return RedirectToAction("CompareFilesSetup");
         }
     }
+
 
 }
 

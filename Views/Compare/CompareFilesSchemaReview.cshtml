@@ -19,7 +19,7 @@
 <div class="text-center mb-5" id="csv-review-header">
     <h1 class="display-4 text-gradient mb-3" id="csv-review-title">סקירת מבנה ומיפוי עמודות</h1>
     <p class="lead text-secondary fs-5" id="csv-review-description">
-        הקבצים נקראו בהצלחה! להלן העמודות שזוהו. בחרו את שדה המפתח הראשי והגדירו אילו עמודות ברצונכם להשוות זו מול זו.
+        העמודות מתוך קובצי הנתונים נטענו בהצלחה! הגדירו אילו עמודות ישמשו כמפתח (Key) לזיהוי השורות, ואילו ישמשו להשוואה (Compare).
     </p>
     <div class="d-flex justify-content-center gap-3 mt-3" id="selected-files-preview">
         <span class="badge bg-primary px-3 py-2 fs-6">מקור: @Model.SourceFileName</span>
@@ -27,39 +27,65 @@
     </div>
 </div>
 
-<form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison">
-    @Html.AntiForgeryToken()
-
-    @* כרטיס הגדרת מפתח ראשי *@
-    <div class="glass-card mb-5" id="pk-config-card" style="max-width: 600px; margin: 0 auto;">
-        <h3 class="h5 text-gradient mb-3">מפתח התאמה ראשי (Primary Key)</h3>
-        <p class="text-secondary small mb-3">
-            בחרו את העמודה הייחודית (כמו מזהה, מספר סידורי או מפתח ייחודי אחר) בקובץ המקור המשמשת להתאמת השורות מול קובץ היעד.
-        </p>
-        <div class="mb-2">
-            <select id="primaryKeySelect" name="primaryKey" class="form-select form-input-glass text-light w-100" required>
-                @foreach (var col in Model.SourceColumns)
-                {
-                    <option value="@col">@col</option>
-                }
+@* ===== כרטיס הגדרת כיוון ההשוואה (Source vs Target) ===== *@
+<div class="glass-card mb-5 p-4" id="compare-direction-card">
+    <h3 class="h5 text-gradient mb-3">הגדרת כיוון ההשוואה</h3>
+    <p class="text-secondary small mb-4">
+        בחרו איזה מהקבצים שהועלו ישמש כקובץ המקור (Source) ואיזה ישמש כקובץ היעד (Target). שינוי הבחירה יעדכן את כיוון ההשוואה באופן מיידי.
+    </p>
+    <div class="row g-3 align-items-center justify-content-center">
+        <div class="col-md-5">
+            <label class="form-label text-secondary small fw-bold">קובץ מקור (Source / Table 1)</label>
+            <select id="compare-source-select" class="form-select form-input-glass text-light w-100 cursor-pointer">
+                <option value="source" selected>@Model.SourceFileName</option>
+                <option value="target">@Model.TargetFileName</option>
+            </select>
+        </div>
+        <div class="col-md-2 text-center fs-3 text-primary pt-3 d-none d-md-block" style="user-select: none;">
+            ⇄
+        </div>
+        <div class="col-md-5">
+            <label class="form-label text-secondary small fw-bold">קובץ יעד (Target / Table 2)</label>
+            <select id="compare-target-select" class="form-select form-input-glass text-light w-100 cursor-pointer">
+                <option value="source">@Model.SourceFileName</option>
+                <option value="target" selected>@Model.TargetFileName</option>
             </select>
         </div>
     </div>
+</div>
+
+@* ===== הצגת הודעת שגיאה במידה ויש שגיאה בעיבוד ===== *@
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="glass-card mb-5" style="border-color: rgba(239, 68, 68, 0.3) !important;" id="error-message-box">
+        <div class="d-flex align-items-center justify-content-center gap-3">
+            <span class="text-danger fw-bold fs-4" style="user-select: none;">✕</span>
+            <div class="text-start">
+                <h2 class="h6 mb-1 text-danger fw-bold">שגיאה במיפוי</h2>
+                <p class="mb-0 text-secondary small">@TempData["ErrorMessage"]</p>
+            </div>
+        </div>
+    </div>
+}
+
+<form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison">
+    @Html.AntiForgeryToken()
 
     @* כרטיס מיפוי עמודות מפורט *@
     <div class="glass-card mb-5" id="columns-mapping-card">
         <h3 class="h4 text-gradient mb-3">הגדרת השוואת עמודות</h3>
         <p class="text-secondary small mb-4">
-            סמנו בתיבת הסימון (V) את העמודות שברצונכם להשוות. עבור כל עמודת מקור, בחרו את עמודת היעד המתאימה לה. המערכת ביצעה התאמה אוטומטית לעמודות בעלות שם זהה.
+            סמנו בתיבת הסימון (V) את העמודות שברצונכם לכלול בתהליך. הגדירו את תפקיד העמודה (מפתח מול שדה להשוואה) והתאימו את עמודת היעד.
         </p>
 
         <div class="table-responsive">
             <table class="table table-dark table-borderless align-middle" id="files-mapping-table">
                 <thead>
                     <tr class="text-secondary border-bottom border-white/5 small">
-                        <th style="width: 15%;" class="text-center">להשוות?</th>
-                        <th style="width: 40%;">עמודת מקור (Table 1)</th>
-                        <th style="width: 45%;">עמודת יעד תואמת (Table 2)</th>
+                        <th style="width: 10%;" class="text-center">לכלול?</th>
+                        <th style="width: 30%;">עמודת מקור (Table 1)</th>
+                        <th style="width: 35%;">עמודת יעד תואמת (Table 2)</th>
+                        <th style="width: 25%;">תפקיד העמודה</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -67,15 +93,20 @@
                     {
                         var isPreChecked = Model.TargetColumns.Any(tc => string.Equals(tc, col, System.StringComparison.OrdinalIgnoreCase));
                         
+                        // זיהוי אוטומטי מראש של שדות מפתח מועמדים כדי להקל על המשתמש
+                        var isDefaultKey = string.Equals(col, "DAF", StringComparison.OrdinalIgnoreCase) || 
+                                           string.Equals(col, "DAF_NOSAF", StringComparison.OrdinalIgnoreCase) || 
+                                           string.Equals(col, "RowId", StringComparison.OrdinalIgnoreCase);
+
                         <tr class="border-bottom border-white/5 py-3">
                             <td class="text-center">
-                                <input type="checkbox" name="selectedSourceFields" value="@col" @(isPreChecked ? "checked" : "") class="form-check-input form-input-glass" style="width: 1.5rem; height: 1.5rem; cursor: pointer;" id="check_@col" />
+                                <input type="checkbox" name="selectedSourceFields" value="@col" @(isPreChecked ? "checked" : "") class="form-check-input" style="width: 1.4rem; height: 1.4rem; cursor: pointer;" id="check_@col" />
                             </td>
                             <td>
                                 <label for="check_@col" class="text-light fw-bold cursor-pointer small">@col</label>
                             </td>
                             <td>
-                                <select name="targetMapping_@col" class="form-select form-input-glass text-light w-100">
+                                <select name="targetMapping_@col" class="form-select form-input-glass text-light w-100" id="target_@col">
                                     <option value="">-- אל תשווה --</option>
                                     @foreach (var targetCol in Model.TargetColumns)
                                     {
@@ -87,6 +118,20 @@
                                         {
                                             <option value="@targetCol">@targetCol</option>
                                         }
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <select name="roleMapping_@col" class="form-select form-input-glass text-light w-100" id="role_@col">
+                                    @if (isDefaultKey)
+                                    {
+                                        <option value="Compare">שדה להשוואה</option>
+                                        <option value="Key" selected>שדה מפתח (Key)</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="Compare" selected>שדה להשוואה</option>
+                                        <option value="Key">שדה מפתח (Key)</option>
                                     }
                                 </select>
                             </td>
@@ -120,46 +165,38 @@
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Disable mapped dropdowns if the checkbox is unchecked
-            const checkboxes = document.querySelectorAll('input[name="selectedSourceFields"]');
-            checkboxes.forEach(cb => {
-                const selectId = "targetMapping_" + cb.value;
-                const selectElement = document.getElementsByName(selectId)[0];
-                
-                // Set initial state
-                if (selectElement) {
-                    selectElement.disabled = !cb.checked;
-                }
+            // הוספת מאזינים לשינוי כיוון ההשוואה
+            const sourceSelect = document.getElementById("compare-source-select");
+            const targetSelect = document.getElementById("compare-target-select");
 
-                cb.addEventListener("change", function() {
-                    if (selectElement) {
-                        selectElement.disabled = !this.checked;
-                    }
-                });
+            sourceSelect.addEventListener("change", function() {
+                if (sourceSelect.value === "target") {
+                    window.location.href = '@Url.Action("SwapFiles", "Compare")';
+                }
             });
 
-            // Make sure the primary key cannot be unchecked or disabled
-            const pkSelect = document.getElementById("primaryKeySelect");
-            
-            function updatePkStatus() {
-                const currentPk = pkSelect.value;
-                checkboxes.forEach(cb => {
-                    if (cb.value === currentPk) {
-                        cb.checked = true;
-                        cb.disabled = true; // PK must always be active
-                        const selectId = "targetMapping_" + cb.value;
-                        const selectElement = document.getElementsByName(selectId)[0];
-                        if (selectElement) {
-                            selectElement.disabled = false;
-                        }
-                    } else {
-                        cb.disabled = false;
-                    }
-                });
-            }
+            targetSelect.addEventListener("change", function() {
+                if (targetSelect.value === "source") {
+                    window.location.href = '@Url.Action("SwapFiles", "Compare")';
+                }
+            });
 
-            pkSelect.addEventListener("change", updatePkStatus);
-            updatePkStatus(); // initial call
+            const checkboxes = document.querySelectorAll('input[name="selectedSourceFields"]');
+            checkboxes.forEach(cb => {
+                const targetSelect = document.getElementById("target_" + cb.value);
+                const roleSelect = document.getElementById("role_" + cb.value);
+                
+                function updateSelectsState() {
+                    if (targetSelect) targetSelect.disabled = !cb.checked;
+                    if (roleSelect) roleSelect.disabled = !cb.checked;
+                }
+
+                // Initial state
+                updateSelectsState();
+
+                // On toggle
+                cb.addEventListener("change", updateSelectsState);
+            });
         });
     </script>
 }

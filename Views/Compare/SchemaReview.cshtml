@@ -183,16 +183,15 @@
     <div class="row g-4 mb-5" id="run-config-section">
         <div class="col-md-6">
             <div class="glass-card h-100 p-4">
-                <h4 class="h6 text-gradient mb-3">בחירת מפתח ראשי להתאמה (Primary Key)</h4>
+                <h4 class="h6 text-gradient mb-3">מפתחות התאמה להשוואה (Primary Keys)</h4>
                 <div class="mb-3">
-                    <label for="pk-column-selector" class="form-label text-secondary small">מפתח ראשי מוצע</label>
-                    <select class="form-select form-input-glass text-light w-100" id="pk-column-selector" required>
-                        <option value="" disabled>-- בחרו מפתח ראשי --</option>
-                        @* יאוכלס דינמית על ידי JavaScript מהשדות שנבחרו בטבלת המיפוי *@
-                    </select>
+                    <label class="form-label text-secondary small">מפתחות שנבחרו (ניתן לבחור מפתחות מורכבים בטבלת המיפוי)</label>
+                    <div id="selected-keys-display" class="d-flex gap-2 flex-wrap p-3 rounded" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color); min-height: 48px;">
+                        <!-- יאוכלס דינמית כבאדג'ים של עמודות מפתח -->
+                    </div>
                 </div>
                 <span class="text-secondary small d-block">
-                    שירות ההשוואה מזהה מפתח ראשוני מקטלוג הנתונים, אך באפשרותכם לשנותו לכל עמודה משותפת אחרת.
+                    שירות ההשוואה תומך במפתחות מורכבים (Composite Keys). הגדירו "מפתח התאמה (Key)" בשורות המיפוי המתאימות בטבלה למעלה.
                 </span>
             </div>
         </div>
@@ -234,7 +233,7 @@
             const mappingRows = document.getElementById("active-mapping-rows");
             const noMappingsAlert = document.getElementById("no-mappings-alert");
             const btnAddCustom = document.getElementById("btn-add-custom-mapping");
-            const pkSelector = document.getElementById("pk-column-selector");
+            const keysDisplay = document.getElementById("selected-keys-display");
             const mainForm = document.getElementById("schema-review-form");
 
             // פונקציה לבדיקה ורענון של הודעת "אין שדות"
@@ -246,34 +245,32 @@
                 }
             }
 
-            // פונקציה לעדכון תיבת בחירת המפתח הראשי
-            function updatePkSelector() {
-                // שמירת הערך הנוכחי שנבחר (אם קיים)
-                const currentSelected = pkSelector.value || defaultPk;
+            // פונקציה לעדכון תצוגת מפתחות ההתאמה
+            function updateKeysDisplay() {
+                keysDisplay.innerHTML = "";
                 
-                // איפוס האפשרויות בתיבת הבחירה
-                pkSelector.innerHTML = '<option value="" disabled>-- בחרו מפתח ראשי --</option>';
-                
-                // שליפת כל שדות המקור שמופיעים כרגע בטבלת המיפוי הפעילה
-                const activeSourceFields = Array.from(mappingRows.querySelectorAll("select[name='sourceFields']"))
-                    .map(sel => sel.value)
-                    .filter(val => val !== "");
+                // שליפת כל השורות שמסומנות כמפתח
+                const keyRows = Array.from(mappingRows.querySelectorAll("tr.mapping-row-item"))
+                    .filter(row => {
+                        const roleSelect = row.querySelector("select[name='fieldRoles']");
+                        return roleSelect && roleSelect.value === "Key";
+                    });
 
-                // הוספת השדות הפעילים כאפשרויות לבחירת מפתח ראשי
-                activeSourceFields.forEach(field => {
-                    const opt = document.createElement("option");
-                    opt.value = field;
-                    opt.text = field;
-                    if (field === currentSelected) {
-                        opt.selected = true;
-                    }
-                    pkSelector.appendChild(opt);
-                });
-
-                // אם אין ערך שנבחר באופן תקין, נבחר את האופציה הראשונה הזמינה
-                if (!pkSelector.value && pkSelector.options.length > 1) {
-                    pkSelector.options[1].selected = true;
+                if (keyRows.length === 0) {
+                    keysDisplay.innerHTML = '<span class="text-danger small">⚠ לא נבחרו מפתחות! יש לבחור לפחות מפתח אחד בטבלה למעלה.</span>';
+                    return;
                 }
+
+                keyRows.forEach(row => {
+                    const srcSelect = row.querySelector("select[name='sourceFields']");
+                    const val = srcSelect ? srcSelect.value : "";
+                    if (val) {
+                        const badge = document.createElement("span");
+                        badge.className = "badge bg-primary px-3 py-2 fs-7 font-monospace border border-primary/30 text-white";
+                        badge.innerText = val;
+                        keysDisplay.appendChild(badge);
+                    }
+                });
             }
 
             // פונקציה להוספת שורת מיפוי לטבלה התחתונה
@@ -312,7 +309,10 @@
                 // עמודה ג: תפקיד השדה (מפתח או השוואה)
                 const tdRole = document.createElement("td");
                 // קביעת התפקיד כברירת מחדל: "Key" אם שם העמודה תואם למפתח המוצע
-                const isKey = sqlColName && sqlColName.toLowerCase() === defaultPk.toLowerCase();
+                const isKey = sqlColName && (
+                    defaultPk.split(',').map(k => k.trim().toLowerCase()).includes(sqlColName.toLowerCase()) || 
+                    sqlColName.toLowerCase() === defaultPk.toLowerCase()
+                );
                 tdRole.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100 role-field-select" name="fieldRoles" required>
                         <option value="Compare" ${!isKey ? "selected" : ""}>שדה להשוואה</option>
@@ -340,18 +340,12 @@
                         targetSelect.value = matchingOracle;
                     }
                     
-                    updatePkSelector();
+                    updateKeysDisplay();
                 });
 
                 // הגדרת מאזין לשינוי תפקיד השדה - אם הוא מסומן כמפתח ראשי
                 tdRole.querySelector("select").addEventListener("change", function() {
-                    if (this.value === "Key") {
-                        // עדכון ה-Dropdown הראשי של ה-PK
-                        const srcVal = tdSource.querySelector("select").value;
-                        if (srcVal) {
-                            pkSelector.value = srcVal;
-                        }
-                    }
+                    updateKeysDisplay();
                 });
 
                 // הגדרת פעולת מחיקה
@@ -365,7 +359,7 @@
                         }
                     }
                     updateNoMappingsAlert();
-                    updatePkSelector();
+                    updateKeysDisplay();
                 });
 
                 // חיבור העמודות לשורה והוספתה לטבלה
@@ -376,7 +370,7 @@
                 mappingRows.appendChild(tr);
 
                 updateNoMappingsAlert();
-                updatePkSelector();
+                updateKeysDisplay();
             }
 
             // פונקציית סנכרון ראשונית מטבלת הסכמה לטבלת המיפוי (טעינת כל השדות המשותפים שסומנו)
@@ -420,7 +414,7 @@
                             existingRow.remove();
                         }
                         updateNoMappingsAlert();
-                        updatePkSelector();
+                        updateKeysDisplay();
                     }
                 });
             });
@@ -428,25 +422,6 @@
             // האזנה לכפתור הוספת שורה מותאמת אישית ידנית
             btnAddCustom.addEventListener("click", function() {
                 addMappingRow("", "", false);
-            });
-
-            // האזנה לשינוי בבחירת מפתח ראשי מוצע
-            pkSelector.addEventListener("change", function() {
-                const selectedPk = this.value;
-                // עדכון התפקיד (Role) בטבלה התחתונה עבור שדה זה להיות "Key" ואחרים "Compare"
-                const rows = mappingRows.querySelectorAll("tr.mapping-row-item");
-                rows.forEach(row => {
-                    const srcSelect = row.querySelector("select[name='sourceFields']");
-                    const roleSelect = row.querySelector("select[name='fieldRoles']");
-                    if (srcSelect && roleSelect) {
-                        if (srcSelect.value === selectedPk) {
-                            roleSelect.value = "Key";
-                        } else if (roleSelect.value === "Key") {
-                            // אם קודם הוא היה Key, נשנה ל-Compare (אלא אם כן המשתמש רוצה מפתח מורכב - אך כרגע תומכים במפתח יחיד קל)
-                            roleSelect.value = "Compare";
-                        }
-                    }
-                });
             });
 
             // אימות הגשת הטופס
@@ -472,7 +447,7 @@
             });
 
             // אתחול ראשוני של המפתח הראשי ב-UI
-            updatePkSelector();
+            updateKeysDisplay();
         });
 
         // פונקציה לשמירת תצורת המיפוי לקובץ JSON חיצוני
