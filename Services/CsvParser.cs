@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using MiniExcelLibs;
 
 namespace CompareD.Services;
 
@@ -58,5 +60,72 @@ public static class CsvParser
         }
         result.Add(current.ToString().Trim().Trim('"'));
         return result;
+    }
+
+    public static List<Dictionary<string, object>> ParseXlsx(Stream stream)
+    {
+        var result = new List<Dictionary<string, object>>();
+        var rows = MiniExcel.Query(stream);
+        foreach (var row in rows)
+        {
+            var dict = row as IDictionary<string, object>;
+            if (dict != null)
+            {
+                var rowDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kvp in dict)
+                {
+                    rowDict[kvp.Key] = kvp.Value ?? "";
+                }
+                result.Add(rowDict);
+            }
+        }
+        return result;
+    }
+
+    public static List<string> GetHeaders(string filePath)
+    {
+        var extension = Path.GetExtension(filePath).ToLower();
+        if (extension == ".xlsx")
+        {
+            using (var stream = File.OpenRead(filePath))
+            {
+                var firstRow = MiniExcel.Query(stream).FirstOrDefault() as IDictionary<string, object>;
+                if (firstRow != null)
+                {
+                    return firstRow.Keys.ToList();
+                }
+            }
+        }
+        else
+        {
+            using (var stream = File.OpenRead(filePath))
+            {
+                var result = Parse(stream);
+                if (result.Count > 0)
+                {
+                    return result[0].Keys.ToList();
+                }
+            }
+        }
+        return new List<string>();
+    }
+
+    public static List<Dictionary<string, object>> ParseFile(string filePath)
+    {
+        var extension = Path.GetExtension(filePath).ToLower();
+        if (extension == ".xlsx")
+        {
+            using (var stream = File.OpenRead(filePath))
+            {
+                return ParseXlsx(stream);
+            }
+        }
+        else
+        {
+            using (var stream = File.OpenRead(filePath))
+            {
+                return Parse(stream);
+            }
+        }
     }
 }

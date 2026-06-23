@@ -223,83 +223,163 @@ public class CompareController : Controller
         return View();
     }
 
-    // פעולה (Action) המקבלת את שני הקבצים, מפרשת אותם ומבצעת השוואה בזיכרון
+    // פעולה (Action) המקבלת את שני הקבצים, שומרת אותם זמנית ומפנה למסך הסקירה והמיפוי
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult CompareUploadedFiles(Microsoft.AspNetCore.Http.IFormFile file1, Microsoft.AspNetCore.Http.IFormFile file2, int maxRows = 1000)
+    public async Task<IActionResult> CompareUploadedFiles(Microsoft.AspNetCore.Http.IFormFile file1, Microsoft.AspNetCore.Http.IFormFile file2)
     {
-        if (file1 == null || file2 == null)
+        if (file1 == null || file2 == null || file1.Length == 0 || file2.Length == 0)
         {
-            TempData["ErrorMessage"] = "יש לבחור את שני הקבצים להשוואה.";
+            TempData["ErrorMessage"] = "יש לבחור את שני הקבצים להשוואה ולוודא שאינם ריקים.";
             return RedirectToAction("CompareFilesSetup");
         }
 
         try
         {
-            List<Dictionary<string, object>> sqlRawData;
-            List<Dictionary<string, object>> oracleRawData;
-
-            using (var stream1 = file1.OpenReadStream())
+            var tempDir = Path.Combine(Directory.GetCurrentDirectory(), "temp_uploads");
+            if (!Directory.Exists(tempDir))
             {
-                sqlRawData = CsvParser.Parse(stream1);
-            }
-            using (var stream2 = file2.OpenReadStream())
-            {
-                oracleRawData = CsvParser.Parse(stream2);
+                Directory.CreateDirectory(tempDir);
             }
 
-            if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
+            // Generate clean unique names retaining extension
+            var ext1 = Path.GetExtension(file1.FileName).ToLower();
+            var ext2 = Path.GetExtension(file2.FileName).ToLower();
+
+            // Validate that we got CSV or XLSX files
+            if ((ext1 != ".csv" && ext1 != ".xlsx") || (ext2 != ".csv" && ext2 != ".xlsx"))
             {
-                TempData["ErrorMessage"] = "אחד הקבצים או שניהם ריקים או שאינם בפורמט CSV תקין.";
+                TempData["ErrorMessage"] = "המערכת תומכת בקובצי CSV או XLSX (Excel) בלבד.";
                 return RedirectToAction("CompareFilesSetup");
             }
 
-            // חילוץ עמודות (Headers)
-            var sqlHeaders = sqlRawData[0].Keys.ToList();
-            var oracleHeaders = oracleRawData[0].Keys.ToList();
+            var path1 = Path.Combine(tempDir, $"{Guid.NewGuid()}{ext1}");
+            var path2 = Path.Combine(tempDir, $"{Guid.NewGuid()}{ext2}");
 
-            // מיפוי עמודות אוטומטי (Case-Insensitive)
-            var sourceFields = new List<string>();
-            var targetFields = new List<string>();
-            var fieldRoles = new List<string>();
-
-            // עמודה ראשונה כעמודת מפתח
-            var primaryKey = sqlHeaders[0];
-            var targetPrimaryKey = oracleHeaders.FirstOrDefault(h => string.Equals(h, primaryKey, StringComparison.OrdinalIgnoreCase));
-            if (targetPrimaryKey == null)
+            using (var stream1 = new FileStream(path1, FileMode.Create))
             {
-                targetPrimaryKey = oracleHeaders[0];
+                await file1.CopyToAsync(stream1);
+            }
+            using (var stream2 = new FileStream(path2, FileMode.Create))
+            {
+                await file2.CopyToAsync(stream2);
             }
 
-            sourceFields.Add(primaryKey);
-            targetFields.Add(targetPrimaryKey);
-            fieldRoles.Add("Key");
+            // Save in session
+            HttpContext.Session.SetString("CsvSourceFilePath", path1);
+            HttpContext.Session.SetString("CsvTargetFilePath", path2);
+            HttpContext.Session.SetString("CsvSourceFileName", file1.FileName);
+            HttpContext.Session.SetString("CsvTargetFileName", file2.FileName);
 
-            // שאר העמודות להשוואה
-            foreach (var sh in sqlHeaders)
+            return RedirectToAction("CompareFilesSchemaReview");
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"שגיאה בהעלאת הקבצים: {ex.Message}";
+            return RedirectToAction("CompareFilesSetup");
+        }
+    }
+
+    // פעולה (Action) המציגה את מסך סקירת הסכמה ומיפוי השדות עבור קבצים
+    [HttpGet]
+    public IActionResult CompareFilesSchemaReview()
+    {
+        var path1 = HttpContext.Session.GetString("CsvSourceFilePath");
+        var path2 = HttpContext.Session.GetString("CsvTargetFilePath");
+        var name1 = HttpContext.Session.GetString("CsvSourceFileName");
+        var name2 = HttpContext.Session.GetString("CsvTargetFileName");
+
+        if (string.IsNullOrEmpty(path1) || string.IsNullOrEmpty(path2) || !System.IO.File.Exists(path1) || !System.IO.File.Exists(path2))
+        {
+            TempData["ErrorMessage"] = "קובצי ההשוואה לא נמצאו. אנא העלו אותם מחדש.";
+            return RedirectToAction("CompareFilesSetup");
+        }
+
+        try
+        {
+            var headers1 = CsvParser.GetHeaders(path1!);
+            var headers2 = CsvParser.GetHeaders(path2!);
+
+            if (headers1.Count == 0 || headers2.Count == 0)
             {
-                if (string.Equals(sh, primaryKey, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                var th = oracleHeaders.FirstOrDefault(h => string.Equals(h, sh, StringComparison.OrdinalIgnoreCase));
-                if (th != null)
-                {
-                    sourceFields.Add(sh);
-                    targetFields.Add(th);
-                    fieldRoles.Add("Compare");
-                }
+                TempData["ErrorMessage"] = "לא נמצאו עמודות או כותרות באחד הקבצים או בשניהם.";
+                return RedirectToAction("CompareFilesSetup");
             }
 
-            // אם לא נמצאו עמודות נוספות, נבצע התאמה לפי מיקום
-            if (sourceFields.Count <= 1)
+            var model = new FilesSchemaReviewViewModel
             {
-                for (int i = 1; i < sqlHeaders.Count; i++)
+                SourceFileName = name1 ?? Path.GetFileName(path1!),
+                TargetFileName = name2 ?? Path.GetFileName(path2!),
+                SourceColumns = headers1,
+                TargetColumns = headers2
+            };
+
+            return View("CompareFilesSchemaReview", model);
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"שגיאה בטעינת עמודות הקבצים: {ex.Message}";
+            return RedirectToAction("CompareFilesSetup");
+        }
+    }
+
+    // פעולה (Action) המבצעת את ההשוואה בפועל לפי המיפוי והגדרות המשתמש מהמסך
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult RunFilesComparison(
+        string primaryKey,
+        List<string> selectedSourceFields,
+        int maxRows = 1000)
+    {
+        var path1 = HttpContext.Session.GetString("CsvSourceFilePath");
+        var path2 = HttpContext.Session.GetString("CsvTargetFilePath");
+        var name1 = HttpContext.Session.GetString("CsvSourceFileName");
+        var name2 = HttpContext.Session.GetString("CsvTargetFileName");
+
+        if (string.IsNullOrEmpty(path1) || string.IsNullOrEmpty(path2) || !System.IO.File.Exists(path1) || !System.IO.File.Exists(path2))
+        {
+            TempData["ErrorMessage"] = "פג תוקף הקבצים שהועלו. אנא העלו מחדש.";
+            return RedirectToAction("CompareFilesSetup");
+        }
+
+        try
+        {
+            var sqlRawData = CsvParser.ParseFile(path1!);
+            var oracleRawData = CsvParser.ParseFile(path2!);
+
+            if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
+            {
+                TempData["ErrorMessage"] = "אחד הקבצים או שניהם התבררו כריקים בעת הרצת ההשוואה.";
+                return RedirectToAction("CompareFilesSetup");
+            }
+
+            // Build final mapping
+            var finalSourceFields = new List<string> { primaryKey };
+            var finalTargetFields = new List<string>();
+
+            // Get target column mapped to primaryKey
+            string? targetPk = Request.Form["targetMapping_" + primaryKey];
+            if (string.IsNullOrEmpty(targetPk))
+            {
+                targetPk = primaryKey;
+            }
+            finalTargetFields.Add(targetPk);
+            var finalFieldRoles = new List<string> { "Key" };
+
+            // Add selected compare fields
+            if (selectedSourceFields != null)
+            {
+                foreach (var sf in selectedSourceFields)
                 {
-                    if (i < oracleHeaders.Count)
+                    if (string.Equals(sf, primaryKey, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string? tf = Request.Form["targetMapping_" + sf];
+                    if (!string.IsNullOrEmpty(tf))
                     {
-                        sourceFields.Add(sqlHeaders[i]);
-                        targetFields.Add(oracleHeaders[i]);
-                        fieldRoles.Add("Compare");
+                        finalSourceFields.Add(sf);
+                        finalTargetFields.Add(tf);
+                        finalFieldRoles.Add("Compare");
                     }
                 }
             }
@@ -313,19 +393,21 @@ public class CompareController : Controller
             var smartResultsViewModel = _compareService.CompareInMemoryDatasets(
                 sqlDataLimited,
                 oracleDataLimited,
-                file1.FileName,
-                file2.FileName,
-                sourceFields,
-                targetFields,
-                fieldRoles);
+                name1 ?? Path.GetFileName(path1!),
+                name2 ?? Path.GetFileName(path2!),
+                finalSourceFields,
+                finalTargetFields,
+                finalFieldRoles);
 
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
-            TempData["ErrorMessage"] = $"שגיאה בעיבוד קובצי ה-CSV: {ex.Message}";
+            TempData["ErrorMessage"] = $"שגיאה בהרצת השוואת הקבצים: {ex.Message}";
             return RedirectToAction("CompareFilesSetup");
         }
     }
+
 }
+
 

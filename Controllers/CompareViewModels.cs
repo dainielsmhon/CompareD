@@ -244,4 +244,14 @@ public class SmartComparisonResultViewModel
     public int TotalDiscrepancyRows { get; set; }
 }
 
+// מודל תצוגה עבור סקירה ומיפוי של קובצי CSV/Excel
+public class FilesSchemaReviewViewModel
+{
+    public string SourceFileName { get; set; } = string.Empty;
+    public string TargetFileName { get; set; } = string.Empty;
+    public List<string> SourceColumns { get; set; } = new();
+    public List<string> TargetColumns { get; set; } = new();
+}
+
+
 

@@ -1,0 +1,165 @@
+@model CompareD.Controllers.FilesSchemaReviewViewModel
+
+@{
+    ViewData["Title"] = "שלב 2 — סקירה ומיפוי עמודות";
+}
+
+@* ===== מחוון שלבים (Step Indicator) ===== *@
+<div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
+        <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-1-badge">✓ 1. העלאת קבצים</span>
+        <span class="text-secondary">→</span>
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-2-badge">2. סקירת סכמה ומיפוי</span>
+        <span class="text-secondary">→</span>
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-3-badge">3. דוח תוצאות</span>
+    </div>
+</div>
+
+@* ===== כותרת הדף המרכזית ===== *@
+<div class="text-center mb-5" id="csv-review-header">
+    <h1 class="display-4 text-gradient mb-3" id="csv-review-title">סקירת מבנה ומיפוי עמודות</h1>
+    <p class="lead text-secondary fs-5" id="csv-review-description">
+        הקבצים נקראו בהצלחה! להלן העמודות שזוהו. בחרו את שדה המפתח הראשי והגדירו אילו עמודות ברצונכם להשוות זו מול זו.
+    </p>
+    <div class="d-flex justify-content-center gap-3 mt-3" id="selected-files-preview">
+        <span class="badge bg-primary px-3 py-2 fs-6">מקור: @Model.SourceFileName</span>
+        <span class="badge bg-secondary px-3 py-2 fs-6" style="background-color: var(--accent-secondary) !important;">יעד: @Model.TargetFileName</span>
+    </div>
+</div>
+
+<form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison">
+    @Html.AntiForgeryToken()
+
+    @* כרטיס הגדרת מפתח ראשי *@
+    <div class="glass-card mb-5" id="pk-config-card" style="max-width: 600px; margin: 0 auto;">
+        <h3 class="h5 text-gradient mb-3">מפתח התאמה ראשי (Primary Key)</h3>
+        <p class="text-secondary small mb-3">
+            בחרו את העמודה הייחודית (כמו מזהה, מספר סידורי או מפתח ייחודי אחר) בקובץ המקור המשמשת להתאמת השורות מול קובץ היעד.
+        </p>
+        <div class="mb-2">
+            <select id="primaryKeySelect" name="primaryKey" class="form-select form-input-glass text-light w-100" required>
+                @foreach (var col in Model.SourceColumns)
+                {
+                    <option value="@col">@col</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @* כרטיס מיפוי עמודות מפורט *@
+    <div class="glass-card mb-5" id="columns-mapping-card">
+        <h3 class="h4 text-gradient mb-3">הגדרת השוואת עמודות</h3>
+        <p class="text-secondary small mb-4">
+            סמנו בתיבת הסימון (V) את העמודות שברצונכם להשוות. עבור כל עמודת מקור, בחרו את עמודת היעד המתאימה לה. המערכת ביצעה התאמה אוטומטית לעמודות בעלות שם זהה.
+        </p>
+
+        <div class="table-responsive">
+            <table class="table table-dark table-borderless align-middle" id="files-mapping-table">
+                <thead>
+                    <tr class="text-secondary border-bottom border-white/5 small">
+                        <th style="width: 15%;" class="text-center">להשוות?</th>
+                        <th style="width: 40%;">עמודת מקור (Table 1)</th>
+                        <th style="width: 45%;">עמודת יעד תואמת (Table 2)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var col in Model.SourceColumns)
+                    {
+                        var isPreChecked = Model.TargetColumns.Any(tc => string.Equals(tc, col, System.StringComparison.OrdinalIgnoreCase));
+                        
+                        <tr class="border-bottom border-white/5 py-3">
+                            <td class="text-center">
+                                <input type="checkbox" name="selectedSourceFields" value="@col" @(isPreChecked ? "checked" : "") class="form-check-input form-input-glass" style="width: 1.5rem; height: 1.5rem; cursor: pointer;" id="check_@col" />
+                            </td>
+                            <td>
+                                <label for="check_@col" class="text-light fw-bold cursor-pointer small">@col</label>
+                            </td>
+                            <td>
+                                <select name="targetMapping_@col" class="form-select form-input-glass text-light w-100">
+                                    <option value="">-- אל תשווה --</option>
+                                    @foreach (var targetCol in Model.TargetColumns)
+                                    {
+                                        if (string.Equals(col, targetCol, System.StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <option value="@targetCol" selected>@targetCol</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="@targetCol">@targetCol</option>
+                                        }
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @* הגדרת כמות שורות מקסימלית להשוואה *@
+    <div class="glass-card mb-5 text-center" id="limit-config-container" style="max-width: 450px; margin: 0 auto;">
+        <label for="max-rows-input" class="form-label text-secondary fs-6 fw-bold" id="max-rows-label">הגבלת כמות רשומות לטעינה (Max Rows)</label>
+        <input type="number" class="form-control form-input-glass text-center text-light mx-auto" id="max-rows-input" name="maxRows" value="1000" min="1" required style="max-width: 200px;" />
+        <span class="text-secondary small d-block mt-2">הגבילו את השורות לקבצים גדולים כדי להבטיח ביצועים מהירים.</span>
+    </div>
+
+    @* כפתור ביצוע ההשוואה *@
+    <div class="text-center" id="action-button-container">
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-run-files-compare">
+            הרץ השוואת נתונים
+        </button>
+        <div class="mt-3">
+            <a href="@Url.Action("CompareFilesSetup", "Compare")" class="text-secondary small text-decoration-none">
+                ← חזרה להעלאת קבצים
+            </a>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Disable mapped dropdowns if the checkbox is unchecked
+            const checkboxes = document.querySelectorAll('input[name="selectedSourceFields"]');
+            checkboxes.forEach(cb => {
+                const selectId = "targetMapping_" + cb.value;
+                const selectElement = document.getElementsByName(selectId)[0];
+                
+                // Set initial state
+                if (selectElement) {
+                    selectElement.disabled = !cb.checked;
+                }
+
+                cb.addEventListener("change", function() {
+                    if (selectElement) {
+                        selectElement.disabled = !this.checked;
+                    }
+                });
+            });
+
+            // Make sure the primary key cannot be unchecked or disabled
+            const pkSelect = document.getElementById("primaryKeySelect");
+            
+            function updatePkStatus() {
+                const currentPk = pkSelect.value;
+                checkboxes.forEach(cb => {
+                    if (cb.value === currentPk) {
+                        cb.checked = true;
+                        cb.disabled = true; // PK must always be active
+                        const selectId = "targetMapping_" + cb.value;
+                        const selectElement = document.getElementsByName(selectId)[0];
+                        if (selectElement) {
+                            selectElement.disabled = false;
+                        }
+                    } else {
+                        cb.disabled = false;
+                    }
+                });
+            }
+
+            pkSelect.addEventListener("change", updatePkStatus);
+            updatePkStatus(); // initial call
+        });
+    </script>
+}
