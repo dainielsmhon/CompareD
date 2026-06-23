@@ -57,7 +57,7 @@
     @* כרטיס שורות חסרות ביעד (Oracle) *@
     <div class="col-md-3">
         <div class="glass-card text-center h-100 py-4" style="border-color: rgba(245, 158, 11, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">חסר ביעד (Oracle)</h2>
+            <h2 class="h6 text-secondary mb-2">חסר ביעד (@Model.OracleTable)</h2>
             <div class="display-6 fw-bold text-warning">@Model.TotalMissingInOracle</div>
             <span class="text-secondary small d-block mt-2">קיימות במקור בלבד</span>
         </div>
@@ -66,7 +66,7 @@
     @* כרטיס שורות חסרות במקור (SQL Server) *@
     <div class="col-md-3">
         <div class="glass-card text-center h-100 py-4" style="border-color: rgba(59, 130, 246, 0.3) !important;">
-            <h2 class="h6 text-secondary mb-2">חסר במקור (SQL)</h2>
+            <h2 class="h6 text-secondary mb-2">חסר במקור (@Model.SqlTable)</h2>
             <div class="display-6 fw-bold text-primary">@Model.TotalMissingInSql</div>
             <span class="text-secondary small d-block mt-2">קיימות ביעד בלבד</span>
         </div>
@@ -80,11 +80,11 @@
             <h3 class="h5 text-gradient mb-3">סטטיסטיקת טעינה</h3>
             <ul class="list-group list-group-flush bg-transparent">
                 <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
-                    <span>שורות שנטענו מ-SQL Server:</span>
+                    <span>שורות שנטענו מ-@Model.SqlTable:</span>
                     <strong class="text-light">@Model.TotalRowsInSql</strong>
                 </li>
                 <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
-                    <span>שורות שנטענו מ-Oracle:</span>
+                    <span>שורות שנטענו מ-@Model.OracleTable:</span>
                     <strong class="text-light">@Model.TotalRowsInOracle</strong>
                 </li>
                 <li class="list-group-item bg-transparent text-secondary d-flex justify-content-between border-white/5 py-3">
@@ -188,9 +188,9 @@
                                         <table class="table table-dark table-sm table-borderless align-middle">
                                             <thead>
                                                 <tr class="text-secondary border-bottom border-white/5 small">
-                                                    <th style="width: 30%;">שם שדה (SQL / Oracle)</th>
-                                                    <th style="width: 35%;">ערך ב-SQL Server</th>
-                                                    <th style="width: 35%;">ערך ב-Oracle</th>
+                                                    <th style="width: 30%;">שם שדה</th>
+                                                    <th style="width: 35%;">ערך במקור (@Model.SqlTable)</th>
+                                                    <th style="width: 35%;">ערך ביעד (@Model.OracleTable)</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -227,17 +227,17 @@
         @* ===== כרטיסיית שורות חסרות ===== *@
         <div class="tab-pane fade" id="missing" role="tabpanel" aria-labelledby="missing-tab">
             <div class="row g-4">
-                @* חסר ב-Oracle (צד ב) *@
+                @* חסר ביעד *@
                 <div class="col-md-6">
                     <div class="glass-card p-4">
-                        <h4 class="h5 text-gradient mb-3">שורות שחסרות ב-Oracle (קיימות ב-SQL)</h4>
+                        <h4 class="h5 text-gradient mb-3">שורות שחסרות ביעד (@Model.OracleTable) (קיימות במקור @Model.SqlTable)</h4>
                         <div class="text-secondary small mb-3">
                             נמצאו סך הכל <strong class="text-warning">@Model.TotalMissingInOracle</strong> שורות.
                         </div>
                         
                         @if (Model.MissingInOracle.Count == 0)
                         {
-                            <div class="text-success small py-3">אין שורות חסרות בצד ב׳.</div>
+                            <div class="text-success small py-3">אין שורות חסרות ביעד.</div>
                         }
                         else
                         {
@@ -257,17 +257,17 @@
                     </div>
                 </div>
 
-                @* חסר ב-SQL (צד א) *@
+                @* חסר במקור *@
                 <div class="col-md-6">
                     <div class="glass-card p-4">
-                        <h4 class="h5 text-gradient mb-3">שורות שחסרות ב-SQL (קיימות ב-Oracle)</h4>
+                        <h4 class="h5 text-gradient mb-3">שורות שחסרות במקור (@Model.SqlTable) (קיימות ביעד @Model.OracleTable)</h4>
                         <div class="text-secondary small mb-3">
                             נמצאו סך הכל <strong class="text-primary">@Model.TotalMissingInSql</strong> שורות.
                         </div>
                         
                         @if (Model.MissingInSql.Count == 0)
                         {
-                            <div class="text-success small py-3">אין שורות חסרות בצד א׳.</div>
+                            <div class="text-success small py-3">אין שורות חסרות במקור.</div>
                         }
                         else
                         {
@@ -309,8 +309,8 @@
                         <thead>
                             <tr class="text-secondary small border-bottom border-white/5">
                                 <th style="width: 50%;">ערך מפתח כפול (Key Value)</th>
-                                <th style="width: 25%;" class="text-center">מופעים ב-SQL Server</th>
-                                <th style="width: 25%;" class="text-center">מופעים ב-Oracle</th>
+                                <th style="width: 25%;" class="text-center">מופעים במקור (@Model.SqlTable)</th>
+                                <th style="width: 25%;" class="text-center">מופעים ביעד (@Model.OracleTable)</th>
                             </tr>
                         </thead>
                         <tbody>
