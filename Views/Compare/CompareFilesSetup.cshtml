@@ -1,0 +1,127 @@
+@{
+    ViewData["Title"] = "השוואת קובצי CSV";
+}
+
+@* ===== מחוון שלבים (Step Indicator) לזרימת עבודה מבוססת קבצים ===== *@
+<div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
+    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-1-badge">1. העלאת קבצים</span>
+        <span class="text-secondary">→</span>
+        <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-2-badge">2. דוח תוצאות</span>
+    </div>
+</div>
+
+@* ===== כותרת הדף המרכזית ===== *@
+<div class="text-center mb-5" id="csv-setup-header">
+    <h1 class="display-4 text-gradient mb-3" id="csv-setup-title">השוואה ישירה של קובצי CSV / Excel</h1>
+    <p class="lead text-secondary fs-5" id="csv-setup-description">
+        העלו שני קובצי נתונים בפורמט CSV (מקור ויעד) כדי לבצע השוואת ערכים וסכמה מיידית בזיכרון, ללא צורך בחיבור פיזי למסדי נתונים.
+    </p>
+</div>
+
+@* ===== הצגת הודעת שגיאה במידה ויש שגיאה בעיבוד ===== *@
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="glass-card mb-5" style="border-color: rgba(239, 68, 68, 0.3) !important;" id="error-message-box">
+        <div class="d-flex align-items-center justify-content-center gap-3">
+            <span class="text-danger fw-bold fs-4" style="user-select: none;">✕</span>
+            <div class="text-start">
+                <h2 class="h6 mb-1 text-danger fw-bold">שגיאה בעיבוד הקבצים</h2>
+                <p class="mb-0 text-secondary small">@TempData["ErrorMessage"]</p>
+            </div>
+        </div>
+    </div>
+}
+
+<form id="csv-compare-form" method="post" enctype="multipart/form-data" asp-controller="Compare" asp-action="CompareUploadedFiles">
+    @Html.AntiForgeryToken()
+
+    @* בנטו גריד להעלאת שני קבצים *@
+    <div class="bento-grid mb-5" id="csv-upload-grid">
+        
+        @* ===== קובץ 1: מקור ===== *@
+        <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="source-file-card" style="min-height: 250px;">
+            <div class="fs-1 text-primary mb-3">📁</div>
+            <h3 class="h4 text-gradient mb-2">קובץ מקור (Table 1)</h3>
+            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV של המקור</p>
+            
+            <div class="w-100 px-3">
+                <input type="file" id="file1-input" name="file1" class="form-control form-input-glass text-light w-100" accept=".csv" required style="display:none;" />
+                <button type="button" class="btn btn-outline-primary transition-all w-100 py-3" onclick="document.getElementById('file1-input').click();">
+                    📂 בחר קובץ מקור
+                </button>
+                <div id="file1-name" class="text-success small mt-3 fw-bold d-none">
+                    קובץ נבחר: <span id="file1-selected-name" class="text-light font-monospace"></span>
+                </div>
+            </div>
+        </div>
+
+        @* ===== קובץ 2: יעד ===== *@
+        <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="target-file-card" style="min-height: 250px;">
+            <div class="fs-1 text-secondary mb-3" style="color: var(--accent-secondary) !important;">📁</div>
+            <h3 class="h4 text-gradient mb-2">קובץ יעד (Table 2)</h3>
+            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV של היעד</p>
+            
+            <div class="w-100 px-3">
+                <input type="file" id="file2-input" name="file2" class="form-control form-input-glass text-light w-100" accept=".csv" required style="display:none;" />
+                <button type="button" class="btn btn-outline-secondary transition-all w-100 py-3" style="border-color: var(--accent-secondary); color: var(--accent-secondary);" onclick="document.getElementById('file2-input').click();">
+                    📂 בחר קובץ יעד
+                </button>
+                <div id="file2-name" class="text-success small mt-3 fw-bold d-none">
+                    קובץ נבחר: <span id="file2-selected-name" class="text-light font-monospace"></span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    @* הגדרת כמות שורות מקסימלית להשוואה *@
+    <div class="glass-card mb-5 text-center" id="limit-config-container" style="max-width: 450px; margin: 0 auto;">
+        <label for="max-rows-input" class="form-label text-secondary fs-6 fw-bold" id="max-rows-label">הגבלת כמות רשומות לטעינה (Max Rows)</label>
+        <input type="number" class="form-control form-input-glass text-center text-light mx-auto" id="max-rows-input" name="maxRows" value="1000" min="1" required style="max-width: 200px;" />
+        <span class="text-secondary small d-block mt-2">מומלץ להגביל את השורות לקבצים גדולים כדי להבטיח ביצועים מהירים.</span>
+    </div>
+
+    @* כפתור ביצוע ההשוואה *@
+    <div class="text-center" id="action-button-container">
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-run-csv-compare">
+            הרץ בדיקת השוואה
+        </button>
+        <div class="mt-3">
+            <a href="@Url.Action("Index", "Home")" class="text-secondary small text-decoration-none">
+                ← חזרה לדף הבית
+            </a>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const file1Input = document.getElementById("file1-input");
+            const file2Input = document.getElementById("file2-input");
+            const file1NameDiv = document.getElementById("file1-name");
+            const file2NameDiv = document.getElementById("file2-name");
+            const file1SelectedName = document.getElementById("file1-selected-name");
+            const file2SelectedName = document.getElementById("file2-selected-name");
+
+            file1Input.addEventListener("change", function() {
+                if (file1Input.files && file1Input.files.length > 0) {
+                    file1SelectedName.textContent = file1Input.files[0].name;
+                    file1NameDiv.classList.remove("d-none");
+                } else {
+                    file1NameDiv.classList.add("d-none");
+                }
+            });
+
+            file2Input.addEventListener("change", function() {
+                if (file2Input.files && file2Input.files.length > 0) {
+                    file2SelectedName.textContent = file2Input.files[0].name;
+                    file2NameDiv.classList.remove("d-none");
+                } else {
+                    file2NameDiv.classList.add("d-none");
+                }
+            });
+        });
+    </script>
+}

@@ -58,6 +58,16 @@ public interface ICompareService
         List<string> targetFields,
         List<string> fieldRoles,
         int maxRows);
+
+    // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי)
+    SmartComparisonResultViewModel CompareInMemoryDatasets(
+        List<Dictionary<string, object>> sqlRawData,
+        List<Dictionary<string, object>> oracleRawData,
+        string sqlTable,
+        string oracleTable,
+        List<string> sourceFields,
+        List<string> targetFields,
+        List<string> fieldRoles);
 }
 
 

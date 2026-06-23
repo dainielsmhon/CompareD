@@ -1017,13 +1017,42 @@ public class CompareService : ICompareService
             }
         }
 
+        return CompareInMemoryDatasets(sqlRawData, oracleRawData, sqlTable, oracleTable, sourceFields, targetFields, fieldRoles);
+    }
+
+    // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי)
+    public SmartComparisonResultViewModel CompareInMemoryDatasets(
+        List<Dictionary<string, object>> sqlRawData,
+        List<Dictionary<string, object>> oracleRawData,
+        string sqlTable,
+        string oracleTable,
+        List<string> sourceFields,
+        List<string> targetFields,
+        List<string> fieldRoles)
+    {
+        // פיצול השדות לשדות מפתח ושדות להשוואה
+        var keys = new List<(string SqlField, string OracleField)>();
+        var compares = new List<(string SqlField, string OracleField)>();
+
+        for (int i = 0; i < sourceFields.Count; i++)
+        {
+            if (fieldRoles[i] == "Key")
+            {
+                keys.Add((sourceFields[i], targetFields[i]));
+            }
+            else
+            {
+                compares.Add((sourceFields[i], targetFields[i]));
+            }
+        }
+
         // זיהוי וספירה של מפתחות ב-SQL Server
         var sqlKeyCounts = new Dictionary<string, int>();
         var sqlDataFiltered = new Dictionary<string, Dictionary<string, object>>();
         
         foreach (var row in sqlRawData)
         {
-            var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
+            var keyParts = keys.Select(k => row.TryGetValue(k.SqlField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
             string compositeKey = string.Join("|", keyParts);
             
             if (sqlKeyCounts.ContainsKey(compositeKey))
@@ -1043,7 +1072,7 @@ public class CompareService : ICompareService
         
         foreach (var row in oracleRawData)
         {
-            var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
+            var keyParts = keys.Select(k => row.TryGetValue(k.OracleField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
             string compositeKey = string.Join("|", keyParts);
             
             if (oracleKeyCounts.ContainsKey(compositeKey))

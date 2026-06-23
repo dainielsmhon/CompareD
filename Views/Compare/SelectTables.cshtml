@@ -36,19 +36,42 @@
     </p>
 </div>
 
-@* ===== כרטיס ייבוא תצורת מיפוי מוכנה ===== *@
-<div class="glass-card mb-5 p-4 text-center" id="import-config-card" style="max-width: 700px; margin: 0 auto;">
-    <h3 class="h5 text-gradient mb-2">ייבוא תצורת מיפוי מוכנה (JSON)</h3>
-    <p class="text-secondary small mb-3">
-        אם כבר ביצעתם והגדרתם מיפוי בין הטבלאות בעבר ושמרתם את התצורה, תוכלו להעלות את הקובץ כאן כדי להריץ את ההשוואה באופן מיידי.
-    </p>
-    <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
-        <input type="file" id="import-config-file" class="form-control form-input-glass text-light" accept=".json" style="max-width: 350px;" />
-        <button type="button" onclick="importMappingConfig()" class="btn btn-outline-primary transition-all px-4" style="border-radius: 0.75rem;">
-            📂 טען והרץ השוואה
-        </button>
+@* ===== כרטיס ייבוא תצורת מיפוי מוכנה וייבוא טבלאות/קבצים ===== *@
+<div class="row g-4 mb-5" id="import-row">
+    <div class="col-md-6">
+        <div class="glass-card p-4 text-center h-100 d-flex flex-column justify-content-between" id="import-config-card">
+            <div>
+                <h3 class="h5 text-gradient mb-2">ייבוא תצורת מיפוי מוכנה (JSON)</h3>
+                <p class="text-secondary small mb-3">
+                    אם כבר ביצעתם והגדרתם מיפוי בין הטבלאות בעבר ושמרתם את התצורה, תוכלו להעלות את הקובץ כאן כדי להריץ את ההשוואה באופן מיידי.
+                </p>
+            </div>
+            <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap mt-3">
+                <input type="file" id="import-config-file" class="form-control form-input-glass text-light" accept=".json" style="max-width: 250px;" />
+                <button type="button" onclick="importMappingConfig()" class="btn btn-outline-primary transition-all px-3" style="border-radius: 0.75rem; border-color: var(--accent-primary); color: var(--accent-primary);">
+                    📂 טען והרץ השוואה
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="glass-card p-4 text-center h-100 d-flex flex-column justify-content-between" id="import-tables-card">
+            <div>
+                <h3 class="h5 text-gradient mb-2">ייבוא טבלאות / קובצי CSV</h3>
+                <p class="text-secondary small mb-3">
+                    אם ברצונכם להשוות ישירות קובצי CSV או אקסל עצמאיים ללא תלות במסדי הנתונים, תוכלו לעבור למסך הייבוא.
+                </p>
+            </div>
+            <div class="d-flex justify-content-center align-items-center mt-3">
+                <a href="@Url.Action("CompareFilesSetup", "Compare")" class="btn btn-outline-secondary transition-all px-4 py-2" style="border-radius: 0.75rem; border-color: var(--accent-secondary); color: var(--accent-secondary);">
+                    📂 ייבוא קבצים והשוואה
+                </a>
+            </div>
+        </div>
     </div>
 </div>
+
 
 @* ===== טופס הגשת הבחירה — שולח לפעולת SelectFields בבקר Compare ===== *@
 <form id="select-tables-form" method="post" asp-controller="Compare" asp-action="SchemaReview">

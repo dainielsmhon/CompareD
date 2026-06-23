@@ -215,4 +215,117 @@ public class CompareController : Controller
             return RedirectToAction("Index", "Home");
         }
     }
+
+    // פעולה (Action) המציגה את ממשק העלאת הקבצים להשוואה
+    [HttpGet]
+    public IActionResult CompareFilesSetup()
+    {
+        return View();
+    }
+
+    // פעולה (Action) המקבלת את שני הקבצים, מפרשת אותם ומבצעת השוואה בזיכרון
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult CompareUploadedFiles(Microsoft.AspNetCore.Http.IFormFile file1, Microsoft.AspNetCore.Http.IFormFile file2, int maxRows = 1000)
+    {
+        if (file1 == null || file2 == null)
+        {
+            TempData["ErrorMessage"] = "יש לבחור את שני הקבצים להשוואה.";
+            return RedirectToAction("CompareFilesSetup");
+        }
+
+        try
+        {
+            List<Dictionary<string, object>> sqlRawData;
+            List<Dictionary<string, object>> oracleRawData;
+
+            using (var stream1 = file1.OpenReadStream())
+            {
+                sqlRawData = CsvParser.Parse(stream1);
+            }
+            using (var stream2 = file2.OpenReadStream())
+            {
+                oracleRawData = CsvParser.Parse(stream2);
+            }
+
+            if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
+            {
+                TempData["ErrorMessage"] = "אחד הקבצים או שניהם ריקים או שאינם בפורמט CSV תקין.";
+                return RedirectToAction("CompareFilesSetup");
+            }
+
+            // חילוץ עמודות (Headers)
+            var sqlHeaders = sqlRawData[0].Keys.ToList();
+            var oracleHeaders = oracleRawData[0].Keys.ToList();
+
+            // מיפוי עמודות אוטומטי (Case-Insensitive)
+            var sourceFields = new List<string>();
+            var targetFields = new List<string>();
+            var fieldRoles = new List<string>();
+
+            // עמודה ראשונה כעמודת מפתח
+            var primaryKey = sqlHeaders[0];
+            var targetPrimaryKey = oracleHeaders.FirstOrDefault(h => string.Equals(h, primaryKey, StringComparison.OrdinalIgnoreCase));
+            if (targetPrimaryKey == null)
+            {
+                targetPrimaryKey = oracleHeaders[0];
+            }
+
+            sourceFields.Add(primaryKey);
+            targetFields.Add(targetPrimaryKey);
+            fieldRoles.Add("Key");
+
+            // שאר העמודות להשוואה
+            foreach (var sh in sqlHeaders)
+            {
+                if (string.Equals(sh, primaryKey, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var th = oracleHeaders.FirstOrDefault(h => string.Equals(h, sh, StringComparison.OrdinalIgnoreCase));
+                if (th != null)
+                {
+                    sourceFields.Add(sh);
+                    targetFields.Add(th);
+                    fieldRoles.Add("Compare");
+                }
+            }
+
+            // אם לא נמצאו עמודות נוספות, נבצע התאמה לפי מיקום
+            if (sourceFields.Count <= 1)
+            {
+                for (int i = 1; i < sqlHeaders.Count; i++)
+                {
+                    if (i < oracleHeaders.Count)
+                    {
+                        sourceFields.Add(sqlHeaders[i]);
+                        targetFields.Add(oracleHeaders[i]);
+                        fieldRoles.Add("Compare");
+                    }
+                }
+            }
+
+            if (maxRows <= 0) maxRows = 1000;
+            if (maxRows > 10000) maxRows = 10000;
+
+            var sqlDataLimited = sqlRawData.Take(maxRows).ToList();
+            var oracleDataLimited = oracleRawData.Take(maxRows).ToList();
+
+            var smartResultsViewModel = _compareService.CompareInMemoryDatasets(
+                sqlDataLimited,
+                oracleDataLimited,
+                file1.FileName,
+                file2.FileName,
+                sourceFields,
+                targetFields,
+                fieldRoles);
+
+            return View("Results", smartResultsViewModel);
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"שגיאה בעיבוד קובצי ה-CSV: {ex.Message}";
+            return RedirectToAction("CompareFilesSetup");
+        }
+    }
 }
+
