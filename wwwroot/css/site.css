@@ -1,6 +1,3 @@
-/* הגדרת גופן Outfit מ-Google Fonts לשדרוג הטיפוגרפיה */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
 /* הגדרת משתני עיצוב גלובליים לערכת הצבעים הכהה והמודרנית */
 :root {
     /* צבע הרקע הראשי הכהה - Slate עמוק */
@@ -29,8 +26,8 @@
 
 /* הגדרות בסיסיות לגוף הדף והתאמה למצב כהה */
 body {
-    /* שימוש בגופן המודרני כברירת מחדל */
-    font-family: 'Outfit', sans-serif;
+    /* שימוש בגופן מערכת מודרני, מהיר וללא תלות באינטרנט */
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     /* צביעת הרקע בצבע הכהה הראשי */
     background-color: var(--bg-primary);
     /* צביעת הטקסט בצבע הלבן החם */
