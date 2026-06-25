@@ -75,30 +75,137 @@
         <h3 class="h4 text-gradient mb-0">שלב א — בדיקת שלמות שורות</h3>
     </div>
 
-    @if (Model.HasRowCountMismatch)
+    @if (Model.SourceMissingKeysCount > 0 || Model.TargetMissingKeysCount > 0 || Model.SourceDuplicateKeysList.Count > 0 || Model.TargetDuplicateKeysList.Count > 0 || Model.HasRowCountMismatch)
     {
-        <div class="p-4 mb-3 rounded-3" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
+        <div class="p-4 mb-4 rounded-3" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
             <div class="d-flex align-items-center gap-3">
                 <span class="fs-2">⚠</span>
                 <div>
-                    <h4 class="h6 text-warning fw-bold mb-1">פער בספירת שורות — Critical Integrity Warning</h4>
+                    <h4 class="h6 text-warning fw-bold mb-1">פערים ואזהרות בשלמות השורות והמפתחות</h4>
                     <p class="text-secondary small mb-0">@stepAData?.Summary</p>
                 </div>
             </div>
         </div>
     }
 
-    <div class="row g-3">
+    <div class="row g-4">
+        @* צד מקור *@
         <div class="col-md-6">
-            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
-                <div class="text-secondary small mb-1">שורות במקור (@Model.SqlTable)</div>
-                <div class="display-6 fw-bold text-light">@Model.TotalRowsInSql</div>
+            <div class="p-4 rounded-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+                <h4 class="h5 text-primary mb-3">מקור (@Model.SqlTable)</h4>
+                
+                <div class="list-group list-group-flush bg-transparent">
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">ספירת שורות גולמית (Raw Count)</span>
+                        <span class="badge bg-primary fs-6">@Model.SourceRawCount</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות ייחודיים תקינים (Unique Valid Keys)</span>
+                        <span class="badge bg-success/20 text-success border border-success/30 fs-6">@Model.SourceUniqueValidKeys</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות כפולים (Duplicate Keys)</span>
+                        <span class="badge @(Model.SourceDuplicateKeysCount > 0 ? "bg-danger/20 text-danger border border-danger/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.SourceDuplicateKeysCount</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות חסרים (Missing Keys)</span>
+                        <span class="badge @(Model.SourceMissingKeysCount > 0 ? "bg-warning/20 text-warning border border-warning/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.SourceMissingKeysCount</span>
+                    </div>
+                </div>
+
+                @if (Model.SourceDuplicateKeysList.Count > 0)
+                {
+                    <div class="mt-3">
+                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים במקור:</span>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var k in Model.SourceDuplicateKeysList.Take(4))
+                            {
+                                <span class="badge bg-danger/10 text-danger border border-danger/20 font-monospace py-1 px-2 small">@k</span>
+                            }
+                        </div>
+                        @if (Model.SourceDuplicateKeysList.Count > 4)
+                        {
+                            <span class="text-secondary small d-block mt-1">מציג 4 מתוך @Model.SourceDuplicateKeysList.Count מפתחות כפולים.</span>
+                        }
+                    </div>
+                }
+
+                @if (Model.SourceMissingKeysList.Count > 0)
+                {
+                    <div class="mt-3">
+                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות חסרים במקור (קיימים רק ביעד):</span>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var k in Model.SourceMissingKeysList.Take(4))
+                            {
+                                <span class="badge bg-warning/10 text-warning border border-warning/20 font-monospace py-1 px-2 small">@k</span>
+                            }
+                        </div>
+                        @if (Model.SourceMissingKeysList.Count > 4)
+                        {
+                            <span class="text-secondary small d-block mt-1">מציג 4 מתוך @Model.SourceMissingKeysList.Count מפתחות חסרים.</span>
+                        }
+                    </div>
+                }
             </div>
         </div>
+
+        @* צד יעד *@
         <div class="col-md-6">
-            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
-                <div class="text-secondary small mb-1">שורות ביעד (@Model.OracleTable)</div>
-                <div class="display-6 fw-bold text-light">@Model.TotalRowsInOracle</div>
+            <div class="p-4 rounded-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+                <h4 class="h5 mb-3" style="color: var(--accent-secondary);">יעד (@Model.OracleTable)</h4>
+                
+                <div class="list-group list-group-flush bg-transparent">
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">ספירת שורות גולמית (Raw Count)</span>
+                        <span class="badge fs-6" style="background-color: var(--accent-secondary) !important;">@Model.TargetRawCount</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות ייחודיים תקינים (Unique Valid Keys)</span>
+                        <span class="badge bg-success/20 text-success border border-success/30 fs-6">@Model.TargetUniqueValidKeys</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות כפולים (Duplicate Keys)</span>
+                        <span class="badge @(Model.TargetDuplicateKeysCount > 0 ? "bg-danger/20 text-danger border border-danger/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.TargetDuplicateKeysCount</span>
+                    </div>
+                    <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
+                        <span class="text-secondary small">מפתחות חסרים (Missing Keys)</span>
+                        <span class="badge @(Model.TargetMissingKeysCount > 0 ? "bg-warning/20 text-warning border border-warning/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.TargetMissingKeysCount</span>
+                    </div>
+                </div>
+
+                @if (Model.TargetDuplicateKeysList.Count > 0)
+                {
+                    <div class="mt-3">
+                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים ביעד:</span>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var k in Model.TargetDuplicateKeysList.Take(4))
+                            {
+                                <span class="badge bg-danger/10 text-danger border border-danger/20 font-monospace py-1 px-2 small">@k</span>
+                            }
+                        </div>
+                        @if (Model.TargetDuplicateKeysList.Count > 4)
+                        {
+                            <span class="text-secondary small d-block mt-1">מציג 4 מתוך @Model.TargetDuplicateKeysList.Count מפתחות כפולים.</span>
+                        }
+                    </div>
+                }
+
+                @if (Model.TargetMissingKeysList.Count > 0)
+                {
+                    <div class="mt-3">
+                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות חסרים ביעד (קיימים רק במקור):</span>
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var k in Model.TargetMissingKeysList.Take(4))
+                            {
+                                <span class="badge bg-warning/10 text-warning border border-warning/20 font-monospace py-1 px-2 small">@k</span>
+                            }
+                        </div>
+                        @if (Model.TargetMissingKeysList.Count > 4)
+                        {
+                            <span class="text-secondary small d-block mt-1">מציג 4 מתוך @Model.TargetMissingKeysList.Count מפתחות חסרים.</span>
+                        }
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -411,9 +518,32 @@
 
             // Step A
             csv += "=== שלב א: בדיקת שלמות שורות ===\n";
-            csv += `שורות במקור,${model.TotalRowsInSql}\n`;
-            csv += `שורות ביעד,${model.TotalRowsInOracle}\n`;
-            csv += `סטטוס,${model.HasRowCountMismatch ? "פער בספירה" : "ספירה זהה"}\n\n`;
+            csv += "מדד,מקור,יעד\n";
+            csv += `ספירת שורות גולמית (Raw Count),${model.SourceRawCount},${model.TargetRawCount}\n`;
+            csv += `מפתחות ייחודיים תקינים (Unique Valid Keys),${model.SourceUniqueValidKeys},${model.TargetUniqueValidKeys}\n`;
+            csv += `מפתחות כפולים (Duplicate Keys Count),${model.SourceDuplicateKeysCount},${model.TargetDuplicateKeysCount}\n`;
+            csv += `מפתחות חסרים (Missing Keys Count),${model.SourceMissingKeysCount},${model.TargetMissingKeysCount}\n\n`;
+
+            if (model.SourceDuplicateKeysList.length > 0) {
+                csv += "מפתחות כפולים במקור\n";
+                model.SourceDuplicateKeysList.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
+            if (model.TargetDuplicateKeysList.length > 0) {
+                csv += "מפתחות כפולים ביעד\n";
+                model.TargetDuplicateKeysList.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
+            if (model.SourceMissingKeysList.length > 0) {
+                csv += "מפתחות חסרים במקור\n";
+                model.SourceMissingKeysList.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
+            if (model.TargetMissingKeysList.length > 0) {
+                csv += "מפתחות חסרים ביעד\n";
+                model.TargetMissingKeysList.forEach(k => { csv += `"${k}"\n`; });
+                csv += "\n";
+            }
 
             // Step B
             csv += "=== שלב ב: זיהוי מפתחות חסרים ===\n";
@@ -422,19 +552,19 @@
             csv += `כפילויות מפתח,${model.TotalDuplicates}\n\n`;
 
             if (model.MissingInOracle.length > 0) {
-                csv += "מפתחות חסרים ביעד\n";
+                csv += "מפתחות חסרים ביעד (מתוך שלב ב)\n";
                 model.MissingInOracle.forEach(k => { csv += `"${k}"\n`; });
                 csv += "\n";
             }
 
             if (model.MissingInSql.length > 0) {
-                csv += "מפתחות חסרים במקור\n";
+                csv += "מפתחות חסרים במקור (מתוך שלב ב)\n";
                 model.MissingInSql.forEach(k => { csv += `"${k}"\n`; });
                 csv += "\n";
             }
 
             if (model.Duplicates.length > 0) {
-                csv += "כפילויות מפתח\n";
+                csv += "כפילויות מפתח (מתוך שלב ב)\n";
                 csv += "ערך מפתח,כמות במקור,כמות ביעד\n";
                 model.Duplicates.forEach(d => {
                     csv += `"${d.KeyValue}",${d.SqlCount},${d.OracleCount}\n`;
@@ -479,7 +609,9 @@
         }
 
         function exportToWord() {
-            const stepAStatus = model.HasRowCountMismatch ? '<span style="color:orange; font-weight:bold;">⚠ פער בספירה</span>' : '<span style="color:green; font-weight:bold;">✓ ספירה זהה</span>';
+            const stepAStatus = (model.SourceMissingKeysCount > 0 || model.TargetMissingKeysCount > 0 || model.SourceDuplicateKeysList.length > 0 || model.TargetDuplicateKeysList.length > 0 || model.HasRowCountMismatch)
+                ? '<span style="color:orange; font-weight:bold;">⚠ פערים בשלמות</span>' 
+                : '<span style="color:green; font-weight:bold;">✓ שלמות תקינה</span>';
             
             let html = `
             <html dir="rtl" lang="he">
@@ -509,10 +641,63 @@
                 <h2>שלב א — בדיקת שלמות שורות</h2>
                 <p><strong>סטטוס:</strong> ${stepAStatus}</p>
                 <table>
-                    <tr><th>מקור (${model.SqlTable})</th><th>יעד (${model.OracleTable})</th></tr>
-                    <tr><td class="text-center"><strong>${model.TotalRowsInSql}</strong> שורות</td><td class="text-center"><strong>${model.TotalRowsInOracle}</strong> שורות</td></tr>
+                    <thead>
+                        <tr>
+                            <th>מדד</th>
+                            <th>מקור (${model.SqlTable})</th>
+                            <th>יעד (${model.OracleTable})</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ספירת שורות גולמית (Raw Count)</td>
+                            <td class="text-center">${model.SourceRawCount}</td>
+                            <td class="text-center">${model.TargetRawCount}</td>
+                        </tr>
+                        <tr>
+                            <td>מפתחות ייחודיים תקינים (Unique Valid Keys)</td>
+                            <td class="text-center">${model.SourceUniqueValidKeys}</td>
+                            <td class="text-center">${model.TargetUniqueValidKeys}</td>
+                        </tr>
+                        <tr>
+                            <td>מפתחות כפולים (Duplicate Keys Count)</td>
+                            <td class="text-center">${model.SourceDuplicateKeysCount}</td>
+                            <td class="text-center">${model.TargetDuplicateKeysCount}</td>
+                        </tr>
+                        <tr>
+                            <td>מפתחות חסרים (Missing Keys Count)</td>
+                            <td class="text-center">${model.SourceMissingKeysCount}</td>
+                            <td class="text-center">${model.TargetMissingKeysCount}</td>
+                        </tr>
+                    </tbody>
                 </table>
+            `;
 
+            if (model.SourceDuplicateKeysList.length > 0) {
+                html += `<h3>מפתחות כפולים במקור (${model.SourceDuplicateKeysList.length})</h3><ul>`;
+                model.SourceDuplicateKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            if (model.TargetDuplicateKeysList.length > 0) {
+                html += `<h3>מפתחות כפולים ביעד (${model.TargetDuplicateKeysList.length})</h3><ul>`;
+                model.TargetDuplicateKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            if (model.SourceMissingKeysList.length > 0) {
+                html += `<h3>מפתחות חסרים במקור (${model.SourceMissingKeysList.length})</h3><ul>`;
+                model.SourceMissingKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            if (model.TargetMissingKeysList.length > 0) {
+                html += `<h3>מפתחות חסרים ביעד (${model.TargetMissingKeysList.length})</h3><ul>`;
+                model.TargetMissingKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
+                html += "</ul>";
+            }
+
+            html += `
                 <h2>שלב ב — זיהוי מפתחות חסרים</h2>
                 <table>
                     <tr><th>קטגוריה</th><th>כמות</th></tr>

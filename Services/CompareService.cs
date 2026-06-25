@@ -1047,40 +1047,6 @@ public class CompareService : ICompareService
             TotalRowsInOracle = oracleRawData.Count
         };
 
-        // =====================================================================
-        // STEP A: Row Count Validation — compare total row counts
-        // =====================================================================
-        var stepA = new QaStepResult
-        {
-            StepName = "A",
-            StepTitle = "בדיקת שלמות שורות"
-        };
-
-        if (sqlRawData.Count == oracleRawData.Count)
-        {
-            stepA.Status = "Pass";
-            stepA.Summary = $"ספירת השורות זהה בשני הצדדים: {sqlRawData.Count} שורות.";
-            result.HasRowCountMismatch = false;
-        }
-        else
-        {
-            stepA.Status = "Warning";
-            stepA.Summary = $"פער בספירת שורות: מקור ({sqlTable}) מכיל {sqlRawData.Count} שורות, יעד ({oracleTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות.";
-            result.HasRowCountMismatch = true;
-        }
-
-        result.RowCountSummary = $"מקור: {sqlRawData.Count} שורות | יעד: {oracleRawData.Count} שורות";
-        result.QaSteps.Add(stepA);
-
-        // =====================================================================
-        // STEP B: Primary Key Validation — identify missing IDs and duplicates
-        // =====================================================================
-        var stepB = new QaStepResult
-        {
-            StepName = "B",
-            StepTitle = "זיהוי מפתחות חסרים"
-        };
-
         // Build key index for source
         var sqlKeyCounts = new Dictionary<string, int>();
         var sqlDataFiltered = new Dictionary<string, Dictionary<string, object>>();
@@ -1120,6 +1086,133 @@ public class CompareService : ICompareService
                 oracleDataFiltered[compositeKey] = row;
             }
         }
+
+        // --- STEP A Calculation based on Key Groupings ---
+        result.SourceRawCount = sqlRawData.Count;
+        result.TargetRawCount = oracleRawData.Count;
+
+        // Calculate unique valid keys, duplicate keys count and build list of duplicate keys
+        foreach (var kvp in sqlKeyCounts)
+        {
+            if (kvp.Value == 1)
+            {
+                result.SourceUniqueValidKeys++;
+            }
+            else
+            {
+                result.SourceDuplicateKeysCount += kvp.Value;
+                result.SourceDuplicateKeysList.Add(kvp.Key);
+            }
+        }
+
+        foreach (var kvp in oracleKeyCounts)
+        {
+            if (kvp.Value == 1)
+            {
+                result.TargetUniqueValidKeys++;
+            }
+            else
+            {
+                result.TargetDuplicateKeysCount += kvp.Value;
+                result.TargetDuplicateKeysList.Add(kvp.Key);
+            }
+        }
+
+        // Calculate missing keys and build lists
+        // Source missing keys = exists in target keys, but not in source keys
+        foreach (var k in oracleKeyCounts.Keys)
+        {
+            if (!sqlKeyCounts.ContainsKey(k))
+            {
+                result.SourceMissingKeysCount++;
+                if (result.SourceMissingKeysList.Count < 50)
+                {
+                    result.SourceMissingKeysList.Add(k);
+                }
+            }
+        }
+
+        // Target missing keys = exists in source keys, but not in target keys
+        foreach (var k in sqlKeyCounts.Keys)
+        {
+            if (!oracleKeyCounts.ContainsKey(k))
+            {
+                result.TargetMissingKeysCount++;
+                if (result.TargetMissingKeysList.Count < 50)
+                {
+                    result.TargetMissingKeysList.Add(k);
+                }
+            }
+        }
+
+        // Initialize Step A
+        var stepA = new QaStepResult
+        {
+            StepName = "A",
+            StepTitle = "בדיקת שלמות שורות"
+        };
+
+        // Determine Step A status and summary message
+        bool hasDupes = result.SourceDuplicateKeysList.Count > 0 || result.TargetDuplicateKeysList.Count > 0;
+        bool hasMissing = result.SourceMissingKeysCount > 0 || result.TargetMissingKeysCount > 0;
+
+        if (sqlRawData.Count == oracleRawData.Count)
+        {
+            if (hasMissing)
+            {
+                stepA.Status = "Warning";
+                stepA.Summary = "ספירת שורות זהה, אך המפתחות בפועל שונים (מפתחות חסרים לעומת עודפים).";
+                result.HasRowCountMismatch = true;
+            }
+            else if (hasDupes)
+            {
+                stepA.Status = "Warning";
+                var dupeParts = new List<string>();
+                if (result.SourceDuplicateKeysList.Count > 0)
+                    dupeParts.Add($"מקור מכיל {result.SourceDuplicateKeysList.Count} מפתחות כפולים");
+                if (result.TargetDuplicateKeysList.Count > 0)
+                    dupeParts.Add($"יעד מכיל {result.TargetDuplicateKeysList.Count} מפתחות כפולים");
+                stepA.Summary = string.Join(" | ", dupeParts);
+                result.HasRowCountMismatch = false;
+            }
+            else
+            {
+                stepA.Status = "Pass";
+                stepA.Summary = $"ספירת השורות והמפתחות זהה בשני הצדדים: {sqlRawData.Count} שורות.";
+                result.HasRowCountMismatch = false;
+            }
+        }
+        else
+        {
+            stepA.Status = "Warning";
+            var summaryParts = new List<string>
+            {
+                $"פער בספירת שורות: מקור ({sqlTable}) מכיל {sqlRawData.Count} שורות, יעד ({oracleTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות."
+            };
+            if (hasDupes)
+            {
+                var dupeParts = new List<string>();
+                if (result.SourceDuplicateKeysList.Count > 0)
+                    dupeParts.Add($"מקור מכיל {result.SourceDuplicateKeysList.Count} מפתחות כפולים");
+                if (result.TargetDuplicateKeysList.Count > 0)
+                    dupeParts.Add($"יעד מכיל {result.TargetDuplicateKeysList.Count} מפתחות כפולים");
+                summaryParts.Add(string.Join(", ", dupeParts));
+            }
+            stepA.Summary = string.Join(" | ", summaryParts);
+            result.HasRowCountMismatch = true;
+        }
+
+        result.RowCountSummary = $"מקור: {sqlRawData.Count} שורות | יעד: {oracleRawData.Count} שורות";
+        result.QaSteps.Add(stepA);
+
+        // =====================================================================
+        // STEP B: Primary Key Validation — identify missing IDs and duplicates
+        // =====================================================================
+        var stepB = new QaStepResult
+        {
+            StepName = "B",
+            StepTitle = "זיהוי מפתחות חסרים"
+        };
 
         // Detect duplicate keys and exclude them from main comparison
         var duplicateKeys = new HashSet<string>();

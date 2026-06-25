@@ -285,6 +285,20 @@ public class SmartComparisonResultViewModel
     
     // Summary message for row count comparison
     public string RowCountSummary { get; set; } = string.Empty;
+
+    // === QA Step A Detailed Metrics ===
+    public int SourceRawCount { get; set; }
+    public int TargetRawCount { get; set; }
+    public int SourceUniqueValidKeys { get; set; }
+    public int TargetUniqueValidKeys { get; set; }
+    public int SourceDuplicateKeysCount { get; set; }
+    public int TargetDuplicateKeysCount { get; set; }
+    public int SourceMissingKeysCount { get; set; }
+    public int TargetMissingKeysCount { get; set; }
+    public List<string> SourceDuplicateKeysList { get; set; } = new();
+    public List<string> TargetDuplicateKeysList { get; set; } = new();
+    public List<string> SourceMissingKeysList { get; set; } = new();
+    public List<string> TargetMissingKeysList { get; set; } = new();
     
     // List of data integrity gaps (value vs zero/null/empty)
     public List<DataIntegrityGap> DataIntegrityGaps { get; set; } = new();
