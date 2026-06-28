@@ -1,49 +1,42 @@
-@model CompareD.Controllers.HomeViewModel
-@* הגדרת כותרת הדף לטובת כותרת ה-Title ב-Layout — שלב 1: הגדרת חיבורים *@
+﻿@*
+    Home page — Step 1: Dynamic DB Connection Form
+    Source: SQL Server | Target: Oracle Database
+*@
 @{
     ViewData["Title"] = "שלב 1 — הגדרת חיבורים";
 }
 
-@* ===== מחוון שלבים (Step Indicator) — מציג את השלב הנוכחי מתוך 6 שלבים ===== *@
+@* ===== Step Indicator ===== *@
 <div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
     <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
-        @* שלב 1 — פעיל כרגע *@
         <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-1-badge">1. חיבור</span>
         <span class="text-secondary">→</span>
-        @* שלב 2 — טרם הגענו *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-2-badge">2. בחירת טבלה</span>
         <span class="text-secondary">→</span>
-        @* שלב 3 — טרם הגענו *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-3-badge">3. סקירת סכמה</span>
         <span class="text-secondary">→</span>
-        @* שלב 4 — טרם הגענו *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-4-badge">4. בדיקות מקדימות</span>
         <span class="text-secondary">→</span>
-        @* שלב 5 — טרם הגענו *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-5-badge">5. השוואה</span>
         <span class="text-secondary">→</span>
-        @* שלב 6 — טרם הגענו *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-6-badge">6. דוח תוצאות</span>
     </div>
 </div>
 
-@* ===== כותרת ראשית של שלב 1 ===== *@
+@* ===== Page Header ===== *@
 <div class="text-center mb-5" id="home-welcome-header">
-    @* כותרת ראשית מעוצבת באמצעות גרדיאנט טקסט מרהיב *@
     <h1 class="display-4 text-gradient mb-3" id="main-landing-title">הגדרת חיבורי מסדי נתונים</h1>
-    @* תיאור קצר שמסביר את השלב הנוכחי *@
     <p class="lead text-secondary fs-5" id="main-landing-description">
-        בחרו את פרופילי החיבור עבור שני הצדדים שברצונכם להשוות. המערכת תתחבר לשניהם ותביא את רשימת הטבלאות.
+        הזינו את פרטי החיבור עבור שני הצדדים שברצונכם להשוות. המערכת תתחבר לשניהם ותביא את רשימת הטבלאות.
     </p>
 </div>
 
-@* ===== הצגת הודעת שגיאה מעוצבת בעיצוב Pro Max במידה וההתחברות נכשלה ===== *@
+@* ===== Error Message ===== *@
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="glass-card mb-5" style="border-color: rgba(239, 68, 68, 0.3) !important;" id="error-message-box">
         <div class="d-flex align-items-center justify-content-center gap-3">
-            @* סימן שגיאה מובנה *@
-            <span class="text-danger fw-bold fs-4" id="error-icon" style="user-select: none;">✕</span>
+            <span class="text-danger fw-bold fs-4" id="error-icon" style="user-select: none;">x</span>
             <div class="text-start">
                 <h2 class="h6 mb-1 text-danger fw-bold" id="error-title">שגיאה בהתחברות</h2>
                 <p class="mb-0 text-secondary small" id="error-details">@TempData["ErrorMessage"]</p>
@@ -52,88 +45,184 @@
     </div>
 }
 
-@* ===== טופס בחירת פרופילי החיבור — שליחה לבקר Compare, פעולת Connect ===== *@
+@* ===== Connection Form ===== *@
 <form id="compare-config-form" method="post" asp-controller="Compare" asp-action="Connect">
-    @* פריסת Bento Grid הכוללת את כרטיסי הגדרות החיבורים למסדי הנתונים *@
+    @Html.AntiForgeryToken()
+
     <div class="bento-grid mb-5" id="db-config-grid">
-        
-        @* ===== כרטיס צד א׳ — SQL Server ===== *@
+
+        @* ===== Source Card - SQL Server ===== *@
         <div class="glass-card" id="sql-server-card">
-            @* כותרת הכרטיס — מזהה את הצד והסוג *@
-            <h2 class="h4 text-gradient mb-2" id="sql-card-title">צד א׳ — מקור</h2>
+            <h2 class="h4 text-gradient mb-1" id="sql-card-title">צד א׳ — מקור</h2>
             <p class="text-secondary small mb-4" id="sql-card-subtitle">SQL Server</p>
-            @* תיבת בחירה עבור פרופיל חיבור — הפרופילים נטענים מ-appsettings.json *@
+
             <div class="mb-3">
-                <label for="sql-profile-select" class="form-label text-secondary fs-6" id="sql-profile-select-label">בחרו פרופיל חיבור</label>
-                <select class="form-select form-input-glass text-light w-100" id="sql-profile-select" name="sqlProfileName" required>
-                    <option value="" disabled selected>-- בחרו פרופיל --</option>
-                    @* לולאה על כל שמות הפרופילים של SQL Server שהגיעו מהמודל *@
-                    @foreach (var name in Model.SqlProfileNames)
-                    {
-                        @* בדיקה האם פרופיל זה נבחר קודם — לשחזור הבחירה במקרה של שגיאה *@
-                        if (name == Model.SelectedSqlProfile)
-                        {
-                            <option value="@name" selected>@name</option>
-                        }
-                        else
-                        {
-                            <option value="@name">@name</option>
-                        }
-                    }
-                </select>
+                <label for="source-server" class="form-label text-secondary fs-6">כתובת שרת / IP</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="source-server" name="sourceServer"
+                       placeholder="למשל: localhost" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="source-database" class="form-label text-secondary fs-6">שם מסד הנתונים</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="source-database" name="sourceDatabase"
+                       placeholder="למשל: ProductionDB" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="source-username" class="form-label text-secondary fs-6">שם משתמש</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="source-username" name="sourceUsername"
+                       placeholder="למשל: sa" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="source-password" class="form-label text-secondary fs-6">סיסמה</label>
+                <div class="input-group">
+                    <input type="password" class="form-control form-input-glass text-light"
+                           id="source-password" name="sourcePassword"
+                           placeholder="הזינו סיסמה" required autocomplete="new-password" />
+                    <button type="button" class="btn btn-outline-secondary btn-eye-toggle"
+                            data-target="source-password" title="הצג/הסתר סיסמה"
+                            style="border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);">
+                        <span class="eye-icon">&#x1F441;</span>
+                    </button>
+                </div>
             </div>
         </div>
 
-        @* ===== כרטיס צד ב׳ — Oracle ===== *@
+        @* ===== Target Card - Oracle ===== *@
         <div class="glass-card" id="oracle-card">
-            @* כותרת הכרטיס — מזהה את הצד והסוג *@
-            <h2 class="h4 text-gradient mb-2" id="oracle-card-title">צד ב׳ — יעד</h2>
-            <p class="text-secondary small mb-4" id="oracle-card-subtitle">Oracle Database</p>
-            @* תיבת בחירה עבור פרופיל חיבור — הפרופילים נטענים מ-appsettings.json *@
+            <h2 class="h4 text-gradient mb-1" id="oracle-card-title">צד ב׳ — יעד</h2>
+            <p class="text-secondary small mb-2" id="oracle-card-subtitle">Oracle Database</p>
+
+            @* "Use same credentials as Source" checkbox *@
+            <div class="mb-4 p-3 rounded" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);" id="use-same-creds-box">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="use-same-credentials" style="width: 1.2rem; height: 1.2rem; cursor: pointer;" />
+                    <label class="form-check-label text-secondary small ms-2" for="use-same-credentials">
+                        השתמש באותם פרטי חיבור כמו המקור
+                    </label>
+                </div>
+            </div>
+
             <div class="mb-3">
-                <label for="oracle-profile-select" class="form-label text-secondary fs-6" id="oracle-profile-select-label">בחרו פרופיל חיבור</label>
-                <select class="form-select form-input-glass text-light w-100" id="oracle-profile-select" name="oracleProfileName" required>
-                    <option value="" disabled selected>-- בחרו פרופיל --</option>
-                    @* לולאה על כל שמות הפרופילים של Oracle שהגיעו מהמודל *@
-                    @foreach (var name in Model.OracleProfileNames)
-                    {
-                        @* בדיקה האם פרופיל זה נבחר קודם — לשחזור הבחירה במקרה של שגיאה *@
-                        if (name == Model.SelectedOracleProfile)
-                        {
-                            <option value="@name" selected>@name</option>
-                        }
-                        else
-                        {
-                            <option value="@name">@name</option>
-                        }
-                    }
-                </select>
+                <label for="target-server" class="form-label text-secondary fs-6">כתובת שרת / Host</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="target-server" name="targetServer"
+                       placeholder="למשל: localhost" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="target-database" class="form-label text-secondary fs-6">Schema / Service Name</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="target-database" name="targetDatabase"
+                       placeholder="למשל: XE" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="target-username" class="form-label text-secondary fs-6">שם משתמש</label>
+                <input type="text" class="form-control form-input-glass text-light w-100"
+                       id="target-username" name="targetUsername"
+                       placeholder="למשל: system" required autocomplete="off" />
+            </div>
+            <div class="mb-3">
+                <label for="target-password" class="form-label text-secondary fs-6">סיסמה</label>
+                <div class="input-group">
+                    <input type="password" class="form-control form-input-glass text-light"
+                           id="target-password" name="targetPassword"
+                           placeholder="הזינו סיסמה" required autocomplete="new-password" />
+                    <button type="button" class="btn btn-outline-secondary btn-eye-toggle"
+                            data-target="target-password" title="הצג/הסתר סיסמה"
+                            style="border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);">
+                        <span class="eye-icon">&#x1F441;</span>
+                    </button>
+                </div>
             </div>
         </div>
-
     </div>
 
-    @* ===== כפתור התחברות וקידום לשלב הבא ===== *@
-    <div class="text-center" id="action-button-container">
-        @* כפתור זוהר מתקדם לביצוע ההתחברות *@
-        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-start-compare">
-            התחבר והבא טבלאות
+    @* ===== Connect Button ===== *@
+    <div class="text-center mb-4" id="action-button-container">
+        <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-connect">
+            התחבר והמשך &larr;
         </button>
     </div>
 </form>
 
-<div class="text-center my-5" id="divider-section">
-    <hr class="w-25 mx-auto text-secondary opacity-25" />
-    <span class="text-secondary small px-3" style="background: var(--bg-primary); position: relative; top: -12px;">או</span>
+@* ===== Demo Mode - separate form with its own antiforgery token ===== *@
+<div class="text-center mb-5" id="demo-mode-container">
+    <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
+        <hr style="width: 120px; border-color: rgba(255,255,255,0.1);" />
+        <span class="text-secondary small">או</span>
+        <hr style="width: 120px; border-color: rgba(255,255,255,0.1);" />
+    </div>
+    <form method="post" asp-controller="Compare" asp-action="ConnectMock" id="demo-mode-form">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-secondary px-4 py-2 transition-all" id="btn-demo-mode"
+                style="border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); font-size: 0.9rem; border-radius: 12px;">
+            &#x1F3AD; הפעל מצב דמו (Mock Environment)
+        </button>
+        <p class="text-secondary small mt-2 mb-0" id="demo-mode-hint" style="font-size: 0.78rem; opacity: 0.6;">
+            מצב דמו: עוקף חיבור אמיתי ומשתמש בנתוני מדגם מובנים לצורך היכרות עם המערכת.
+        </p>
+    </form>
 </div>
 
-<div class="glass-card mb-5 p-4 text-center mx-auto" id="csv-compare-card" style="max-width: 700px;">
-    <h3 class="h4 text-gradient mb-2">השוואה ישירה של קובצי CSV / Excel</h3>
-    <p class="text-secondary fs-6 mb-4">
-        אין לכם חיבור זמין למסדי הנתונים? העלו קובצי נתונים (CSV) ונהלו השוואה ישירה ביניהם באופן מיידי.
-    </p>
-    <a href="@Url.Action("CompareFilesSetup", "Compare")" class="btn btn-outline-primary transition-all px-5 py-3 fs-6" style="border-radius: 0.75rem; border-color: var(--accent-primary); color: var(--accent-primary);">
-        📂 השוואת קובצי CSV
-    </a>
-</div>
+@section Scripts {
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
+    // Eye Toggle for password fields
+    document.querySelectorAll(".btn-eye-toggle").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var targetId = btn.getAttribute("data-target");
+            var input = document.getElementById(targetId);
+            if (!input) return;
+            if (input.type === "password") {
+                input.type = "text";
+                btn.querySelector(".eye-icon").textContent = "hide";
+            } else {
+                input.type = "password";
+                btn.querySelector(".eye-icon").innerHTML = "&#x1F441;";
+            }
+        });
+    });
+
+    // "Use same credentials as Source" checkbox
+    var useSameCheckbox = document.getElementById("use-same-credentials");
+    var fieldPairs = [
+        { src: "source-server",   tgt: "target-server" },
+        { src: "source-database", tgt: "target-database" },
+        { src: "source-username", tgt: "target-username" },
+        { src: "source-password", tgt: "target-password" }
+    ];
+
+    function syncTarget() {
+        if (useSameCheckbox.checked) {
+            fieldPairs.forEach(function (pair) {
+                var s = document.getElementById(pair.src);
+                var t = document.getElementById(pair.tgt);
+                if (s && t) { t.value = s.value; t.disabled = true; t.style.opacity = "0.5"; }
+            });
+        } else {
+            fieldPairs.forEach(function (pair) {
+                var t = document.getElementById(pair.tgt);
+                if (t) { t.disabled = false; t.style.opacity = "1"; }
+            });
+        }
+    }
+
+    useSameCheckbox.addEventListener("change", syncTarget);
+
+    ["source-server", "source-database", "source-username", "source-password"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener("input", function () { if (useSameCheckbox.checked) syncTarget(); });
+    });
+
+    // Re-enable disabled target inputs before form submission so they POST correctly
+    document.getElementById("compare-config-form").addEventListener("submit", function () {
+        fieldPairs.forEach(function (pair) {
+            var t = document.getElementById(pair.tgt);
+            if (t && t.disabled) t.disabled = false;
+        });
+    });
+});
+</script>
+}

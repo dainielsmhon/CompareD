@@ -92,40 +92,28 @@ public class FieldComparisonDetail
     public bool IsMatch { get; set; }
 }
 
-// מודל תצוגה עבור דף הבית המציג את רשימות פרופילי החיבור הזמינים
+// Home page view model — kept minimal; dynamic connection form has no server-side model
 public class HomeViewModel
 {
-    // רשימת שמות הפרופילים הזמינים עבור SQL Server
-    public List<string> SqlProfileNames { get; set; } = new();
-
-    // רשימת שמות הפרופילים הזמינים עבור Oracle
-    public List<string> OracleProfileNames { get; set; } = new();
-
-    // שם הפרופיל שנבחר עבור SQL Server (לשחזור קלט במקרה של שגיאה)
-    public string? SelectedSqlProfile { get; set; }
-
-    // שם הפרופיל שנבחר עבור Oracle (לשחזור קלט במקרה של שגיאה)
-    public string? SelectedOracleProfile { get; set; }
+    // Optional error message to display on the home page (from TempData)
+    public string? ErrorMessage { get; set; }
 }
 
-// הגדרת מחלקת אפשרויות למיפוי הגדרות החיבורים מתוך appsettings.json
-public class DatabaseProfilesOptions
+// Dynamic connection credentials submitted via the UI form at runtime
+// Replaces static appsettings profiles to prevent credential exposure on disk
+public class DynamicConnectionViewModel
 {
-    // רשימת פרופילי החיבור עבור SQL Server
-    public List<DatabaseProfile> SqlProfiles { get; set; } = new();
+    // Server hostname, IP address, or DSN for the connection
+    public string Server { get; set; } = string.Empty;
 
-    // רשימת פרופילי החיבור עבור Oracle
-    public List<DatabaseProfile> OracleProfiles { get; set; } = new();
-}
+    // Database name (SQL Server) or Schema/Service Name (Oracle)
+    public string Database { get; set; } = string.Empty;
 
-// הגדרת מחלקה לייצוג פרופיל חיבור בודד
-public class DatabaseProfile
-{
-    // שם הפרופיל (למשל SQL-Prod או Oracle-Test)
-    public string Name { get; set; } = string.Empty;
+    // Login username
+    public string Username { get; set; } = string.Empty;
 
-    // מחרוזת החיבור (ConnectionString)
-    public string ConnectionString { get; set; } = string.Empty;
+    // Login password — never stored on disk
+    public string Password { get; set; } = string.Empty;
 }
 
 // מחלקה המייצגת עמודה בודדת במסגרת השוואת הסכמה בין SQL Server ל-Oracle

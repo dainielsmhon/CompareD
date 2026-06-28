@@ -4,12 +4,18 @@ var builder = WebApplication.CreateBuilder(args);
 // הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה
 builder.Services.AddControllersWithViews();
 
+// File upload DoS protection: enforce 50 MB maximum for both Kestrel and form parsing
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 50L * 1024 * 1024; // 50 MB
+});
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 50L * 1024 * 1024; // 50 MB
+});
+
 // רישום שירות ההשוואה הייעודי לביצוע פונקציות החיבור והשוואת הנתונים
 builder.Services.AddScoped<CompareD.Services.ICompareService, CompareD.Services.CompareService>();
-
-// מיפוי ורישום הגדרות פרופילי החיבור מתוך קובץ הגדרות ה-JSON לטובת הזרקה במערכת
-builder.Services.Configure<CompareD.Controllers.DatabaseProfilesOptions>(builder.Configuration.GetSection("DatabaseProfiles"));
-
 
 // הוספת שירותי מטמון בזיכרון (Memory Cache) הנדרש להפעלת סשן באפליקציה
 builder.Services.AddDistributedMemoryCache();

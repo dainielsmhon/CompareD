@@ -1,76 +1,66 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using CompareD.Services;
 
 namespace CompareD.Controllers;
 
-// הגדרת בקר ההשוואה הראשי CompareController לטיפול בתהליכי החיבור והשוואת הנתונים
+// Main comparison controller handling dynamic DB connections and file comparisons
 public class CompareController : Controller
 {
     private readonly ICompareService _compareService;
-    private readonly DatabaseProfilesOptions _profiles;
 
-    // בנאי הבקר המקבל את שירות ההשוואה ופרופילי החיבור באמצעות Dependency Injection
-    public CompareController(ICompareService compareService, IOptions<DatabaseProfilesOptions> profiles)
+    // Maximum allowed upload file size: 50 MB
+    private const long MaxUploadSizeBytes = 50L * 1024 * 1024;
+
+    public CompareController(ICompareService compareService)
     {
         _compareService = compareService;
-        _profiles = profiles.Value;
     }
 
-    // פעולה (Action) המטפלת בקבלת פרופילי החיבור ובדיקתם במקביל
+    // Accepts dynamic credentials from the UI form, builds connection strings at runtime,
+    // and validates both DB connections. Credentials are stored only in Session (ephemeral).
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Connect(string sqlProfileName, string oracleProfileName)
+    public async Task<IActionResult> Connect(
+        string sourceServer, string sourceDatabase, string sourceUsername, string sourcePassword,
+        string targetServer, string targetDatabase, string targetUsername, string targetPassword)
     {
-        // בדיקה ששמות הפרופילים אינם ריקים
-        if (string.IsNullOrWhiteSpace(sqlProfileName) || string.IsNullOrWhiteSpace(oracleProfileName))
+        // Validate that all required fields are present
+        if (string.IsNullOrWhiteSpace(sourceServer) || string.IsNullOrWhiteSpace(sourceDatabase) ||
+            string.IsNullOrWhiteSpace(sourceUsername) || string.IsNullOrWhiteSpace(sourcePassword) ||
+            string.IsNullOrWhiteSpace(targetServer) || string.IsNullOrWhiteSpace(targetDatabase) ||
+            string.IsNullOrWhiteSpace(targetUsername) || string.IsNullOrWhiteSpace(targetPassword))
         {
-            // הגדרת שגיאה מתאימה להצגה
-            TempData["ErrorMessage"] = "יש לבחור את שני פרופילי החיבור כדי להמשיך.";
-            // חזרה לדף הבית
+            TempData["ErrorMessage"] = "יש למלא את כל שדות החיבור עבור המקור והיעד.";
             return RedirectToAction("Index", "Home");
         }
 
-        // שליפת מחרוזות החיבור המתאימות מתוך הגדרות השרת מאחורי הקלעים
-        var sqlProfile = _profiles.SqlProfiles.FirstOrDefault(p => p.Name == sqlProfileName);
-        var oracleProfile = _profiles.OracleProfiles.FirstOrDefault(p => p.Name == oracleProfileName);
+        // Build SQL Server connection string dynamically from form input (Source is always SQL Server)
+        string sqlConnectionString =
+            $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};TrustServerCertificate=True;";
 
-        if (sqlProfile == null || oracleProfile == null)
-        {
-            TempData["ErrorMessage"] = "אחד מפרופילי החיבור שנבחרו אינו תקין או שאינו קיים במערכת.";
-            TempData["SelectedSqlProfile"] = sqlProfileName;
-            TempData["SelectedOracleProfile"] = oracleProfileName;
-            return RedirectToAction("Index", "Home");
-        }
+        // Build Oracle connection string dynamically from form input (Target is always Oracle)
+        string oracleConnectionString =
+            $"User Id={targetUsername};Password={targetPassword};Data Source={targetServer}/{targetDatabase};";
 
-        string sqlConnectionString = sqlProfile.ConnectionString;
-        string oracleConnectionString = oracleProfile.ConnectionString;
-
-        // רשימה לאחסון אובייקטים (טבלאות ותצוגות) מ-SQL Server
         var sqlObjects = new List<DatabaseObject>();
-        // רשימה לאחסון אובייקטים (טבלאות ותצוגות) מ-Oracle
         var oracleObjects = new List<DatabaseObject>();
-        // משתנה לאחסון הודעת שגיאה במידה ותתרחש
         string? errorMessage = null;
 
         try
         {
-            // הרצת שתי משימות החיבור והבאת האובייקטים במקביל לחסכון בזמן
+            // Test both connections in parallel for performance
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
                     try
                     {
-                        // הפעלת פונקציית השירות לקבלת טבלאות ותצוגות מ-SQL Server
                         sqlObjects = await _compareService.GetSqlObjectsAsync(sqlConnectionString);
                     }
                     catch (Exception ex)
                     {
-                        // זריקת שגיאה ממוקדת עבור SQL Server
                         throw new Exception($"שגיאה בחיבור ל-SQL Server: {ex.Message}");
                     }
                 }),
@@ -78,12 +68,10 @@ public class CompareController : Controller
                 {
                     try
                     {
-                        // הפעלת פונקציית השירות לקבלת טבלאות ותצוגות מ-Oracle
                         oracleObjects = await _compareService.GetOracleObjectsAsync(oracleConnectionString);
                     }
                     catch (Exception ex)
                     {
-                        // זריקת שגיאה ממוקדת עבור Oracle
                         throw new Exception($"שגיאה בחיבור ל-Oracle: {ex.Message}");
                     }
                 })
@@ -91,34 +79,49 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            // קליטת הודעת השגיאה שתחזור למשתמש מהמשימה שנכשלה
             errorMessage = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
         }
 
-        // אם התרחשה שגיאה במהלך ההתחברות לאחד ממסדי הנתונים
         if (errorMessage != null)
         {
-            // שמירת הודעת השגיאה ב-TempData להצגה בדף הבית
             TempData["ErrorMessage"] = errorMessage;
-            // שמירת הערכים שכבר הוזנו כדי שהמשתמש לא יצטרך להקליד שוב
-            TempData["SelectedSqlProfile"] = sqlProfileName;
-            TempData["SelectedOracleProfile"] = oracleProfileName;
-            // חזרה לדף הבית
             return RedirectToAction("Index", "Home");
         }
 
-        // שמירת מחרוזות החיבור המוצלחות בסשן של המשתמש לצורך שימוש בשלבים הבאים
+        // Store connection strings in Session only — never written to disk
         HttpContext.Session.SetString("SqlConnectionString", sqlConnectionString);
         HttpContext.Session.SetString("OracleConnectionString", oracleConnectionString);
 
-        // יצירת מודל נתונים להעברה לתצוגת בחירת האובייקטים
         var viewModel = new TableSelectionViewModel
         {
             SqlTables = sqlObjects,
             OracleTables = oracleObjects
         };
 
-        // מעבר לתצוגת בחירת האובייקטים והעברת המודל המכיל את רשימות האובייקטים
+        return View("SelectTables", viewModel);
+    }
+
+    // Demo Mode: bypasses real DB validation by injecting mock connection strings directly into Session.
+    // Routes the user directly to the mock table selection screen.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ConnectMock()
+    {
+        const string mockConn = "MockConnectionString";
+
+        var sqlObjects = await _compareService.GetSqlObjectsAsync(mockConn);
+        var oracleObjects = await _compareService.GetOracleObjectsAsync(mockConn);
+
+        // Inject mock identifiers into session (ephemeral, no real credentials)
+        HttpContext.Session.SetString("SqlConnectionString", mockConn);
+        HttpContext.Session.SetString("OracleConnectionString", mockConn);
+
+        var viewModel = new TableSelectionViewModel
+        {
+            SqlTables = sqlObjects,
+            OracleTables = oracleObjects
+        };
+
         return View("SelectTables", viewModel);
     }
 
@@ -193,7 +196,6 @@ public class CompareController : Controller
 
         try
         {
-            // קריאה לשירות ההשוואה החכם לביצוע הרצת ההשוואה עם מנגנון הקיבוץ והנרמול
             var smartResultsViewModel = await _compareService.SmartCompareAsync(
                 sqlConnectionString,
                 oracleConnectionString,
@@ -204,14 +206,15 @@ public class CompareController : Controller
                 fieldRoles,
                 maxRows);
 
-            // החזרת תצוגת התוצאות Results יחד עם הנתונים והגרפים שחושבו
+            // Clear connection strings from Session immediately after use (ephemeral security)
+            HttpContext.Session.Remove("SqlConnectionString");
+            HttpContext.Session.Remove("OracleConnectionString");
+
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
-            // במקרה של שגיאה במהלך ההשוואה, החזרת הודעה ממוקדת
             TempData["ErrorMessage"] = $"נכשלה הרצת השוואת הנתונים: {ex.Message}";
-            // הפניה לדף הבית
             return RedirectToAction("Index", "Home");
         }
     }
@@ -231,6 +234,13 @@ public class CompareController : Controller
         if (file1 == null || file2 == null || file1.Length == 0 || file2.Length == 0)
         {
             TempData["ErrorMessage"] = "יש לבחור את שני הקבצים להשוואה ולוודא שאינם ריקים.";
+            return RedirectToAction("CompareFilesSetup");
+        }
+
+        // DoS Protection: reject files exceeding the 50 MB per-file limit
+        if (file1.Length > MaxUploadSizeBytes || file2.Length > MaxUploadSizeBytes)
+        {
+            TempData["ErrorMessage"] = $"גודל הקובץ חורג מהמגבלה המותרת של 50MB. אנא הגבילו את גודל הקבצים.";
             return RedirectToAction("CompareFilesSetup");
         }
 
@@ -365,6 +375,16 @@ public class CompareController : Controller
         {
             var sqlRawData = CsvParser.ParseFile(path1!);
             var oracleRawData = CsvParser.ParseFile(path2!);
+
+            // Delete temp files immediately after loading data into memory (Storage Cleanup)
+            if (System.IO.File.Exists(path1)) System.IO.File.Delete(path1);
+            if (System.IO.File.Exists(path2)) System.IO.File.Delete(path2);
+
+            // Clear file paths from Session immediately after deletion
+            HttpContext.Session.Remove("CsvSourceFilePath");
+            HttpContext.Session.Remove("CsvTargetFilePath");
+            HttpContext.Session.Remove("CsvSourceFileName");
+            HttpContext.Session.Remove("CsvTargetFileName");
 
             if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
             {
