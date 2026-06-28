@@ -32,6 +32,13 @@ builder.Services.AddScoped<CompareD.Services.ICompareService, CompareD.Services.
 // הוספת שירותי מטמון בזיכרון (Memory Cache) הנדרש להפעלת סשן באפליקציה
 builder.Services.AddDistributedMemoryCache();
 
+// הגדרת אכיפת אבטחה לעוגיות Antiforgery (CSRF)
+builder.Services.AddAntiforgery(options =>
+{
+    // מנדטורי בסביבת ייצור: אכיפת HTTPS בלבד עבור עוגיית ה-Antiforgery
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
 // הגדרת שירותי סשן (Session) לשמירת נתוני חיבור ומצב משתמש
 builder.Services.AddSession(options =>
 {
@@ -43,8 +50,8 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     // הגדרת SameSite כ-Lax כהגנה נוספת מפני מתקפות CSRF
     options.Cookie.SameSite = SameSiteMode.Lax;
-    // שימוש באותה רמת אבטחה של הפרוטוקול המבוקש (HTTP/HTTPS) עבור הקוקי
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    // מנדטורי בסביבת ייצור: אכיפת אבטחה מחמירה של HTTPS בלבד עבור עוגיית הסשן
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 // בניית האפליקציה (Application) מתוך הגדרות הבונה
@@ -55,6 +62,8 @@ if (!app.Environment.IsDevelopment())
 {
     // שימוש בנתיב טיפול בשגיאות ייעודי
     app.UseExceptionHandler("/Home/Error");
+    // הפעלת HSTS (HTTP Strict Transport Security) בסביבת ייצור להגנה על תעבורת הנתונים
+    app.UseHsts();
 }
 
 // הפעלת הפניית HTTPS אוטומטית לטובת תקשורת מוצפנת ומאובטחת במערכת

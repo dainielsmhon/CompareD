@@ -46,6 +46,9 @@ public class CompareController : Controller
         }
 
         // בניית מחרוזת חיבור ל-SQL Server באופן דינמי מקלט הטופס (המקור הוא תמיד SQL Server)
+        // הערה ביטחונית והחרגה: מאחר שהמערכת רצה ברשת ארגונית פנימית מוגנת, שרתי ה-SQL Server משתמשים בתעודות חתימה עצמית (Self-Signed Certificates).
+        // לכן, השימוש ב-TrustServerCertificate=True מוגדר כברירת מחדל כדי לאפשר התחברות תקינה. בסביבת ייצור קשיחה מחוץ לרשת הפנימית,
+        // מומלץ להגדיר ערך זה כ-False ולהתקין את תעודות השרת הנדרשות.
         string sqlConnectionString =
             $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};TrustServerCertificate=True;";
 
