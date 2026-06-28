@@ -506,8 +506,8 @@
 
 @section Scripts {
     <script>
-        // Serialize model for JavaScript export functions
-        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+        // סריאליזציה של המודל עבור פונקציות ייצוא ב-JavaScript
+        const model = @Json.Serialize(Model);
 
         function exportToExcel() {
             let csv = "";
@@ -516,7 +516,7 @@
             csv += `יעד,${model.OracleTable}\n`;
             csv += `מפתח השוואה,${model.PrimaryKeyColumn}\n\n`;
 
-            // Step A
+            // שלב א: בדיקת שלמות שורות
             csv += "=== שלב א: בדיקת שלמות שורות ===\n";
             csv += "מדד,מקור,יעד\n";
             csv += `ספירת שורות גולמית (Raw Count),${model.SourceRawCount},${model.TargetRawCount}\n`;
@@ -545,7 +545,7 @@
                 csv += "\n";
             }
 
-            // Step B
+            // שלב ב: זיהוי מפתחות חסרים
             csv += "=== שלב ב: זיהוי מפתחות חסרים ===\n";
             csv += `חסר ביעד,${model.TotalMissingInOracle}\n`;
             csv += `חסר במקור,${model.TotalMissingInSql}\n`;
@@ -572,7 +572,7 @@
                 csv += "\n";
             }
 
-            // Step C
+            // שלב ג: ניתוח עקביות נתונים
             csv += "=== שלב ג: ניתוח עקביות נתונים ===\n";
             csv += `רשומות זהות,${model.TotalMatched}\n`;
             csv += `הפרשי ערכים,${model.TotalDiscrepancyRows}\n`;

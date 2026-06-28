@@ -6,23 +6,23 @@ var builder = WebApplication.CreateBuilder(args);
 // הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה
 builder.Services.AddControllersWithViews();
 
-// File upload DoS protection: enforce 105 MB maximum request limit to accommodate two 50 MB files simultaneously
+// הגנת DoS על העלאת קבצים: אכיפת מגבלת בקשה מקסימלית של 105 מגה-בייט כדי לתמוך בשני קבצים של 50 מגה-בייט בו-זמנית
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 105L * 1024 * 1024; // 105 MB request limit
+    options.MultipartBodyLengthLimit = 105L * 1024 * 1024; // מגבלת בקשה של 105 מגה-בייט
 });
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 105L * 1024 * 1024; // 105 MB request limit
+    options.Limits.MaxRequestBodySize = 105L * 1024 * 1024; // מגבלת בקשה של 105 מגה-בייט
 });
 
-// Configure Windows Authentication (Negotiate) and disable anonymous access globally
+// הגדרת אימות Windows (Negotiate) ונטרול גישה אנונימית באופן גלובלי
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
     .AddNegotiate();
 
 builder.Services.AddAuthorization(options =>
 {
-    // By default, require authentication for all endpoints (disable anonymous access globally)
+    // כברירת מחדל, דרישת אימות עבור כל נקודות הקצה (נטרול גישה אנונימית גלובלית)
     options.FallbackPolicy = options.DefaultPolicy;
 });
 
@@ -69,7 +69,7 @@ app.UseRouting();
 // הפעלת שירותי הסשן עבור כל בקשה נכנסת בצינור העבודה
 app.UseSession();
 
-// Enable Authentication and Authorization middlewares in correct pipeline order
+// הפעלת תוספי אימות והרשאות (Middlewares) בסדר הנכון של צינור העבודה (Pipeline)
 app.UseAuthentication();
 app.UseAuthorization();
 

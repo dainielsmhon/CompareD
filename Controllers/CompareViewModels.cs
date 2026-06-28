@@ -92,27 +92,27 @@ public class FieldComparisonDetail
     public bool IsMatch { get; set; }
 }
 
-// Home page view model — kept minimal; dynamic connection form has no server-side model
+// מודל תצוגה של דף הבית - נשמר מינימלי; לטופס החיבור הדינמי אין מודל בצד השרת
 public class HomeViewModel
 {
-    // Optional error message to display on the home page (from TempData)
+    // הודעת שגיאה אופציונלית להצגה בדף הבית (מתוך TempData)
     public string? ErrorMessage { get; set; }
 }
 
-// Dynamic connection credentials submitted via the UI form at runtime
-// Replaces static appsettings profiles to prevent credential exposure on disk
+// פרטי חיבור דינמיים המוגשים דרך ממשק המשתמש בזמן ריצה
+// מחליף את הפרופילים הסטטיים ב-appsettings כדי למנוע חשיפת פרטי הזדהות על הדיסק
 public class DynamicConnectionViewModel
 {
-    // Server hostname, IP address, or DSN for the connection
+    // שם השרת, כתובת ה-IP או ה-DSN עבור החיבור
     public string Server { get; set; } = string.Empty;
 
-    // Database name (SQL Server) or Schema/Service Name (Oracle)
+    // שם מסד הנתונים (SQL Server) או שם הסכימה/השירות (Oracle)
     public string Database { get; set; } = string.Empty;
 
-    // Login username
+    // שם המשתמש להתחברות
     public string Username { get; set; } = string.Empty;
 
-    // Login password — never stored on disk
+    // סיסמת ההתחברות - לעולם אינה נשמרת על הדיסק
     public string Password { get; set; } = string.Empty;
 }
 

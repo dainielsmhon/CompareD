@@ -96,7 +96,7 @@
                 <tbody>
                     @foreach (var col in Model.SourceColumns)
                     {
-                        // All columns start UNCHECKED by default — user explicitly selects what to include
+                        // כל העמודות מתחילות לא מסומנות כברירת מחדל - המשתמש בוחר במפורש מה לכלול
                         
                         // זיהוי אוטומטי של שדות מפתח מועמדים בצורה גנרית (עמודות שמכילות ID או KEY או העמודה הראשונה)
                         var isFirstCol = Model.SourceColumns.IndexOf(col) == 0;
@@ -168,26 +168,30 @@
     </div>
 </form>
 
+<form id="swap-files-form" method="post" action="@Url.Action("SwapFiles", "Compare")" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Direction swap listeners
+            // מאזינים להחלפת כיוון ההשוואה
             const sourceSelect = document.getElementById("compare-source-select");
             const targetSelect = document.getElementById("compare-target-select");
 
             sourceSelect.addEventListener("change", function() {
                 if (sourceSelect.value === "target") {
-                    window.location.href = '@Url.Action("SwapFiles", "Compare")';
+                    document.getElementById("swap-files-form").submit();
                 }
             });
 
             targetSelect.addEventListener("change", function() {
                 if (targetSelect.value === "source") {
-                    window.location.href = '@Url.Action("SwapFiles", "Compare")';
+                    document.getElementById("swap-files-form").submit();
                 }
             });
 
-            // Column checkboxes and their associated dropdowns
+            // תיבות הסימון של העמודות ותיבות הבחירה (Dropdowns) המשויכות אליהן
             const checkboxes = document.querySelectorAll('.column-check');
             const masterCheckbox = document.getElementById('master-select-all');
 
@@ -200,18 +204,18 @@
                     if (rSelect) rSelect.disabled = !cb.checked;
                 }
 
-                // Initial state — all unchecked, so disable dropdowns
+                // מצב ראשוני - הכל לא מסומן, ולכן מנטרלים את תיבות הבחירה
                 updateSelectsState();
 
-                // On individual toggle
+                // בעת שינוי סימון של תיבה בודדת
                 cb.addEventListener("change", function() {
                     updateSelectsState();
-                    // Update master checkbox state
+                    // עדכון המצב של תיבת הסימון הראשית
                     updateMasterCheckboxState();
                 });
             });
 
-            // Master Select All / Deselect All checkbox
+            // תיבת סימון ראשית לבחירת הכל / ביטול בחירת הכל
             masterCheckbox.addEventListener("change", function() {
                 const isChecked = masterCheckbox.checked;
                 checkboxes.forEach(cb => {
@@ -223,7 +227,7 @@
                 });
             });
 
-            // Sync master checkbox with individual state
+            // סנכרון תיבת הסימון הראשית עם המצב הבודד
             function updateMasterCheckboxState() {
                 const allChecked = Array.from(checkboxes).every(cb => cb.checked);
                 const anyChecked = Array.from(checkboxes).some(cb => cb.checked);

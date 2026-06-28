@@ -1,35 +1,41 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CompareD.Services;
 
 namespace CompareD.Controllers;
 
-// Main comparison controller handling dynamic DB connections and file comparisons
+// בקר ההשוואה הראשי המטפל בחיבורי מסד נתונים דינמיים ובהשוואות קבצים
 [Authorize]
 public class CompareController : Controller
 {
     private readonly ICompareService _compareService;
+    private readonly ILogger<CompareController> _logger;
 
-    // Maximum allowed upload file size: 50 MB
+    // גודל קובץ העלאה מקסימלי מותר: 50 מגה-בייט
     private const long MaxUploadSizeBytes = 50L * 1024 * 1024;
 
-    public CompareController(ICompareService compareService)
+    public CompareController(ICompareService compareService, ILogger<CompareController> logger)
     {
         _compareService = compareService;
+        _logger = logger;
     }
 
-    // Accepts dynamic credentials from the UI form, builds connection strings at runtime,
-    // and validates both DB connections. Credentials are stored only in Session (ephemeral).
+    // מקבל אישורי גישה דינמיים מטופס ממשק המשתמש, בונה מחרוזות חיבור בזמן ריצה,
+    // ומאמת את שני חיבורי מסד הנתונים. אישורי הגישה נשמרים בסשן בלבד (ארעי).
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Connect(
         string sourceServer, string sourceDatabase, string sourceUsername, string sourcePassword,
         string targetServer, string targetDatabase, string targetUsername, string targetPassword)
     {
-        // Validate that all required fields are present
+        // אימות שכל שדות החובה קיימים
         if (string.IsNullOrWhiteSpace(sourceServer) || string.IsNullOrWhiteSpace(sourceDatabase) ||
             string.IsNullOrWhiteSpace(sourceUsername) || string.IsNullOrWhiteSpace(sourcePassword) ||
             string.IsNullOrWhiteSpace(targetServer) || string.IsNullOrWhiteSpace(targetDatabase) ||
@@ -39,11 +45,11 @@ public class CompareController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        // Build SQL Server connection string dynamically from form input (Source is always SQL Server)
+        // בניית מחרוזת חיבור ל-SQL Server באופן דינמי מקלט הטופס (המקור הוא תמיד SQL Server)
         string sqlConnectionString =
             $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};TrustServerCertificate=True;";
 
-        // Build Oracle connection string dynamically from form input (Target is always Oracle)
+        // בניית מחרוזת חיבור ל-Oracle באופן דינמי מקלט הטופס (היעד הוא תמיד Oracle)
         string oracleConnectionString =
             $"User Id={targetUsername};Password={targetPassword};Data Source={targetServer}/{targetDatabase};";
 
@@ -53,7 +59,7 @@ public class CompareController : Controller
 
         try
         {
-            // Test both connections in parallel for performance
+            // בדיקת שני החיבורים במקביל לשיפור הביצועים
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
@@ -63,7 +69,8 @@ public class CompareController : Controller
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception($"שגיאה בחיבור ל-SQL Server: {ex.Message}");
+                        _logger.LogError(ex, "Failed to connect to SQL Server using dynamic string");
+                        throw new Exception("שגיאה בחיבור ל-SQL Server");
                     }
                 }),
                 Task.Run(async () =>
@@ -74,14 +81,16 @@ public class CompareController : Controller
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception($"שגיאה בחיבור ל-Oracle: {ex.Message}");
+                        _logger.LogError(ex, "Failed to connect to Oracle using dynamic string");
+                        throw new Exception("שגיאה בחיבור ל-Oracle");
                     }
                 })
             );
         }
         catch (Exception ex)
         {
-            errorMessage = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            _logger.LogError(ex, "Database connection error in Connect action");
+            errorMessage = "התרחשה שגיאה בעת התחברות למסדי הנתונים. אנא בדקו את פרטי החיבור שהזנתם ונסו שוב.";
         }
 
         if (errorMessage != null)
@@ -90,7 +99,7 @@ public class CompareController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        // Store connection strings in Session only — never written to disk
+        // שמירת מחרוזות החיבור בסשן בלבד — לעולם לא נכתבות לדיסק
         HttpContext.Session.SetString("SqlConnectionString", sqlConnectionString);
         HttpContext.Session.SetString("OracleConnectionString", oracleConnectionString);
 
@@ -103,8 +112,8 @@ public class CompareController : Controller
         return View("SelectTables", viewModel);
     }
 
-    // Demo Mode: bypasses real DB validation by injecting mock connection strings directly into Session.
-    // Routes the user directly to the mock table selection screen.
+    // מצב הדגמה (Demo Mode): עוקף אימות מסד נתונים אמיתי על ידי הזרקת מחרוזות חיבור מדומות ישירות לסשן.
+    // מנתב את המשתמש ישירות למסך בחירת טבלאות מדומה.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ConnectMock()
@@ -114,7 +123,7 @@ public class CompareController : Controller
         var sqlObjects = await _compareService.GetSqlObjectsAsync(mockConn);
         var oracleObjects = await _compareService.GetOracleObjectsAsync(mockConn);
 
-        // Inject mock identifiers into session (ephemeral, no real credentials)
+        // הזרקת מזהי דמי לתוך הסשן (ארעי, ללא אישורי גישה אמיתיים)
         HttpContext.Session.SetString("SqlConnectionString", mockConn);
         HttpContext.Session.SetString("OracleConnectionString", mockConn);
 
@@ -164,13 +173,11 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            // במקרה של שגיאה במהלך שליפת הסכמות, נשמור את הודעת השגיאה
-            TempData["ErrorMessage"] = $"שגיאה בטעינת סקירת הסכמה: {ex.Message}";
-            // החזרה לדף הבית לחיבור מחדש
+            _logger.LogError(ex, "Error fetching schema details for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
+            TempData["ErrorMessage"] = "התרחשה שגיאה בעת טעינת סקירת הסכמה ומבנה הטבלאות.";
             return RedirectToAction("Index", "Home");
         }
     }
-
 
     // פעולה (Action) המבצעת את אלגוריתם ההשוואה החכם בפועל (שלבים 5 ו-6)
     [HttpPost]
@@ -212,12 +219,13 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            TempData["ErrorMessage"] = $"נכשלה הרצת השוואת הנתונים: {ex.Message}";
+            _logger.LogError(ex, "Error during smart data comparison for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
+            TempData["ErrorMessage"] = "הרצת השוואת הנתונים נכשלה עקב שגיאה פנימית.";
             return RedirectToAction("Index", "Home");
         }
         finally
         {
-            // Clear connection strings from Session immediately after use (ephemeral security)
+            // ניקוי מחרוזות החיבור מהסשן מייד לאחר השימוש (אבטחה ארעית)
             HttpContext.Session.Remove("SqlConnectionString");
             HttpContext.Session.Remove("OracleConnectionString");
         }
@@ -241,7 +249,7 @@ public class CompareController : Controller
             return RedirectToAction("CompareFilesSetup");
         }
 
-        // DoS Protection: reject files exceeding the 50 MB per-file limit
+        // הגנת DoS: דחיית קבצים החורגים ממגבלת 50 מגה-בייט לקובץ
         if (file1.Length > MaxUploadSizeBytes || file2.Length > MaxUploadSizeBytes)
         {
             TempData["ErrorMessage"] = $"גודל הקובץ חורג מהמגבלה המותרת של 50MB. אנא הגבילו את גודל הקבצים.";
@@ -256,11 +264,11 @@ public class CompareController : Controller
                 Directory.CreateDirectory(tempDir);
             }
 
-            // Generate clean unique names retaining extension
+            // יצירת שמות ייחודיים נקיים תוך שמירה על הסיומת
             var ext1 = Path.GetExtension(file1.FileName).ToLower();
             var ext2 = Path.GetExtension(file2.FileName).ToLower();
 
-            // Validate that we got CSV or XLSX files
+            // אימות שקיבלנו קובצי CSV או XLSX
             if ((ext1 != ".csv" && ext1 != ".xlsx") || (ext2 != ".csv" && ext2 != ".xlsx"))
             {
                 TempData["ErrorMessage"] = "המערכת תומכת בקובצי CSV או XLSX (Excel) בלבד.";
@@ -279,7 +287,7 @@ public class CompareController : Controller
                 await file2.CopyToAsync(stream2);
             }
 
-            // Save in session
+            // שמירה בסשן
             HttpContext.Session.SetString("CsvSourceFilePath", path1);
             HttpContext.Session.SetString("CsvTargetFilePath", path2);
             HttpContext.Session.SetString("CsvSourceFileName", file1.FileName);
@@ -289,13 +297,15 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            TempData["ErrorMessage"] = $"שגיאה בהעלאת הקבצים: {ex.Message}";
+            _logger.LogError(ex, "Error processing and uploading files");
+            TempData["ErrorMessage"] = "שגיאה בעיבוד או בהעלאת הקבצים. נא לוודא שהקובץ אינו פגום או פתוח בתוכנה אחרת.";
             return RedirectToAction("CompareFilesSetup");
         }
     }
 
-    // פעולה (Action) המאפשרת להחליף בין קובץ המקור לקובץ היעד דינמית
-    [HttpGet]
+    // פעולת POST המאפשרת להחליף בין קובץ המקור לקובץ היעד דינמית (שינוי מצב שרת)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult SwapFiles()
     {
         var path1 = HttpContext.Session.GetString("CsvSourceFilePath");
@@ -352,7 +362,8 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            TempData["ErrorMessage"] = $"שגיאה בטעינת עמודות הקבצים: {ex.Message}";
+            _logger.LogError(ex, "Error reading file headers for schema mapping");
+            TempData["ErrorMessage"] = "שגיאה בטעינת עמודות וכותרות הקבצים. אנא בדקו את תקינות קבצי ה-CSV/Excel.";
             return RedirectToAction("CompareFilesSetup");
         }
     }
@@ -386,7 +397,7 @@ public class CompareController : Controller
                 return RedirectToAction("CompareFilesSetup");
             }
 
-            // Build final mapping lists
+            // בניית רשימות המיפוי הסופיות
             var finalSourceFields = new List<string>();
             var finalTargetFields = new List<string>();
             var finalFieldRoles = new List<string>();
@@ -407,7 +418,7 @@ public class CompareController : Controller
                 }
             }
 
-            // Verify that at least one Key field was selected
+            // וידוא שנבחר לפחות שדה מפתח אחד
             if (!finalFieldRoles.Contains("Key"))
             {
                 TempData["ErrorMessage"] = "חובה לבחור לפחות עמודת מפתח אחת (Key) לביצוע ההשוואה.";
@@ -433,12 +444,13 @@ public class CompareController : Controller
         }
         catch (Exception ex)
         {
-            TempData["ErrorMessage"] = $"שגיאה בהרצת השוואת הקבצים: {ex.Message}";
+            _logger.LogError(ex, "Error running in-memory files comparison");
+            TempData["ErrorMessage"] = "שגיאה התרחשה במהלך הרצת השוואת הקבצים.";
             return RedirectToAction("CompareFilesSetup");
         }
         finally
         {
-            // Delete temp files immediately after loading data into memory (Storage Cleanup)
+            // מחיקת קבצים זמניים מייד לאחר טעינת הנתונים לזיכרון (ניקוי שטח אחסון)
             if (!string.IsNullOrEmpty(path1) && System.IO.File.Exists(path1))
             {
                 try { System.IO.File.Delete(path1); } catch {}
@@ -448,7 +460,7 @@ public class CompareController : Controller
                 try { System.IO.File.Delete(path2); } catch {}
             }
 
-            // Clear file paths from Session immediately after deletion
+            // ניקוי נתיבי הקבצים מהסשן מייד לאחר המחיקה
             HttpContext.Session.Remove("CsvSourceFilePath");
             HttpContext.Session.Remove("CsvTargetFilePath");
             HttpContext.Session.Remove("CsvSourceFileName");
@@ -458,5 +470,3 @@ public class CompareController : Controller
 
 
 }
-
-

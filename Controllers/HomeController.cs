@@ -3,17 +3,17 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace CompareD.Controllers;
 
-// Home page controller — simplified; connection profiles are now collected dynamically via the UI form
+// בקר דף הבית - מפושט; פרופילי החיבור נאספים כעת באופן דינמי דרך טופס ממשק המשתמש
 [Authorize]
 public class HomeController : Controller
 {
-    // Displays the home page with the dynamic connection form
+    // מציג את דף הבית עם טופס החיבור הדינמי
     public IActionResult Index()
     {
         return View();
     }
 
-    // Handles application-level errors in production environments
+    // מטפל בשגיאות ברמת האפליקציה בסביבות ייצור
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

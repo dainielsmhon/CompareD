@@ -64,7 +64,7 @@
 </div>
 
 @* ===== טופס הגשת תצורת המיפוי והרצת ההשוואה ===== *@
-<form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData">
+<form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData" data-default-pk="@Model.PrimaryKeyColumn">
     @* שדות מוסתרים המכילים את שמות הטבלאות וסוג המיפוי לצורך שליחה בטופס *@
     <input type="hidden" name="sqlTable" value="@Model.SqlTable" />
     <input type="hidden" name="oracleTable" value="@Model.OracleTable" />
@@ -225,13 +225,13 @@
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
             // שמירת רשימות העמודות המקוריות כמשתני JavaScript לשימוש דינמי
-            const allColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Columns));
+            const allColumns = @Json.Serialize(Model.Columns);
             // עמודות SQL בלבד או משותפות
             const sqlColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
             // עמודות Oracle בלבד או משותפות
             const oracleColumns = allColumns.filter(c => c.Source !== "SqlOnly").map(c => c.ColumnName);
             // המפתח הראשוני שהוצע על ידי השרת כברירת מחדל
-            const defaultPk = "@Html.Raw(Model.PrimaryKeyColumn)";
+            const defaultPk = document.getElementById("schema-review-form").getAttribute("data-default-pk") || "";
 
             // הגדרת אלמנטים של ממשק המשתמש
             const checkBoxes = document.querySelectorAll(".column-selector-check");
@@ -379,16 +379,16 @@
                 updateKeysDisplay();
             }
 
-            // Initial sync: default is ALL unchecked — no mapping rows added on load
-            // User must explicitly select columns
+            // סנכרון ראשוני: כברירת מחדל הכל לא מסומן - לא מתווספות שורות מיפוי בטעינה
+            // המשתמש חייב לבחור עמודות באופן מפורש
             checkBoxes.forEach(chk => {
                 const colName = chk.dataset.colName;
                 const hasBoth = chk.closest("tr").dataset.existsBoth === "true";
 
-                // On checkbox change
+                // בעת שינוי מצב תיבת הסימון
                 chk.addEventListener("change", function() {
                     if (this.checked) {
-                        // Add mapping row when checked
+                        // הוספת שורת מיפוי כאשר מסומן
                         if (hasBoth) {
                             addMappingRow(colName, colName, true);
                         } else {
@@ -400,7 +400,7 @@
                             }
                         }
                     } else {
-                        // Remove mapping row when unchecked
+                        // הסרת שורת מיפוי כאשר הסימון מוסר
                         const existingRow = mappingRows.querySelector(`tr[data-source-field='${colName}']`);
                         if (existingRow) {
                             existingRow.remove();
@@ -412,20 +412,20 @@
                 });
             });
 
-            // Master Select All / Deselect All for schema table
+            // תיבת סימון ראשית לבחירת הכל / ביטול בחירת הכל עבור טבלת הסכמה
             masterSchemaCheckbox.addEventListener("change", function() {
                 const isChecked = masterSchemaCheckbox.checked;
                 checkBoxes.forEach(chk => {
                     const wasPreviouslyChecked = chk.checked;
                     chk.checked = isChecked;
-                    // Fire change event only if state actually changed
+                    // הפעלת אירוע שינוי רק אם המצב אכן השתנה
                     if (wasPreviouslyChecked !== isChecked) {
                         chk.dispatchEvent(new Event('change'));
                     }
                 });
             });
 
-            // Sync master checkbox visual state
+            // סנכרון המצב החזותי של תיבת הסימון הראשית
             function updateMasterSchemaCheckboxState() {
                 const allChecked = Array.from(checkBoxes).every(cb => cb.checked);
                 const anyChecked = Array.from(checkBoxes).some(cb => cb.checked);

@@ -99,8 +99,8 @@
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
             // קבלת העמודות של המקור והיעד כרשימות JavaScript מהשרת
-            const sqlColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SqlColumns));
-            const oracleColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.OracleColumns));
+            const sqlColumns = @Json.Serialize(Model.SqlColumns);
+            const oracleColumns = @Json.Serialize(Model.OracleColumns);
 
             // משתני אלמנטים לממשק
             const optAutoCard = document.getElementById("option-auto-card");
