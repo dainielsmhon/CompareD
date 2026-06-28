@@ -206,16 +206,18 @@ public class CompareController : Controller
                 fieldRoles,
                 maxRows);
 
-            // Clear connection strings from Session immediately after use (ephemeral security)
-            HttpContext.Session.Remove("SqlConnectionString");
-            HttpContext.Session.Remove("OracleConnectionString");
-
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
             TempData["ErrorMessage"] = $"נכשלה הרצת השוואת הנתונים: {ex.Message}";
             return RedirectToAction("Index", "Home");
+        }
+        finally
+        {
+            // Clear connection strings from Session immediately after use (ephemeral security)
+            HttpContext.Session.Remove("SqlConnectionString");
+            HttpContext.Session.Remove("OracleConnectionString");
         }
     }
 
@@ -376,16 +378,6 @@ public class CompareController : Controller
             var sqlRawData = CsvParser.ParseFile(path1!);
             var oracleRawData = CsvParser.ParseFile(path2!);
 
-            // Delete temp files immediately after loading data into memory (Storage Cleanup)
-            if (System.IO.File.Exists(path1)) System.IO.File.Delete(path1);
-            if (System.IO.File.Exists(path2)) System.IO.File.Delete(path2);
-
-            // Clear file paths from Session immediately after deletion
-            HttpContext.Session.Remove("CsvSourceFilePath");
-            HttpContext.Session.Remove("CsvTargetFilePath");
-            HttpContext.Session.Remove("CsvSourceFileName");
-            HttpContext.Session.Remove("CsvTargetFileName");
-
             if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
             {
                 TempData["ErrorMessage"] = "אחד הקבצים או שניהם התבררו כריקים בעת הרצת ההשוואה.";
@@ -432,8 +424,8 @@ public class CompareController : Controller
                 name1 ?? Path.GetFileName(path1!),
                 name2 ?? Path.GetFileName(path2!),
                 finalSourceFields,
-                finalTargetFields,
-                finalFieldRoles);
+                targetFields: finalTargetFields,
+                fieldRoles: finalFieldRoles);
 
             return View("Results", smartResultsViewModel);
         }
@@ -441,6 +433,24 @@ public class CompareController : Controller
         {
             TempData["ErrorMessage"] = $"שגיאה בהרצת השוואת הקבצים: {ex.Message}";
             return RedirectToAction("CompareFilesSetup");
+        }
+        finally
+        {
+            // Delete temp files immediately after loading data into memory (Storage Cleanup)
+            if (!string.IsNullOrEmpty(path1) && System.IO.File.Exists(path1))
+            {
+                try { System.IO.File.Delete(path1); } catch {}
+            }
+            if (!string.IsNullOrEmpty(path2) && System.IO.File.Exists(path2))
+            {
+                try { System.IO.File.Delete(path2); } catch {}
+            }
+
+            // Clear file paths from Session immediately after deletion
+            HttpContext.Session.Remove("CsvSourceFilePath");
+            HttpContext.Session.Remove("CsvTargetFilePath");
+            HttpContext.Session.Remove("CsvSourceFileName");
+            HttpContext.Session.Remove("CsvTargetFileName");
         }
     }
 

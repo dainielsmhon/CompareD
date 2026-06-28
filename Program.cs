@@ -4,14 +4,14 @@ var builder = WebApplication.CreateBuilder(args);
 // הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה
 builder.Services.AddControllersWithViews();
 
-// File upload DoS protection: enforce 50 MB maximum for both Kestrel and form parsing
+// File upload DoS protection: enforce 105 MB maximum request limit to accommodate two 50 MB files simultaneously
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 50L * 1024 * 1024; // 50 MB
+    options.MultipartBodyLengthLimit = 105L * 1024 * 1024; // 105 MB request limit
 });
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 50L * 1024 * 1024; // 50 MB
+    options.Limits.MaxRequestBodySize = 105L * 1024 * 1024; // 105 MB request limit
 });
 
 // רישום שירות ההשוואה הייעודי לביצוע פונקציות החיבור והשוואת הנתונים
