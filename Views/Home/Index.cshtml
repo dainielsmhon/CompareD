@@ -1,4 +1,4 @@
-﻿@*
+@*
     Home page — Step 1: Dynamic DB Connection Form
     Source: SQL Server | Target: Oracle Database
 *@
@@ -163,6 +163,22 @@
             מצב דמו: עוקף חיבור אמיתי ומשתמש בנתוני מדגם מובנים לצורך היכרות עם המערכת.
         </p>
     </form>
+</div>
+
+@* ===== השוואה ישירה של קבצים ללא צורך בחיבור למסד ===== *@
+<div class="text-center my-5" id="divider-section-files">
+    <hr class="w-25 mx-auto text-secondary opacity-25" />
+    <span class="text-secondary small px-3" style="background: var(--bg-primary); position: relative; top: -12px;">או</span>
+</div>
+
+<div class="glass-card mb-5 p-4 text-center mx-auto" id="csv-compare-card" style="max-width: 700px;">
+    <h3 class="h4 text-gradient mb-2">השוואה ישירה של קובצי CSV / Excel</h3>
+    <p class="text-secondary fs-6 mb-4">
+        אין לכם חיבור זמין למסדי הנתונים? העלו קובצי נתונים (CSV או Excel) ונהלו השוואה ישירה ביניהם באופן מיידי.
+    </p>
+    <a href="@Url.Action("CompareFilesSetup", "Compare")" class="btn btn-outline-primary transition-all px-5 py-3 fs-6" style="border-radius: 0.75rem; border-color: var(--accent-primary); color: var(--accent-primary); text-decoration: none;">
+        📂 השוואת קובצי CSV / Excel
+    </a>
 </div>
 
 @section Scripts {
