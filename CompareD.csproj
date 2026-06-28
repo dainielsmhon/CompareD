@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <!-- ספריית ה-ADO.NET הרשמית של מיקרוסופט להתחברות ל-SQL Server -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.9" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <PackageReference Include="MiniExcel" Version="1.44.1" />
     <!-- ספריית ה-ADO.NET הרשמית של אורקל להתחברות ל-Oracle Database -->

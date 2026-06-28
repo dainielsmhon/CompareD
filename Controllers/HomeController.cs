@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CompareD.Controllers;
 
 // Home page controller — simplified; connection profiles are now collected dynamically via the UI form
+[Authorize]
 public class HomeController : Controller
 {
     // Displays the home page with the dynamic connection form

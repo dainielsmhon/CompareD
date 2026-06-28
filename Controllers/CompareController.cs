@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using CompareD.Services;
 namespace CompareD.Controllers;
 
 // Main comparison controller handling dynamic DB connections and file comparisons
+[Authorize]
 public class CompareController : Controller
 {
     private readonly ICompareService _compareService;

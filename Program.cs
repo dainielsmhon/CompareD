@@ -1,4 +1,6 @@
 // יצירת בונה האפליקציה (Builder) עבור שירותי האינטרנט
+using Microsoft.AspNetCore.Authentication.Negotiate;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה
@@ -12,6 +14,16 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.Limits.MaxRequestBodySize = 105L * 1024 * 1024; // 105 MB request limit
+});
+
+// Configure Windows Authentication (Negotiate) and disable anonymous access globally
+builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+    .AddNegotiate();
+
+builder.Services.AddAuthorization(options =>
+{
+    // By default, require authentication for all endpoints (disable anonymous access globally)
+    options.FallbackPolicy = options.DefaultPolicy;
 });
 
 // רישום שירות ההשוואה הייעודי לביצוע פונקציות החיבור והשוואת הנתונים
@@ -56,6 +68,10 @@ app.UseRouting();
 
 // הפעלת שירותי הסשן עבור כל בקשה נכנסת בצינור העבודה
 app.UseSession();
+
+// Enable Authentication and Authorization middlewares in correct pipeline order
+app.UseAuthentication();
+app.UseAuthorization();
 
 // הגדרת ניתוב ברירת המחדל עבור בקרי ה-MVC באפליקציה
 app.MapControllerRoute(
