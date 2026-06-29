@@ -32,12 +32,20 @@ builder.Services.AddAuthorization(options =>
 // רישום שירות ההשוואה הייעודי לביצוע פונקציות החיבור והשוואת הנתונים
 builder.Services.AddScoped<CompareD.Services.ICompareService, CompareD.Services.CompareService>();
 
+// רישום שירות הצפנת המידע בשרת (Data Protection) להגנת מחרוזות החיבור ב-Session
+builder.Services.AddDataProtection();
+
+// רישום שירות ברקע לניקוי יזום של קבצים זמניים יתומים
+builder.Services.AddHostedService<CompareD.Services.TempFileCleanupService>();
+
 // הוספת שירותי מטמון בזיכרון (Memory Cache) הנדרש להפעלת סשן באפליקציה
 builder.Services.AddDistributedMemoryCache();
 
 // הגדרת אכיפת אבטחה לעוגיות Antiforgery (CSRF)
 builder.Services.AddAntiforgery(options =>
 {
+    // הגדרת שם כותרת מיוחד להגנה על קריאות AJAX בצד הלקוח
+    options.HeaderName = "X-Csrf-Token";
     // מנדטורי בסביבת ייצור: אכיפת HTTPS בלבד עבור עוגיית ה-Antiforgery
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.DataProtection;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -17,14 +18,38 @@ public class CompareController : Controller
 {
     private readonly ICompareService _compareService;
     private readonly ILogger<CompareController> _logger;
+    private readonly IDataProtector _protector;
 
     // גודל קובץ העלאה מקסימלי מותר: 50 מגה-בייט
     private const long MaxUploadSizeBytes = 50L * 1024 * 1024;
 
-    public CompareController(ICompareService compareService, ILogger<CompareController> logger)
+    public CompareController(
+        ICompareService compareService, 
+        ILogger<CompareController> logger,
+        IDataProtectionProvider dataProtectionProvider)
     {
         _compareService = compareService;
         _logger = logger;
+        _protector = dataProtectionProvider.CreateProtector("CompareD.ConnectionStrings");
+    }
+
+    // פונקציות עזר להצפנה ופענוח של מחרוזות החיבור ב-Session
+    private string ProtectConnectionString(string connectionString)
+    {
+        return _protector.Protect(connectionString);
+    }
+
+    private string? UnprotectConnectionString(string? protectedString)
+    {
+        if (string.IsNullOrEmpty(protectedString)) return null;
+        try
+        {
+            return _protector.Unprotect(protectedString);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            return null;
+        }
     }
 
     // מקבל אישורי גישה דינמיים מטופס ממשק המשתמש, בונה מחרוזות חיבור בזמן ריצה,
@@ -102,9 +127,9 @@ public class CompareController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        // שמירת מחרוזות החיבור בסשן בלבד — לעולם לא נכתבות לדיסק
-        HttpContext.Session.SetString("SqlConnectionString", sqlConnectionString);
-        HttpContext.Session.SetString("OracleConnectionString", oracleConnectionString);
+        // שמירת מחרוזות החיבור בסשן בצורה מוצפנת ומאובטחת (Data Protection)
+        HttpContext.Session.SetString("SqlConnectionString", ProtectConnectionString(sqlConnectionString));
+        HttpContext.Session.SetString("OracleConnectionString", ProtectConnectionString(oracleConnectionString));
 
         var viewModel = new TableSelectionViewModel
         {
@@ -120,16 +145,18 @@ public class CompareController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SchemaReview(string sqlTable, string oracleTable)
     {
-        // שליפת מחרוזות החיבור הפעילות מתוך ה-Session של המשתמש
-        var sqlConnectionString = HttpContext.Session.GetString("SqlConnectionString");
-        var oracleConnectionString = HttpContext.Session.GetString("OracleConnectionString");
+        // שליפת מחרוזות החיבור הפעילות מתוך ה-Session של המשתמש ופענוחן
+        var protectedSql = HttpContext.Session.GetString("SqlConnectionString");
+        var protectedOracle = HttpContext.Session.GetString("OracleConnectionString");
+        var sqlConnectionString = UnprotectConnectionString(protectedSql);
+        var oracleConnectionString = UnprotectConnectionString(protectedOracle);
 
         // בדיקה האם פג תוקף הסשן או שלא הועברו טבלאות בבקשה
         if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString) ||
             string.IsNullOrEmpty(sqlTable) || string.IsNullOrEmpty(oracleTable))
         {
             // הגדרת הודעת שגיאה מתאימה למשתמש
-            TempData["ErrorMessage"] = "פג תוקף החיבור או שלא נבחרו טבלאות. נא להתחבר מחדש.";
+            TempData["ErrorMessage"] = "פג תוקף החיבור המאובטח או שלא נבחרו טבלאות. נא להתחבר מחדש.";
             // הפניה מחדש לדף הבית
             return RedirectToAction("Index", "Home");
         }
@@ -170,15 +197,17 @@ public class CompareController : Controller
         List<string> fieldRoles,
         int maxRows)
     {
-        // שליפת מחרוזות החיבור מה-Session של המשתמש בצורה מאובטחת
-        var sqlConnectionString = HttpContext.Session.GetString("SqlConnectionString");
-        var oracleConnectionString = HttpContext.Session.GetString("OracleConnectionString");
+        // שליפת מחרוזות החיבור מה-Session של המשתמש ופענוחן בצורה מאובטחת
+        var protectedSql = HttpContext.Session.GetString("SqlConnectionString");
+        var protectedOracle = HttpContext.Session.GetString("OracleConnectionString");
+        var sqlConnectionString = UnprotectConnectionString(protectedSql);
+        var oracleConnectionString = UnprotectConnectionString(protectedOracle);
 
         // בדיקה האם פג תוקף החיבור למסדי הנתונים
         if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString))
         {
             // הגדרת הודעה והפניה לדף הבית
-            TempData["ErrorMessage"] = "פג תוקף החיבור למסדי הנתונים. נא להתחבר מחדש.";
+            TempData["ErrorMessage"] = "פג תוקף החיבור המאובטח למסדי הנתונים. נא להתחבר מחדש.";
             return RedirectToAction("Index", "Home");
         }
 
@@ -367,10 +396,14 @@ public class CompareController : Controller
 
         try
         {
-            var sqlRawData = CsvParser.ParseFile(path1!);
-            var oracleRawData = CsvParser.ParseFile(path2!);
+            if (maxRows <= 0) maxRows = 1000;
+            if (maxRows > 10000) maxRows = 10000;
 
-            if (sqlRawData.Count == 0 || oracleRawData.Count == 0)
+            // אופטימיזציית ביצועים וזיכרון: שליפה והזרמה (Streaming) של קובצי המקור והיעד בהתאם למספר השורות המבוקש בלבד
+            var sqlDataLimited = CsvParser.ParseFile(path1!).Take(maxRows).ToList();
+            var oracleDataLimited = CsvParser.ParseFile(path2!).Take(maxRows).ToList();
+
+            if (sqlDataLimited.Count == 0 || oracleDataLimited.Count == 0)
             {
                 TempData["ErrorMessage"] = "אחד הקבצים או שניהם התבררו כריקים בעת הרצת ההשוואה.";
                 return RedirectToAction("CompareFilesSetup");
@@ -403,12 +436,6 @@ public class CompareController : Controller
                 TempData["ErrorMessage"] = "חובה לבחור לפחות עמודת מפתח אחת (Key) לביצוע ההשוואה.";
                 return RedirectToAction("CompareFilesSchemaReview");
             }
-
-            if (maxRows <= 0) maxRows = 1000;
-            if (maxRows > 10000) maxRows = 10000;
-
-            var sqlDataLimited = sqlRawData.Take(maxRows).ToList();
-            var oracleDataLimited = oracleRawData.Take(maxRows).ToList();
 
             var smartResultsViewModel = _compareService.CompareInMemoryDatasets(
                 sqlDataLimited,

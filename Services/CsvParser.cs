@@ -9,13 +9,13 @@ namespace CompareD.Services;
 
 public static class CsvParser
 {
-    public static List<Dictionary<string, object>> Parse(Stream stream)
+    // הזרמת נתונים (Streaming) שורה-אחר-שורה מקובץ CSV במקום טעינת כל הקובץ ל-RAM בבת אחת
+    public static IEnumerable<Dictionary<string, object>> Parse(Stream stream)
     {
-        var result = new List<Dictionary<string, object>>();
         using (var reader = new StreamReader(stream, Encoding.UTF8))
         {
             var headerLine = reader.ReadLine();
-            if (string.IsNullOrEmpty(headerLine)) return result;
+            if (string.IsNullOrEmpty(headerLine)) yield break;
 
             var headers = ParseLine(headerLine);
             string? line;
@@ -30,12 +30,12 @@ public static class CsvParser
                     var val = i < values.Count ? values[i] : "";
                     row[header] = val;
                 }
-                result.Add(row);
+                yield return row;
             }
         }
-        return result;
     }
 
+    // פירוק שורה לקולונות תוך טיפול בגרשיים ופסיקים
     private static List<string> ParseLine(string line)
     {
         var result = new List<string>();
@@ -62,9 +62,9 @@ public static class CsvParser
         return result;
     }
 
-    public static List<Dictionary<string, object>> ParseXlsx(Stream stream)
+    // הזרמת נתונים שורה-אחר-שורה מקובץ Excel XLSX באמצעות MiniExcel.Query שמבצעת Streaming
+    public static IEnumerable<Dictionary<string, object>> ParseXlsx(Stream stream)
     {
-        var result = new List<Dictionary<string, object>>();
         var rows = MiniExcel.Query(stream, useHeaderRow: true);
         foreach (var row in rows)
         {
@@ -76,12 +76,12 @@ public static class CsvParser
                 {
                     rowDict[kvp.Key] = kvp.Value ?? "";
                 }
-                result.Add(rowDict);
+                yield return rowDict;
             }
         }
-        return result;
     }
 
+    // קריאת כותרות (Headers) בגישת O(1) Memory ללא טעינת הקובץ כולו לזיכרון
     public static List<string> GetHeaders(string filePath)
     {
         var extension = Path.GetExtension(filePath).ToLower();
@@ -98,33 +98,42 @@ public static class CsvParser
         }
         else
         {
-            using (var stream = File.OpenRead(filePath))
+            // אופטימיזציית ביצועים: קריאת השורה הראשונה בלבד מקובץ ה-CSV מבלי לקרוא את שאר השורות לזיכרון
+            using (var reader = new StreamReader(filePath, Encoding.UTF8))
             {
-                var result = Parse(stream);
-                if (result.Count > 0)
+                var headerLine = reader.ReadLine();
+                if (!string.IsNullOrEmpty(headerLine))
                 {
-                    return result[0].Keys.ToList();
+                    return ParseLine(headerLine);
                 }
             }
         }
         return new List<string>();
     }
 
-    public static List<Dictionary<string, object>> ParseFile(string filePath)
+    // הזרמת קובץ (CSV או XLSX) שורה-אחר-שורה בהתאם לסוג הקובץ
+    public static IEnumerable<Dictionary<string, object>> ParseFile(string filePath)
     {
         var extension = Path.GetExtension(filePath).ToLower();
         if (extension == ".xlsx")
         {
+            // פתיחת ה-stream בתוך yield return תסגור את הקובץ אוטומטית ברגע שהצרכן יפסיק להריץ לולאה על ה-IEnumerable
             using (var stream = File.OpenRead(filePath))
             {
-                return ParseXlsx(stream);
+                foreach (var row in ParseXlsx(stream))
+                {
+                    yield return row;
+                }
             }
         }
         else
         {
             using (var stream = File.OpenRead(filePath))
             {
-                return Parse(stream);
+                foreach (var row in Parse(stream))
+                {
+                    yield return row;
+                }
             }
         }
     }
