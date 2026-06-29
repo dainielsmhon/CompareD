@@ -10,24 +10,24 @@
 <div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
     <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
         <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-1-badge">1. חיבור</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-2-badge">2. בחירת טבלה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-3-badge">3. סקירת סכמה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-4-badge">4. בדיקות מקדימות</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-5-badge">5. השוואה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-6-badge">6. דוח תוצאות</span>
     </div>
 </div>
 
 @* ===== Page Header ===== *@
 <div class="text-center mb-5" id="home-welcome-header">
-    <h1 class="display-4 text-gradient mb-3" id="main-landing-title">הגדרת חיבורי מסדי נתונים</h1>
+    <h1 class="display-4 text-gradient mb-3" id="main-landing-title">CompareD - כלי השוואת נתונים</h1>
     <p class="lead text-secondary fs-5" id="main-landing-description">
-        הזינו את פרטי החיבור עבור שני הצדדים שברצונכם להשוות. המערכת תתחבר לשניהם ותביא את רשימת הטבלאות.
+        התחברו ישירות למסדי הנתונים שלכם או בצעו השוואה מהירה וישירה בין קובצי CSV/Excel.
     </p>
 </div>
 
@@ -139,45 +139,26 @@
     </div>
 
     @* ===== Connect Button ===== *@
-    <div class="text-center mb-4" id="action-button-container">
+    <div class="text-center mb-5" id="action-button-container">
         <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-connect">
-            התחבר והמשך &larr;
+            התחבר והמשך להשוואה &larr;
         </button>
     </div>
 </form>
 
-@* ===== Demo Mode - separate form with its own antiforgery token ===== *@
-<div class="text-center mb-5" id="demo-mode-container">
-    <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
-        <hr style="width: 120px; border-color: rgba(255,255,255,0.1);" />
-        <span class="text-secondary small">או</span>
-        <hr style="width: 120px; border-color: rgba(255,255,255,0.1);" />
-    </div>
-    <form method="post" asp-controller="Compare" asp-action="ConnectMock" id="demo-mode-form">
-        @Html.AntiForgeryToken()
-        <button type="submit" class="btn btn-outline-secondary px-4 py-2 transition-all" id="btn-demo-mode"
-                style="border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); font-size: 0.9rem; border-radius: 12px;">
-            &#x1F3AD; הפעל מצב דמו (Mock Environment)
-        </button>
-        <p class="text-secondary small mt-2 mb-0" id="demo-mode-hint" style="font-size: 0.78rem; opacity: 0.6;">
-            מצב דמו: עוקף חיבור אמיתי ומשתמש בנתוני מדגם מובנים לצורך היכרות עם המערכת.
-        </p>
-    </form>
-</div>
-
 @* ===== השוואה ישירה של קבצים ללא צורך בחיבור למסד ===== *@
 <div class="text-center my-5" id="divider-section-files">
     <hr class="w-25 mx-auto text-secondary opacity-25" />
-    <span class="text-secondary small px-3" style="background: var(--bg-primary); position: relative; top: -12px;">או</span>
+    <span class="text-secondary small px-3" style="background: var(--bg-primary); position: relative; top: -12px;">או אפשרות שנייה</span>
 </div>
 
-<div class="glass-card mb-5 p-4 text-center mx-auto" id="csv-compare-card" style="max-width: 700px;">
-    <h3 class="h4 text-gradient mb-2">השוואה ישירה של קובצי CSV / Excel</h3>
+<div class="glass-card mb-5 p-5 text-center mx-auto" id="csv-compare-card" style="max-width: 700px; border: 1px solid rgba(255, 255, 255, 0.1);">
+    <h3 class="h3 text-gradient mb-3">📂 השוואה ישירה של קובצי CSV / Excel</h3>
     <p class="text-secondary fs-6 mb-4">
-        אין לכם חיבור זמין למסדי הנתונים? העלו קובצי נתונים (CSV או Excel) ונהלו השוואה ישירה ביניהם באופן מיידי.
+        העלו שני קובצי נתונים (בפורמט CSV או Excel) ובצעו השוואה מהירה וישירה ביניהם באופן מיידי בזיכרון, ללא צורך בחיבור למסד נתונים כלשהו.
     </p>
-    <a href="@Url.Action("CompareFilesSetup", "Compare")" class="btn btn-outline-primary transition-all px-5 py-3 fs-6" style="border-radius: 0.75rem; border-color: var(--accent-primary); color: var(--accent-primary); text-decoration: none;">
-        📂 השוואת קובצי CSV / Excel
+    <a href="@Url.Action("CompareFilesSetup", "Compare")" class="btn btn-outline-primary transition-all px-5 py-3 fs-6" style="border-radius: 0.75rem; border-color: var(--accent-primary); color: var(--accent-primary); text-decoration: none; font-weight: bold;">
+        התחילו השוואת קבצים
     </a>
 </div>
 

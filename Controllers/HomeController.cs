@@ -19,4 +19,11 @@ public class HomeController : Controller
     {
         return View();
     }
+
+    // מציג עמוד חסימת גישה (Access Denied) עבור משתמשים חסומים או לא מורשים
+    [AllowAnonymous]
+    public IActionResult AccessDenied()
+    {
+        return View();
+    }
 }

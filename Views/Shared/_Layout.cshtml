@@ -1,3 +1,4 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 <!DOCTYPE html>
 @* הגדרת שפת המסמך לעברית וכיוון מימין לשמאל (RTL) *@
 <html lang="he" dir="rtl">
@@ -36,7 +37,35 @@
                         <li class="nav-item">
                             <a class="nav-link text-light fs-6 transition-all px-3" id="nav-home-link" asp-area="" asp-controller="Home" asp-action="Index">דף הבית</a>
                         </li>
+                        @{
+                            var isUserAdmin = false;
+                            if (User.Identity?.IsAuthenticated == true && User.Identity.Name != null)
+                            {
+                                var authorizedUsers = Configuration.GetSection("AdminSettings:AuthorizedUsers")
+                                    .GetChildren()
+                                    .Select(c => c.Value)
+                                    .Where(v => v != null)
+                                    .ToList();
+                                if (authorizedUsers.Any(u => string.Equals(u, User.Identity.Name, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    isUserAdmin = true;
+                                }
+                            }
+                        }
+                        @if (isUserAdmin)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-light fs-6 transition-all px-3" id="nav-admin-link" asp-controller="Admin" asp-action="Index">ניהול משתמשים</a>
+                            </li>
+                        }
                     </ul>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="d-flex align-items-center text-secondary small px-3">
+                            <span class="me-2" style="opacity: 0.8;">👤 משתמש מחובר:</span>
+                            <span class="text-light fw-bold font-monospace">@User.Identity.Name</span>
+                        </div>
+                    }
                 </div>
             </div>
         </nav>

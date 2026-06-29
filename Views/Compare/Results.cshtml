@@ -13,11 +13,11 @@
 <div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
     <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-1-badge">✓ חיבור</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-2-badge">✓ בחירת טבלה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-3-badge">✓ סקירת סכמה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-4-badge">דוח תוצאות QA</span>
     </div>
 </div>
@@ -26,7 +26,7 @@
 <div class="text-center mb-5" id="results-header">
     <h1 class="display-4 text-gradient mb-3" id="results-title">דוח השוואת נתונים — QA Workflow</h1>
     <p class="lead text-secondary fs-5" id="results-description">
-        דוח בדיקות אוטומטי בנוי לפי 3 שלבי אימות סדרתיים: ספירת שורות → מפתחות חסרים → עקביות נתונים.
+        דוח בדיקות אוטומטי בנוי לפי 3 שלבי אימות סדרתיים: ספירת שורות ← מפתחות חסרים ← עקביות נתונים.
     </p>
     <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
         <span class="badge bg-primary px-3 py-2 fs-6">מקור: @Model.SqlTable</span>
@@ -507,7 +507,7 @@
 @section Scripts {
     <script>
         // סריאליזציה של המודל עבור פונקציות ייצוא ב-JavaScript
-        const model = @Json.Serialize(Model);
+        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
 
         function exportToExcel() {
             let csv = "";

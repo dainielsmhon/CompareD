@@ -1,0 +1,157 @@
+@model List<CompareD.Models.UserInfo>
+@{
+    ViewData["Title"] = "ניהול משתמשים";
+}
+
+@* כותרת הדף המרכזית בעיצוב Glassmorphism *@
+<div class="text-center mb-5" id="admin-header">
+    <h1 class="display-4 text-gradient mb-3" id="admin-title">ניהול משתמשים והרשאות</h1>
+    <p class="lead text-secondary fs-5" id="admin-description">
+        פיקוח על גישת משתמשי Active Directory למערכת, ניטור כניסות אחרונות וחסימת גישה בזמן אמת.
+    </p>
+</div>
+
+@* תיבת חיפוש וסינון דינמי בעיצוב Glassmorphism *@
+<div class="glass-card mb-5 p-4" id="search-card">
+    <div class="row align-items-center gap-3 gap-md-0">
+        <div class="col-12 col-md-8">
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-white/10 text-secondary" style="border-radius: 0.5rem 0 0 0.5rem;">🔍</span>
+                <input type="text" class="form-control bg-dark/50 border-white/10 text-light py-2" id="user-search-input" placeholder="חיפוש משתמש לפי שם..." style="border-radius: 0 0.5rem 0.5rem 0; box-shadow: none;" />
+            </div>
+        </div>
+        <div class="col-12 col-md-4 text-md-end">
+            <span class="text-secondary small">סה"כ משתמשים רשומים: <strong class="text-light" id="total-users-count">@Model.Count</strong></span>
+        </div>
+    </div>
+</div>
+
+@* טבלת המשתמשים בעיצוב Bento Card *@
+<div class="glass-card mb-5 p-4" id="users-table-card">
+    <div class="table-responsive">
+        <table class="table table-dark table-hover table-borderless align-middle" id="users-management-table">
+            <thead>
+                <tr class="text-secondary border-bottom border-white/10 small">
+                    <th style="width: 40%;">שם משתמש (Active Directory)</th>
+                    <th style="width: 30%;">זמן כניסה אחרון</th>
+                    <th style="width: 15%;" class="text-center">סטטוס</th>
+                    <th style="width: 15%;" class="text-center">סטטוס הרשאה</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in Model)
+                {
+                    <tr class="user-row" data-username="@user.Username">
+                        <td class="font-monospace text-light fw-bold">@user.Username</td>
+                        <td class="text-secondary font-monospace">@user.LastLogin.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td class="text-center user-status-badge-cell">
+                            @if (user.IsBlocked)
+                            {
+                                <span class="badge bg-danger/20 text-danger border border-danger/30 px-3 py-1.5 rounded-pill user-status-badge">חסום</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success/20 text-success border border-success/30 px-3 py-1.5 rounded-pill user-status-badge">מאושר</span>
+                            }
+                        </td>
+                        <td class="text-center">
+                            <div class="form-check form-switch d-inline-block">
+                                <input class="form-check-input user-auth-toggle" type="checkbox" role="switch" 
+                                       data-username="@user.Username" 
+                                       @(user.IsBlocked ? "" : "checked") 
+                                       style="width: 2.6rem; height: 1.3rem; cursor: pointer;"
+                                       title="החלף סטטוס הרשאה" />
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (Model.Count == 0)
+                {
+                    <tr id="no-users-row">
+                        <td colspan="4" class="text-center text-secondary py-4">אין משתמשים רשומים במערכת.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* טוקן מנדטורי למניעת CSRF עבור קריאות ה-POST *@
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const searchInput = document.getElementById("user-search-input");
+            const userRows = document.querySelectorAll(".user-row");
+            const totalCountSpan = document.getElementById("total-users-count");
+            const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            // סינון בזמן אמת של הטבלה
+            searchInput.addEventListener("input", function () {
+                const query = searchInput.value.toLowerCase().trim();
+                let visibleCount = 0;
+
+                userRows.forEach(row => {
+                    const username = row.getAttribute("data-username").toLowerCase();
+                    if (username.includes(query)) {
+                        row.classList.remove("d-none");
+                        visibleCount++;
+                    } else {
+                        row.classList.add("d-none");
+                    }
+                });
+
+                totalCountSpan.textContent = visibleCount;
+            });
+
+            // שינוי הרשאה באמצעות AJAX
+            const toggles = document.querySelectorAll(".user-auth-toggle");
+            toggles.forEach(toggle => {
+                toggle.addEventListener("change", function () {
+                    const username = toggle.getAttribute("data-username");
+                    const isApproved = toggle.checked;
+                    const isBlocked = !isApproved;
+
+                    // מניעת שינוי כפול זמני
+                    toggle.disabled = true;
+
+                    const formData = new FormData();
+                    formData.append("username", username);
+                    formData.append("isBlocked", isBlocked);
+
+                    fetch('@Url.Action("ToggleStatus", "Admin")', {
+                        method: 'POST',
+                        headers: {
+                            'RequestVerificationToken': csrfToken
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        toggle.disabled = false;
+                        if (data.success) {
+                            // עדכון הסטטוס והצבע באופן דינמי
+                            const row = toggle.closest("tr");
+                            const badgeCell = row.querySelector(".user-status-badge-cell");
+                            if (isApproved) {
+                                badgeCell.innerHTML = '<span class="badge bg-success/20 text-success border border-success/30 px-3 py-1.5 rounded-pill user-status-badge">מאושר</span>';
+                            } else {
+                                badgeCell.innerHTML = '<span class="badge bg-danger/20 text-danger border border-danger/30 px-3 py-1.5 rounded-pill user-status-badge">חסום</span>';
+                            }
+                        } else {
+                            // החזרת הסטטוס לקדמותו
+                            toggle.checked = !isApproved;
+                            alert(data.message || "אירעה שגיאה בעדכון ההרשאה.");
+                        }
+                    })
+                    .catch(error => {
+                        toggle.disabled = false;
+                        toggle.checked = !isApproved;
+                        alert("שגיאת תקשורת מול השרת.");
+                    });
+                });
+            });
+        });
+    </script>
+}

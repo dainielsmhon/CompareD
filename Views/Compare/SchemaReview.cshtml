@@ -9,19 +9,19 @@
     <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap" id="step-indicator-items">
         @* שלב 1 — הושלם *@
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-1-badge">✓ חיבור</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         @* שלב 2 — הושלם *@
         <span class="badge bg-success/20 text-success px-3 py-2 fs-6 border border-success/30" id="step-2-badge">✓ בחירת טבלה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         @* שלב 3 — פעיל כרגע *@
         <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;" id="step-3-badge">3. סקירת סכמה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         @* שלב 4 — טרם הגענו (בדיקות מקדימות) *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-4-badge">4. בדיקות מקדימות</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         @* שלב 5 — השוואה *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-5-badge">5. השוואה</span>
-        <span class="text-secondary">→</span>
+        <span class="text-secondary">←</span>
         @* שלב 6 — דוח תוצאות *@
         <span class="badge bg-dark text-secondary px-3 py-2 fs-6 border border-white/10" id="step-6-badge">6. דוח תוצאות</span>
     </div>
@@ -225,7 +225,7 @@
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
             // שמירת רשימות העמודות המקוריות כמשתני JavaScript לשימוש דינמי
-            const allColumns = @Json.Serialize(Model.Columns);
+            const allColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Columns));
             // עמודות SQL בלבד או משותפות
             const sqlColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
             // עמודות Oracle בלבד או משותפות

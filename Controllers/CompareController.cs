@@ -115,30 +115,6 @@ public class CompareController : Controller
         return View("SelectTables", viewModel);
     }
 
-    // מצב הדגמה (Demo Mode): עוקף אימות מסד נתונים אמיתי על ידי הזרקת מחרוזות חיבור מדומות ישירות לסשן.
-    // מנתב את המשתמש ישירות למסך בחירת טבלאות מדומה.
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ConnectMock()
-    {
-        const string mockConn = "MockConnectionString";
-
-        var sqlObjects = await _compareService.GetSqlObjectsAsync(mockConn);
-        var oracleObjects = await _compareService.GetOracleObjectsAsync(mockConn);
-
-        // הזרקת מזהי דמי לתוך הסשן (ארעי, ללא אישורי גישה אמיתיים)
-        HttpContext.Session.SetString("SqlConnectionString", mockConn);
-        HttpContext.Session.SetString("OracleConnectionString", mockConn);
-
-        var viewModel = new TableSelectionViewModel
-        {
-            SqlTables = sqlObjects,
-            OracleTables = oracleObjects
-        };
-
-        return View("SelectTables", viewModel);
-    }
-
     // פעולה (Action) המטפלת בקבלת הטבלאות/תצוגות שנבחרו וביצוע השוואת סכמה להצגה במסך שלב 4
     [HttpPost]
     [ValidateAntiForgeryToken]

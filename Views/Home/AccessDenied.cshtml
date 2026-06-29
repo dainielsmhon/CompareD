@@ -1,0 +1,35 @@
+@{
+    ViewData["Title"] = "גישה נחסמה";
+}
+
+@* עמוד חסימת גישה בעיצוב Glassmorphism מרהיב *@
+<div class="d-flex align-items-center justify-content-center" style="min-height: 60vh;" id="access-denied-wrapper">
+    <div class="glass-card text-center p-5" id="access-denied-card" style="border-color: rgba(220, 53, 69, 0.3) !important; max-width: 500px;">
+        @* אייקון חסימה בולט *@
+        <div class="mb-4" id="access-denied-visual">
+            <span class="display-1 text-danger d-block" style="user-select: none; font-size: 5rem;">🚫</span>
+        </div>
+        
+        <h1 class="h3 text-gradient mb-3" id="access-denied-title">הגישה למערכת CompareD נחסמה</h1>
+        
+        <p class="text-secondary mb-4" id="access-denied-message">
+            מנהל המערכת הגדיר חסימת גישה עבור חשבונך, או שאתה מנסה לגשת לאזור ניהולי ללא הרשאות מנהל מתאימות.
+        </p>
+
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div class="bg-dark/30 border border-white/5 rounded p-3 mb-4 text-start font-monospace small" id="detected-user-info">
+                <div class="text-secondary small mb-1">👤 משתמש מחובר:</div>
+                <div class="text-light fw-bold text-break">@User.Identity.Name</div>
+            </div>
+        }
+
+        <p class="text-secondary small mb-4" id="access-denied-help">
+            לבירור והסדרת הרשאות הגישה, אנא פנה למנהלי המערכת מורשי ה-Active Directory.
+        </p>
+
+        <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light transition-all px-4 py-2" id="back-to-home-btn" style="border-radius: 0.5rem;">
+            🔄 נסה לטעון מחדש
+        </a>
+    </div>
+</div>

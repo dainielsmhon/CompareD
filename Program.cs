@@ -3,8 +3,11 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה
-builder.Services.AddControllersWithViews();
+// הוספת שירותי הבקרים והתצוגות (MVC) אל מיכל השירותים של האפליקציה עם מסנן פעילות משתמש גלובלי
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add<CompareD.Filters.UserActivityFilter>();
+});
 
 // הגנת DoS על העלאת קבצים: אכיפת מגבלת בקשה מקסימלית של 105 מגה-בייט כדי לתמוך בשני קבצים של 50 מגה-בייט בו-זמנית
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
