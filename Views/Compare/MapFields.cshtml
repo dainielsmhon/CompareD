@@ -98,6 +98,12 @@
     <script>
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
             // קבלת העמודות של המקור והיעד כרשימות JavaScript מהשרת
             const sqlColumns = @Json.Serialize(Model.SqlColumns);
             const oracleColumns = @Json.Serialize(Model.OracleColumns);
@@ -154,7 +160,7 @@
                 tr.className = "mapping-row-item";
 
                 // יצירת עמודת שדה מקור (SQL Server)
-                let sqlSelectOptions = sqlColumns.map(c => `<option value="${c}">${c}</option>`).join("");
+                let sqlSelectOptions = sqlColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
                 const tdSource = document.createElement("td");
                 tdSource.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100" name="sourceFields" required>
@@ -164,7 +170,7 @@
                 `;
 
                 // יצירת עמודת שדה יעד (Oracle)
-                let oracleSelectOptions = oracleColumns.map(c => `<option value="${c}">${c}</option>`).join("");
+                let oracleSelectOptions = oracleColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
                 const tdTarget = document.createElement("td");
                 tdTarget.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100" name="targetFields" required>

@@ -224,6 +224,13 @@
     <script>
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
+            // Escape text before inserting column names into innerHTML
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
             // שמירת רשימות העמודות המקוריות כמשתני JavaScript לשימוש דינמי
             // שימוש ב-System.Text.Json לשמירה על PascalCase (מבנה המאפיינים המקורי). 
             // הסריאליזטור המובנה של .NET מקודד ומאבטח תווים מיוחדים של HTML, ולכן השימוש ב-Html.Raw בטוח כאן.
@@ -293,7 +300,7 @@
                 // עמודה א: שדה מקור (SQL Server) - Dropdown של כל עמודות SQL
                 const tdSource = document.createElement("td");
                 let sqlOptionsHtml = sqlColumns.map(c => 
-                    `<option value="${c}" ${c === sqlColName ? "selected" : ""}>${c}</option>`
+                    `<option value="${escapeHtml(c)}" ${c === sqlColName ? "selected" : ""}>${escapeHtml(c)}</option>`
                 ).join("");
                 tdSource.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100 source-field-select" name="sourceFields" required>
@@ -305,7 +312,7 @@
                 // עמודה ב: שדה יעד (Oracle) - Dropdown של כל עמודות Oracle
                 const tdTarget = document.createElement("td");
                 let oracleOptionsHtml = oracleColumns.map(c => 
-                    `<option value="${c}" ${c === oracleColName ? "selected" : ""}>${c}</option>`
+                    `<option value="${escapeHtml(c)}" ${c === oracleColName ? "selected" : ""}>${escapeHtml(c)}</option>`
                 ).join("");
                 tdTarget.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100 target-field-select" name="targetFields" required>

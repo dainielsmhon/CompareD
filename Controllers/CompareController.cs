@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
+using Microsoft.Data.SqlClient;
+using Oracle.ManagedDataAccess.Client;
 using CompareD.Models;
 using System;
 using System.Collections.Generic;
@@ -22,17 +24,20 @@ public class CompareController : Controller
     private readonly ILogger<CompareController> _logger;
     private readonly IDataProtector _protector;
     private readonly FileLimits _fileLimits;
+    private readonly ConnectRateLimiter _connectRateLimiter;
 
     public CompareController(
         ICompareService compareService, 
         ILogger<CompareController> logger,
         IDataProtectionProvider dataProtectionProvider,
-        IOptions<FileLimits> fileLimitsOptions)
+        IOptions<FileLimits> fileLimitsOptions,
+        ConnectRateLimiter connectRateLimiter)
     {
         _compareService = compareService;
         _logger = logger;
         _protector = dataProtectionProvider.CreateProtector("CompareD.ConnectionStrings");
         _fileLimits = fileLimitsOptions.Value;
+        _connectRateLimiter = connectRateLimiter;
     }
 
     // פונקציות עזר להצפנה ופענוח של מחרוזות החיבור ב-Session
@@ -54,6 +59,41 @@ public class CompareController : Controller
         }
     }
 
+    private void ClearConnectionStringsFromSession()
+    {
+        HttpContext.Session.Remove("SqlConnectionString");
+        HttpContext.Session.Remove("OracleConnectionString");
+        HttpContext.Session.Remove("SelectedSqlTable");
+        HttpContext.Session.Remove("SelectedOracleTable");
+    }
+
+    private static string BuildSqlConnectionString(
+        string server, string database, string username, string password)
+    {
+        var builder = new SqlConnectionStringBuilder
+        {
+            DataSource = server,
+            InitialCatalog = database,
+            UserID = username,
+            Password = password,
+            ApplicationIntent = ApplicationIntent.ReadOnly,
+            TrustServerCertificate = true
+        };
+        return builder.ConnectionString;
+    }
+
+    private static string BuildOracleConnectionString(
+        string server, string database, string username, string password)
+    {
+        var builder = new OracleConnectionStringBuilder
+        {
+            UserID = username,
+            Password = password,
+            DataSource = $"{server}/{database}"
+        };
+        return builder.ConnectionString;
+    }
+
     // מקבל אישורי גישה דינמיים מטופס ממשק המשתמש, בונה מחרוזות חיבור בזמן ריצה,
     // ומאמת את שני חיבורי מסד הנתונים. אישורי הגישה נשמרים בסשן בלבד (ארעי).
     [HttpPost]
@@ -72,17 +112,18 @@ public class CompareController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        // בניית מחרוזת חיבור ל-SQL Server באופן דינמי מקלט הטופס (המקור הוא תמיד SQL Server)
-        // הערה ביטחונית והחרגה: מאחר שהמערכת רצה ברשת ארגונית פנימית מוגנת, שרתי ה-SQL Server משתמשים בתעודות חתימה עצמית (Self-Signed Certificates).
-        // לכן, השימוש ב-TrustServerCertificate=True מוגדר כברירת מחדל כדי לאפשר התחברות תקינה. בסביבת ייצור קשיחה מחוץ לרשת הפנימית,
-        // מומלץ להגדיר ערך זה כ-False ולהתקין את תעודות השרת הנדרשות.
-        // הגנה ברמת ה-Connection: שימוש ב-ApplicationIntent=ReadOnly למניעת הרשאות כתיבה
-        string sqlConnectionString =
-            $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};ApplicationIntent=ReadOnly;TrustServerCertificate=True;";
+        var rateLimitKey = User.Identity?.Name ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+        if (!_connectRateLimiter.IsAllowed(rateLimitKey))
+        {
+            TempData["ErrorMessage"] = "יותר מדי ניסיונות חיבור. נא לנסות שוב בעוד מספר דקות.";
+            return RedirectToAction("Index", "Home");
+        }
 
-        // בניית מחרוזת חיבור ל-Oracle באופן דינמי מקלט הטופס (היעד הוא תמיד Oracle)
-        string oracleConnectionString =
-            $"User Id={targetUsername};Password={targetPassword};Data Source={targetServer}/{targetDatabase};";
+        // Build connection strings via typed builders to prevent connection-string injection
+        string sqlConnectionString = BuildSqlConnectionString(
+            sourceServer, sourceDatabase, sourceUsername, sourcePassword);
+        string oracleConnectionString = BuildOracleConnectionString(
+            targetServer, targetDatabase, targetUsername, targetPassword);
 
         var sqlObjects = new List<DatabaseObject>();
         var oracleObjects = new List<DatabaseObject>();
@@ -187,6 +228,7 @@ public class CompareController : Controller
         {
             _logger.LogError(ex, "Error fetching schema details for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
             TempData["ErrorMessage"] = "התרחשה שגיאה בעת טעינת סקירת הסכמה ומבנה הטבלאות.";
+            ClearConnectionStringsFromSession();
             return RedirectToAction("Index", "Home");
         }
     }
@@ -242,9 +284,7 @@ public class CompareController : Controller
         }
         finally
         {
-            // ניקוי מחרוזות החיבור מהסשן מייד לאחר השימוש (אבטחה ארעית)
-            HttpContext.Session.Remove("SqlConnectionString");
-            HttpContext.Session.Remove("OracleConnectionString");
+            ClearConnectionStringsFromSession();
         }
     }
 
@@ -422,6 +462,10 @@ public class CompareController : Controller
                 return RedirectToAction("CompareFilesSetup");
             }
 
+            var sourceHeaders = CsvParser.GetHeaders(path1!);
+            var targetHeaders = CsvParser.GetHeaders(path2!);
+            var allowedRoles = new HashSet<string>(StringComparer.Ordinal) { "Key", "Compare" };
+
             // בניית רשימות המיפוי הסופיות
             var finalSourceFields = new List<string>();
             var finalTargetFields = new List<string>();
@@ -431,15 +475,27 @@ public class CompareController : Controller
             {
                 foreach (var sf in selectedSourceFields)
                 {
+                    if (!sourceHeaders.Contains(sf, StringComparer.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
                     string? tf = Request.Form["targetMapping_" + sf];
                     string? role = Request.Form["roleMapping_" + sf];
 
-                    if (!string.IsNullOrEmpty(tf) && !string.IsNullOrEmpty(role))
+                    if (string.IsNullOrEmpty(tf) || string.IsNullOrEmpty(role))
                     {
-                        finalSourceFields.Add(sf);
-                        finalTargetFields.Add(tf);
-                        finalFieldRoles.Add(role);
+                        continue;
                     }
+
+                    if (!targetHeaders.Contains(tf, StringComparer.OrdinalIgnoreCase) || !allowedRoles.Contains(role))
+                    {
+                        continue;
+                    }
+
+                    finalSourceFields.Add(sf);
+                    finalTargetFields.Add(tf);
+                    finalFieldRoles.Add(role);
                 }
             }
 

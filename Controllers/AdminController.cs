@@ -81,7 +81,10 @@ namespace CompareD.Controllers
             }
 
             // ביצוע שינוי הסטטוס
-            UserStore.ToggleBlockedStatus(username, isBlocked);
+            if (!UserStore.ToggleBlockedStatus(username, isBlocked))
+            {
+                return Json(new { success = false, message = "המשתמש לא נמצא במערכת." });
+            }
 
             // רישום הפעולה ב-Audit Log המקומי
             var logActionType = isBlocked ? "BlockedUser" : "UnblockedUser";

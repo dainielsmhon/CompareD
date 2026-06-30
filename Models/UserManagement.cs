@@ -110,20 +110,23 @@ namespace CompareD.Models
             }
         }
 
-        // שינוי סטטוס חסימה של משתמש
-        public static void ToggleBlockedStatus(string username, bool isBlocked)
+        // Toggle blocked status; returns false when the user record was not found
+        public static bool ToggleBlockedStatus(string username, bool isBlocked)
         {
-            if (string.IsNullOrWhiteSpace(username)) return;
+            if (string.IsNullOrWhiteSpace(username)) return false;
 
             lock (FileLock)
             {
                 var users = GetUsers();
                 var user = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
-                if (user != null)
+                if (user == null)
                 {
-                    user.IsBlocked = isBlocked;
-                    SaveUsers(users);
+                    return false;
                 }
+
+                user.IsBlocked = isBlocked;
+                SaveUsers(users);
+                return true;
             }
         }
     }

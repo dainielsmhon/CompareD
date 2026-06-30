@@ -45,6 +45,8 @@ builder.Services.AddHostedService<CompareD.Services.TempFileCleanupService>();
 
 // הוספת שירותי מטמון בזיכרון (Memory Cache) הנדרש להפעלת סשן באפליקציה
 builder.Services.AddDistributedMemoryCache();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<CompareD.Services.ConnectRateLimiter>();
 
 // הגדרת אכיפת אבטחה לעוגיות Antiforgery (CSRF)
 builder.Services.AddAntiforgery(options =>
@@ -84,6 +86,9 @@ if (!app.Environment.IsDevelopment())
 
 // הפעלת הפניית HTTPS אוטומטית לטובת תקשורת מוצפנת ומאובטחת במערכת
 app.UseHttpsRedirection();
+
+// Security headers (CSP, X-Frame-Options, nosniff, etc.)
+app.UseMiddleware<CompareD.Middleware.SecurityHeadersMiddleware>();
 
 // הגדרת הגשת קבצים סטטיים מתיקיית wwwroot כגון עיצובים ותמונות
 app.UseStaticFiles();

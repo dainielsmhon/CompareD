@@ -10,6 +10,11 @@ public class HomeController : Controller
     // מציג את דף הבית עם טופס החיבור הדינמי
     public IActionResult Index()
     {
+        // Clear stale DB credentials when the user starts a new workflow from home
+        HttpContext.Session.Remove("SqlConnectionString");
+        HttpContext.Session.Remove("OracleConnectionString");
+        HttpContext.Session.Remove("SelectedSqlTable");
+        HttpContext.Session.Remove("SelectedOracleTable");
         return View();
     }
 
