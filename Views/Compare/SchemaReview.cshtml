@@ -225,7 +225,7 @@
         // האזנה לטעינת הדף במלואו
         document.addEventListener("DOMContentLoaded", function() {
             // שמירת רשימות העמודות המקוריות כמשתני JavaScript לשימוש דינמי
-            const allColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Columns));
+            const allColumns = @Json.Serialize(Model.Columns);
             // עמודות SQL בלבד או משותפות
             const sqlColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
             // עמודות Oracle בלבד או משותפות

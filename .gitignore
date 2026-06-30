@@ -20,3 +20,9 @@ temp_uploads/*
 
 # קובץ הגדרות סביבת פיתוח מקומית (מניעת העלאת סודות)
 appsettings.Development.json
+
+# קבצי לוגים ונתונים מקומיים של פיתוח / הרצה (מניעת העלאת סודות ופרטי משתמשים)
+logs/
+*.log
+users.json
+appsettings.Production.json

@@ -507,7 +507,7 @@
 @section Scripts {
     <script>
         // סריאליזציה של המודל עבור פונקציות ייצוא ב-JavaScript
-        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+        const model = @Json.Serialize(Model);
 
         function exportToExcel() {
             let csv = "";

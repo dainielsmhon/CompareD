@@ -157,4 +157,11 @@ namespace CompareD.Models
             }
         }
     }
+
+    // מודל המייצג את מגבלות הקבצים מתוך הגדרות המערכת
+    public class FileLimits
+    {
+        public int MaxPerFileMb { get; set; } = 50;
+        public int MaxTotalRequestMb { get; set; } = 105;
+    }
 }

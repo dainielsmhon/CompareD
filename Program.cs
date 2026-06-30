@@ -9,14 +9,19 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add<CompareD.Filters.UserActivityFilter>();
 });
 
-// הגנת DoS על העלאת קבצים: אכיפת מגבלת בקשה מקסימלית של 105 מגה-בייט כדי לתמוך בשני קבצים של 50 מגה-בייט בו-זמנית
+// קריאת הגדרות מגבלות נפח הקבצים ורישומן לשירות ההזרקה (IOptions)
+builder.Services.Configure<CompareD.Models.FileLimits>(builder.Configuration.GetSection("FileLimits"));
+var fileLimits = builder.Configuration.GetSection("FileLimits").Get<CompareD.Models.FileLimits>() ?? new CompareD.Models.FileLimits();
+long maxRequestBodySize = (long)fileLimits.MaxTotalRequestMb * 1024 * 1024;
+
+// הגנת DoS על העלאת קבצים: אכיפת מגבלת בקשה מקסימלית על פי ההגדרות
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 105L * 1024 * 1024; // מגבלת בקשה של 105 מגה-בייט
+    options.MultipartBodyLengthLimit = maxRequestBodySize;
 });
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 105L * 1024 * 1024; // מגבלת בקשה של 105 מגה-בייט
+    options.Limits.MaxRequestBodySize = maxRequestBodySize;
 });
 
 // הגדרת אימות Windows (Negotiate) ונטרול גישה אנונימית באופן גלובלי

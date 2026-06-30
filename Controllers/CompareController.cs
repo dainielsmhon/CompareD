@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
+using CompareD.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,18 +21,18 @@ public class CompareController : Controller
     private readonly ICompareService _compareService;
     private readonly ILogger<CompareController> _logger;
     private readonly IDataProtector _protector;
-
-    // גודל קובץ העלאה מקסימלי מותר: 50 מגה-בייט
-    private const long MaxUploadSizeBytes = 50L * 1024 * 1024;
+    private readonly FileLimits _fileLimits;
 
     public CompareController(
         ICompareService compareService, 
         ILogger<CompareController> logger,
-        IDataProtectionProvider dataProtectionProvider)
+        IDataProtectionProvider dataProtectionProvider,
+        IOptions<FileLimits> fileLimitsOptions)
     {
         _compareService = compareService;
         _logger = logger;
         _protector = dataProtectionProvider.CreateProtector("CompareD.ConnectionStrings");
+        _fileLimits = fileLimitsOptions.Value;
     }
 
     // פונקציות עזר להצפנה ופענוח של מחרוזות החיבור ב-Session
@@ -74,8 +76,9 @@ public class CompareController : Controller
         // הערה ביטחונית והחרגה: מאחר שהמערכת רצה ברשת ארגונית פנימית מוגנת, שרתי ה-SQL Server משתמשים בתעודות חתימה עצמית (Self-Signed Certificates).
         // לכן, השימוש ב-TrustServerCertificate=True מוגדר כברירת מחדל כדי לאפשר התחברות תקינה. בסביבת ייצור קשיחה מחוץ לרשת הפנימית,
         // מומלץ להגדיר ערך זה כ-False ולהתקין את תעודות השרת הנדרשות.
+        // הגנה ברמת ה-Connection: שימוש ב-ApplicationIntent=ReadOnly למניעת הרשאות כתיבה
         string sqlConnectionString =
-            $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};TrustServerCertificate=True;";
+            $"Server={sourceServer};Database={sourceDatabase};User Id={sourceUsername};Password={sourcePassword};ApplicationIntent=ReadOnly;TrustServerCertificate=True;";
 
         // בניית מחרוזת חיבור ל-Oracle באופן דינמי מקלט הטופס (היעד הוא תמיד Oracle)
         string oracleConnectionString =
@@ -126,6 +129,9 @@ public class CompareController : Controller
             TempData["ErrorMessage"] = errorMessage;
             return RedirectToAction("Index", "Home");
         }
+
+        // תיעוד חיבור מוצלח ב-Audit Log
+        AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseConnect", $"Connected to Source SQL Server: {sourceServer}/{sourceDatabase}, Target Oracle: {targetServer}/{targetDatabase}");
 
         // שמירת מחרוזות החיבור בסשן בצורה מוצפנת ומאובטחת (Data Protection)
         HttpContext.Session.SetString("SqlConnectionString", ProtectConnectionString(sqlConnectionString));
@@ -213,6 +219,9 @@ public class CompareController : Controller
 
         try
         {
+            // תיעוד הרצת השוואה ב-Audit Log
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompare", $"Compared SQL Table: {sqlTable} with Oracle Table: {oracleTable}. Mode: {mappingMode}, MaxRows: {maxRows}");
+
             var smartResultsViewModel = await _compareService.SmartCompareAsync(
                 sqlConnectionString,
                 oracleConnectionString,
@@ -257,10 +266,11 @@ public class CompareController : Controller
             return RedirectToAction("CompareFilesSetup");
         }
 
-        // הגנת DoS: דחיית קבצים החורגים ממגבלת 50 מגה-בייט לקובץ
-        if (file1.Length > MaxUploadSizeBytes || file2.Length > MaxUploadSizeBytes)
+        // הגנת DoS: דחיית קבצים החורגים מהמגבלה המוגדרת
+        long maxUploadSizeBytes = (long)_fileLimits.MaxPerFileMb * 1024 * 1024;
+        if (file1.Length > maxUploadSizeBytes || file2.Length > maxUploadSizeBytes)
         {
-            TempData["ErrorMessage"] = $"גודל הקובץ חורג מהמגבלה המותרת של 50MB. אנא הגבילו את גודל הקבצים.";
+            TempData["ErrorMessage"] = $"גודל הקובץ חורג מהמגבלה המותרת של {_fileLimits.MaxPerFileMb}MB. אנא הגבילו את גודל הקבצים.";
             return RedirectToAction("CompareFilesSetup");
         }
 
@@ -300,6 +310,9 @@ public class CompareController : Controller
             HttpContext.Session.SetString("CsvTargetFilePath", path2);
             HttpContext.Session.SetString("CsvSourceFileName", file1.FileName);
             HttpContext.Session.SetString("CsvTargetFileName", file2.FileName);
+
+            // תיעוד העלאת קבצים מוצלחת ב-Audit Log
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FilesUpload", $"Uploaded files for comparison: {file1.FileName} ({file1.Length} bytes), {file2.FileName} ({file2.Length} bytes)");
 
             return RedirectToAction("CompareFilesSchemaReview");
         }
@@ -436,6 +449,9 @@ public class CompareController : Controller
                 TempData["ErrorMessage"] = "חובה לבחור לפחות עמודת מפתח אחת (Key) לביצוע ההשוואה.";
                 return RedirectToAction("CompareFilesSchemaReview");
             }
+
+            // תיעוד הרצת השוואת קבצים ב-Audit Log
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FilesCompare", $"Compared Csv/Excel files. Source: {name1 ?? Path.GetFileName(path1!)}, Target: {name2 ?? Path.GetFileName(path2!)}. MaxRows: {maxRows}");
 
             var smartResultsViewModel = _compareService.CompareInMemoryDatasets(
                 sqlDataLimited,
