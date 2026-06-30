@@ -507,7 +507,9 @@
 @section Scripts {
     <script>
         // סריאליזציה של המודל עבור פונקציות ייצוא ב-JavaScript
-        const model = @Json.Serialize(Model);
+        // שימוש ב-System.Text.Json לשמירה על PascalCase (מבנה המאפיינים המקורי).
+        // הסריאליזטור המובנה של .NET מקודד ומאבטח תווים מיוחדים של HTML (כמו < ו->), ולכן השימוש ב-Html.Raw בטוח כאן מפני XSS.
+        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
 
         function exportToExcel() {
             let csv = "";
