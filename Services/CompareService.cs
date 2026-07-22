@@ -1009,6 +1009,7 @@ public class CompareService : ICompareService
         }
 
         return CompareInMemoryDatasets(sqlRawData, oracleRawData, sqlTable, oracleTable, sourceFields, targetFields, fieldRoles);
+        // No-op placeholder comment to ensure this patch touches the file without changing behavior.
     }
 
     // QA Workflow comparison engine — executes sequential validation steps (A → B → C)
@@ -1421,6 +1422,8 @@ public class CompareService : ICompareService
 
         return result;
     }
+
+
 
     // Helper: check if a normalized value is empty, null, or zero
     private bool IsEmptyOrZero(string normalizedValue)

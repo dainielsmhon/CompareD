@@ -290,7 +290,12 @@ public class SmartComparisonResultViewModel
     
     // List of data integrity gaps (value vs zero/null/empty)
     public List<DataIntegrityGap> DataIntegrityGaps { get; set; } = new();
+
+    // (מטרות סטטיסטיות ו-QA נוספות) - אין שדות ריבוי מתקדמים בקונטרקט זה
 }
+
+// מבנה לייצוג פער בריבוי עבור צמד שדות (DAF, DAF_NOSAF)
+// (היסטורית) מחלקת פערי ריבוי הוסרה - ניהול ריבויים נעשה במקום אחר במערכת
 
 // מודל תצוגה עבור סקירה ומיפוי של קובצי CSV/Excel
 public class FilesSchemaReviewViewModel

@@ -1,5 +1,6 @@
 // יצירת בונה האפליקציה (Builder) עבור שירותי האינטרנט
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Server.IISIntegration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,13 +25,21 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = maxRequestBodySize;
 });
 
-// הגדרת אימות Windows (Negotiate) ונטרול גישה אנונימית באופן גלובלי
-builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-    .AddNegotiate();
+//הגדרת אימות Windows (Negotiate) ונטרול גישה אנונימית באופן גלובלי
+if (!builder.Environment.IsEnvironment("IIS"))
+{
+    builder.Services
+        .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+        .AddNegotiate();
+}
+else
+{
+    builder.Services
+        .AddAuthentication(IISDefaults.AuthenticationScheme);
+}
 
 builder.Services.AddAuthorization(options =>
 {
-    // כברירת מחדל, דרישת אימות עבור כל נקודות הקצה (נטרול גישה אנונימית גלובלית)
     options.FallbackPolicy = options.DefaultPolicy;
 });
 
@@ -49,43 +58,44 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CompareD.Services.ConnectRateLimiter>();
 
 // הגדרת אכיפת אבטחה לעוגיות Antiforgery (CSRF)
-builder.Services.AddAntiforgery(options =>
-{
-    // הגדרת שם כותרת מיוחד להגנה על קריאות AJAX בצד הלקוח
-    options.HeaderName = "X-Csrf-Token";
-    // מנדטורי בסביבת ייצור: אכיפת HTTPS בלבד עבור עוגיית ה-Antiforgery
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-});
-
+//builder.Services.AddAntiforgery(options =>
+//{ ⁠
+//    options.HeaderName = "X-Csrf-Token";
+//    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+//});
+//// הגדרת שירותי סשן (Session) לשמירת נתוני חיבור ומצב משתמש
 // הגדרת שירותי סשן (Session) לשמירת נתוני חיבור ומצב משתמש
 builder.Services.AddSession(options =>
 {
-    // הגדרת זמן תפוגה של חצי שעה לנתוני הסשן בזיכרון
     options.IdleTimeout = TimeSpan.FromMinutes(30);
-    // הגדרת קובץ הקוקי כחיוני לפעולת המערכת
     options.Cookie.IsEssential = true;
-    // מניעת גישה לקוקי דרך סקריפטים בצד לקוח לטובת אבטחת מידע
     options.Cookie.HttpOnly = true;
-    // הגדרת SameSite כ-Lax כהגנה נוספת מפני מתקפות CSRF
     options.Cookie.SameSite = SameSiteMode.Lax;
-    // מנדטורי בסביבת ייצור: אכיפת אבטחה מחמירה של HTTPS בלבד עבור עוגיית הסשן
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 });
 
-// בניית האפליקציה (Application) מתוך הגדרות הבונה
+// הגדרת Antiforgery עם הגדרות אבטחה תואמות
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
+
+// בניית האפליקציה מתוך הגדרות הבונה
 var app = builder.Build();
 
-// הגדרת טיפול בשגיאות בסביבת ייצור (Production)
+// הגדרת טיפול בשגיאות בסביבת ייצור
 if (!app.Environment.IsDevelopment())
 {
-    // שימוש בנתיב טיפול בשגיאות ייעודי
     app.UseExceptionHandler("/Home/Error");
-    // הפעלת HSTS (HTTP Strict Transport Security) בסביבת ייצור להגנה על תעבורת הנתונים
     app.UseHsts();
 }
 
-// הפעלת הפניית HTTPS אוטומטית לטובת תקשורת מוצפנת ומאובטחת במערכת
-app.UseHttpsRedirection();
+// הפניית HTTPS מנוטרלת מכיוון שאנחנו בסביבה ללא תעודת אבטחה
+// app.UseHttpsRedirection();
+
+// טעינת ה-Middleware המותאם אישית לאבטחה
+app.UseMiddleware<CompareD.Middleware.SecurityHeadersMiddleware>();
+
 
 // Security headers (CSP, X-Frame-Options, nosniff, etc.)
 app.UseMiddleware<CompareD.Middleware.SecurityHeadersMiddleware>();

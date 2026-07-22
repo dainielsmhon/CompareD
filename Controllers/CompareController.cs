@@ -517,7 +517,6 @@ public class CompareController : Controller
                 finalSourceFields,
                 targetFields: finalTargetFields,
                 fieldRoles: finalFieldRoles);
-
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
