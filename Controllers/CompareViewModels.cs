@@ -291,7 +291,23 @@ public class SmartComparisonResultViewModel
     // List of data integrity gaps (value vs zero/null/empty)
     public List<DataIntegrityGap> DataIntegrityGaps { get; set; } = new();
 
+    // חוסר התאמה בכמויות (Occurrence Mismatches) למפתחות זהים לפי DAF ו-DAF_NOSAF
+    public List<OccurrenceMismatchRecord> OccurrenceMismatches { get; set; } = new();
+
     // (מטרות סטטיסטיות ו-QA נוספות) - אין שדות ריבוי מתקדמים בקונטרקט זה
+}
+
+public class DafKey 
+{
+    public string Daf { get; set; } = string.Empty;
+    public string DafNosaf { get; set; } = string.Empty;
+}
+
+public class OccurrenceMismatchRecord
+{
+    public DafKey Key { get; set; } = new DafKey();
+    public int SourceCount { get; set; }
+    public int TargetCount { get; set; }
 }
 
 // מבנה לייצוג פער בריבוי עבור צמד שדות (DAF, DAF_NOSAF)

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
@@ -545,5 +545,13 @@ public class CompareController : Controller
         }
     }
 
-
-}
+        [HttpPost]
+        public IActionResult DownloadReport([FromForm] string content, [FromForm] string fileName, [FromForm] string contentType)
+        {
+            if (string.IsNullOrEmpty(content)) return BadRequest();
+            var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+            var bom = new byte[] { 0xEF, 0xBB, 0xBF };
+            var fullBytes = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Concat(bom, bytes));
+            return File(fullBytes, contentType, fileName);
+        }
+    }

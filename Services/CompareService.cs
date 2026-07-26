@@ -1038,6 +1038,28 @@ public class CompareService : ICompareService
             }
         }
 
+        // --- הזרקת קוד: זיהוי אוטומטי של DAF ו-DAF_NOSAF כמפתח מורכב ---
+        bool hasDaf = sourceFields.Contains("DAF", StringComparer.OrdinalIgnoreCase) && targetFields.Contains("DAF", StringComparer.OrdinalIgnoreCase);
+        bool hasDafNosaf = sourceFields.Contains("DAF_NOSAF", StringComparer.OrdinalIgnoreCase) && targetFields.Contains("DAF_NOSAF", StringComparer.OrdinalIgnoreCase);
+
+        if (hasDaf && hasDafNosaf)
+        {
+            keys.Clear();
+            compares.Clear();
+            
+            for (int i = 0; i < sourceFields.Count; i++)
+            {
+                if (sourceFields[i].Equals("DAF", StringComparison.OrdinalIgnoreCase) || sourceFields[i].Equals("DAF_NOSAF", StringComparison.OrdinalIgnoreCase))
+                {
+                    keys.Add((sourceFields[i], targetFields[i]));
+                }
+                else
+                {
+                    compares.Add((sourceFields[i], targetFields[i]));
+                }
+            }
+        }
+
         // Initialize result model with basic statistics
         var result = new SmartComparisonResultViewModel
         {
@@ -1092,56 +1114,82 @@ public class CompareService : ICompareService
         result.SourceRawCount = sqlRawData.Count;
         result.TargetRawCount = oracleRawData.Count;
 
-        // Calculate unique valid keys, duplicate keys count and build list of duplicate keys
-        foreach (var kvp in sqlKeyCounts)
+        if (hasDaf && hasDafNosaf)
         {
-            if (kvp.Value == 1)
+            var allCompositeKeys = sqlKeyCounts.Keys.Union(oracleKeyCounts.Keys).Distinct();
+            foreach (var k in allCompositeKeys)
             {
-                result.SourceUniqueValidKeys++;
-            }
-            else
-            {
-                result.SourceDuplicateKeysCount += kvp.Value;
-                result.SourceDuplicateKeysList.Add(kvp.Key);
-            }
-        }
+                int s = sqlKeyCounts.GetValueOrDefault(k, 0);
+                int t = oracleKeyCounts.GetValueOrDefault(k, 0);
 
-        foreach (var kvp in oracleKeyCounts)
-        {
-            if (kvp.Value == 1)
-            {
-                result.TargetUniqueValidKeys++;
-            }
-            else
-            {
-                result.TargetDuplicateKeysCount += kvp.Value;
-                result.TargetDuplicateKeysList.Add(kvp.Key);
-            }
-        }
+                result.SourceUniqueValidKeys += s;
+                result.TargetUniqueValidKeys += t;
 
-        // Calculate missing keys and build lists
-        // Source missing keys = exists in target keys, but not in source keys
-        foreach (var k in oracleKeyCounts.Keys)
-        {
-            if (!sqlKeyCounts.ContainsKey(k))
-            {
-                result.SourceMissingKeysCount++;
-                if (result.SourceMissingKeysList.Count < 50)
+                if (t > s)
                 {
-                    result.SourceMissingKeysList.Add(k);
+                    result.SourceMissingKeysCount += (t - s);
+                    if (!result.SourceMissingKeysList.Contains(k)) result.SourceMissingKeysList.Add(k);
+                }
+                else if (s > t)
+                {
+                    result.TargetMissingKeysCount += (s - t);
+                    if (!result.TargetMissingKeysList.Contains(k)) result.TargetMissingKeysList.Add(k);
                 }
             }
         }
-
-        // Target missing keys = exists in source keys, but not in target keys
-        foreach (var k in sqlKeyCounts.Keys)
+        else
         {
-            if (!oracleKeyCounts.ContainsKey(k))
+            // Calculate unique valid keys, duplicate keys count and build list of duplicate keys
+            foreach (var kvp in sqlKeyCounts)
             {
-                result.TargetMissingKeysCount++;
-                if (result.TargetMissingKeysList.Count < 50)
+                if (kvp.Value == 1)
                 {
-                    result.TargetMissingKeysList.Add(k);
+                    result.SourceUniqueValidKeys++;
+                }
+                else
+                {
+                    result.SourceDuplicateKeysCount += kvp.Value;
+                    result.SourceDuplicateKeysList.Add(kvp.Key);
+                }
+            }
+
+            foreach (var kvp in oracleKeyCounts)
+            {
+                if (kvp.Value == 1)
+                {
+                    result.TargetUniqueValidKeys++;
+                }
+                else
+                {
+                    result.TargetDuplicateKeysCount += kvp.Value;
+                    result.TargetDuplicateKeysList.Add(kvp.Key);
+                }
+            }
+
+            // Calculate missing keys and build lists
+            // Source missing keys = exists in target keys, but not in source keys
+            foreach (var k in oracleKeyCounts.Keys)
+            {
+                if (!sqlKeyCounts.ContainsKey(k))
+                {
+                    result.SourceMissingKeysCount++;
+                    if (result.SourceMissingKeysList.Count < 50)
+                    {
+                        result.SourceMissingKeysList.Add(k);
+                    }
+                }
+            }
+
+            // Target missing keys = exists in source keys, but not in target keys
+            foreach (var k in sqlKeyCounts.Keys)
+            {
+                if (!oracleKeyCounts.ContainsKey(k))
+                {
+                    result.TargetMissingKeysCount++;
+                    if (result.TargetMissingKeysList.Count < 50)
+                    {
+                        result.TargetMissingKeysList.Add(k);
+                    }
                 }
             }
         }
@@ -1162,7 +1210,14 @@ public class CompareService : ICompareService
             if (hasMissing)
             {
                 stepA.Status = "Warning";
-                stepA.Summary = "ספירת שורות זהה, אך המפתחות בפועל שונים (מפתחות חסרים לעומת עודפים).";
+                var summaryParts = new List<string> { "ספירת שורות זהה, אך המפתחות בפועל שונים (מפתחות חסרים לעומת עודפים)." };
+                var missingParts = new List<string>();
+                if (result.SourceMissingKeysCount > 0)
+                    missingParts.Add($"למקור חסרים {result.SourceMissingKeysCount} שורות/מפתחות שיש ביעד");
+                if (result.TargetMissingKeysCount > 0)
+                    missingParts.Add($"ליעד חסרים {result.TargetMissingKeysCount} שורות/מפתחות שיש במקור");
+                summaryParts.Add(string.Join(", ", missingParts));
+                stepA.Summary = string.Join(" | ", summaryParts);
                 result.HasRowCountMismatch = true;
             }
             else if (hasDupes)
@@ -1190,6 +1245,15 @@ public class CompareService : ICompareService
             {
                 $"פער בספירת שורות: מקור ({sqlTable}) מכיל {sqlRawData.Count} שורות, יעד ({oracleTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות."
             };
+            if (hasMissing)
+            {
+                var missingParts = new List<string>();
+                if (result.SourceMissingKeysCount > 0)
+                    missingParts.Add($"למקור חסרים {result.SourceMissingKeysCount} שורות/מפתחות שיש ביעד");
+                if (result.TargetMissingKeysCount > 0)
+                    missingParts.Add($"ליעד חסרים {result.TargetMissingKeysCount} שורות/מפתחות שיש במקור");
+                summaryParts.Add(string.Join(", ", missingParts));
+            }
             if (hasDupes)
             {
                 var dupeParts = new List<string>();
@@ -1217,7 +1281,12 @@ public class CompareService : ICompareService
 
         // Detect duplicate keys and exclude them from main comparison
         var duplicateKeys = new HashSet<string>();
-        foreach (var kvp in sqlKeyCounts.Where(k => k.Value > 1))
+        
+        var sqlDupes = hasDaf && hasDafNosaf 
+            ? sqlKeyCounts.Where(k => k.Value > 1 && oracleKeyCounts.GetValueOrDefault(k.Key, 0) != k.Value)
+            : sqlKeyCounts.Where(k => k.Value > 1);
+
+        foreach (var kvp in sqlDupes)
         {
             duplicateKeys.Add(kvp.Key);
             result.Duplicates.Add(new DuplicateKeyRecord
@@ -1227,7 +1296,12 @@ public class CompareService : ICompareService
                 OracleCount = oracleKeyCounts.ContainsKey(kvp.Key) ? oracleKeyCounts[kvp.Key] : 0
             });
         }
-        foreach (var kvp in oracleKeyCounts.Where(k => k.Value > 1))
+        
+        var oracleDupes = hasDaf && hasDafNosaf
+            ? oracleKeyCounts.Where(k => k.Value > 1 && sqlKeyCounts.GetValueOrDefault(k.Key, 0) != k.Value)
+            : oracleKeyCounts.Where(k => k.Value > 1);
+
+        foreach (var kvp in oracleDupes)
         {
             if (!duplicateKeys.Contains(kvp.Key))
             {
@@ -1419,6 +1493,47 @@ public class CompareService : ICompareService
         }
 
         result.QaSteps.Add(stepC);
+
+        // הזרקת קוד: חוסר התאמה בכמויות לפי DAF ו-DAF_NOSAF
+        var sourceGrouped = sqlRawData
+            .GroupBy(row => new 
+            { 
+                Daf = row.ContainsKey("DAF") ? row["DAF"]?.ToString() ?? "NULL" : "NULL", 
+                DafNosaf = row.ContainsKey("DAF_NOSAF") ? row["DAF_NOSAF"]?.ToString() ?? "NULL" : "NULL" 
+            })
+            .Select(g => new { Key = g.Key, Count = g.Count() });
+
+        var targetGrouped = oracleRawData
+            .GroupBy(row => new 
+            { 
+                Daf = row.ContainsKey("DAF") ? row["DAF"]?.ToString() ?? "NULL" : "NULL", 
+                DafNosaf = row.ContainsKey("DAF_NOSAF") ? row["DAF_NOSAF"]?.ToString() ?? "NULL" : "NULL" 
+            })
+            .Select(g => new { Key = g.Key, Count = g.Count() });
+
+        var sourceDict = sourceGrouped.ToDictionary(g => g.Key, g => g.Count);
+        var targetDict = targetGrouped.ToDictionary(g => g.Key, g => g.Count);
+
+        var allKeys = sourceDict.Keys.Union(targetDict.Keys).ToList();
+
+        var mismatches = new List<OccurrenceMismatchRecord>();
+        foreach (var key in allKeys)
+        {
+            sourceDict.TryGetValue(key, out int sCount);
+            targetDict.TryGetValue(key, out int tCount);
+
+            if (sCount != tCount)
+            {
+                mismatches.Add(new OccurrenceMismatchRecord 
+                { 
+                    Key = new DafKey { Daf = key.Daf, DafNosaf = key.DafNosaf }, 
+                    SourceCount = sCount, 
+                    TargetCount = tCount 
+                });
+            }
+        }
+        
+        result.OccurrenceMismatches = mismatches.OrderBy(m => m.Key.Daf).ThenBy(m => m.Key.DafNosaf).ToList();
 
         return result;
     }

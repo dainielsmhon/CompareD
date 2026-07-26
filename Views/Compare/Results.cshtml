@@ -1,4 +1,4 @@
-@model CompareD.Controllers.SmartComparisonResultViewModel
+﻿@model CompareD.Controllers.SmartComparisonResultViewModel
 
 @{
     ViewData["Title"] = "דוח תוצאות השוואה חכם";
@@ -106,7 +106,10 @@
                         <span class="badge bg-success/20 text-success border border-success/30 fs-6">@Model.SourceUniqueValidKeys</span>
                     </div>
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
-                        <span class="text-secondary small">מפתחות כפולים (Duplicate Keys)</span>
+                        <span class="text-secondary small">
+                            מפתחות כפולים (Duplicate Keys)
+                            <span class="d-block text-white-50 mt-1" style="font-size: 0.8em; line-height: 1.2;">*אותו שילוב מפתח בדיוק (למשל: דף 100 + דף נוסף 6)<br/>שמופיע יותר מפעם אחת בקובץ זה.</span>
+                        </span>
                         <span class="badge @(Model.SourceDuplicateKeysCount > 0 ? "bg-danger/20 text-danger border border-danger/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.SourceDuplicateKeysCount</span>
                     </div>
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
@@ -166,7 +169,10 @@
                         <span class="badge bg-success/20 text-success border border-success/30 fs-6">@Model.TargetUniqueValidKeys</span>
                     </div>
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
-                        <span class="text-secondary small">מפתחות כפולים (Duplicate Keys)</span>
+                        <span class="text-secondary small">
+                            מפתחות כפולים (Duplicate Keys)
+                            <span class="d-block text-white-50 mt-1" style="font-size: 0.8em; line-height: 1.2;">*אותו שילוב מפתח בדיוק (למשל: דף 100 + דף נוסף 6)<br/>שמופיע יותר מפעם אחת בקובץ זה.</span>
+                        </span>
                         <span class="badge @(Model.TargetDuplicateKeysCount > 0 ? "bg-danger/20 text-danger border border-danger/30" : "bg-secondary/20 text-secondary border border-secondary/30") fs-6">@Model.TargetDuplicateKeysCount</span>
                     </div>
                     <div class="list-group-item bg-transparent d-flex justify-content-between align-items-center border-white/5 px-0 py-2">
@@ -297,12 +303,12 @@
     @* טבלת כפילויות מפתח *@
     @if (Model.Duplicates.Count > 0)
     {
-        <h5 class="h6 text-info mb-2">כפילויות מפתח שהוחרגו (@Model.Duplicates.Count):</h5>
+        <h5 class="h6 text-info mb-2">מפתחות עם חוסר התאמה בכמויות (@Model.Duplicates.Count):</h5>
         <div class="table-responsive">
             <table class="table table-dark table-sm table-borderless align-middle">
                 <thead>
                     <tr class="text-secondary small border-bottom border-white/5">
-                        <th style="width: 50%;">ערך מפתח כפול</th>
+                        <th style="width: 50%;">ערך מפתח</th>
                         <th style="width: 25%;" class="text-center">מופעים במקור</th>
                         <th style="width: 25%;" class="text-center">מופעים ביעד</th>
                     </tr>
@@ -329,6 +335,8 @@
         </div>
     }
 </div>
+
+
 
 @* =================================================================== *@
 @* ===== שלב ג: ניתוח עקביות נתונים (Data Consistency Check) ===== *@
@@ -507,91 +515,111 @@
 </div>
 
 @section Scripts {
-    <script>
-        // סריאליזציה של המודל עבור פונקציות ייצוא ב-JavaScript
-        // שימוש ב-System.Text.Json לשמירה על PascalCase (מבנה המאפיינים המקורי).
-        // הסריאליזטור המובנה של .NET מקודד ומאבטח תווים מיוחדים של HTML (כמו < ו->), ולכן השימוש ב-Html.Raw בטוח כאן מפני XSS.
-        const model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+                <script>
+        var model = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+        function downloadViaServer(content, filename, contentType) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/Compare/DownloadReport';
+            
+            var contentInput = document.createElement('input');
+            contentInput.type = 'hidden';
+            contentInput.name = 'content';
+            contentInput.value = '\uFEFF' + content; // Add BOM for Hebrew
+            form.appendChild(contentInput);
+            
+            var nameInput = document.createElement('input');
+            nameInput.type = 'hidden';
+            nameInput.name = 'fileName';
+            nameInput.value = filename;
+            form.appendChild(nameInput);
+            
+            var typeInput = document.createElement('input');
+            typeInput.type = 'hidden';
+            typeInput.name = 'contentType';
+            typeInput.value = contentType;
+            form.appendChild(typeInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
 
         function exportToExcel() {
-            let csv = "";
+            var csv = "";
             csv += "דוח השוואת נתונים — QA Workflow\n";
-            csv += `מקור,${model.SqlTable}\n`;
-            csv += `יעד,${model.OracleTable}\n`;
-            csv += `מפתח השוואה,${model.PrimaryKeyColumn}\n\n`;
+            csv += "מקור," + model.SqlTable + "\n";
+            csv += "יעד," + model.OracleTable + "\n";
+            csv += "מפתח השוואה," + model.PrimaryKeyColumn + "\n\n";
 
-            // שלב א: בדיקת שלמות שורות
             csv += "=== שלב א: בדיקת שלמות שורות ===\n";
             csv += "מדד,מקור,יעד\n";
-            csv += `ספירת שורות גולמית (Raw Count),${model.SourceRawCount},${model.TargetRawCount}\n`;
-            csv += `מפתחות ייחודיים תקינים (Unique Valid Keys),${model.SourceUniqueValidKeys},${model.TargetUniqueValidKeys}\n`;
-            csv += `מפתחות כפולים (Duplicate Keys Count),${model.SourceDuplicateKeysCount},${model.TargetDuplicateKeysCount}\n`;
-            csv += `מפתחות חסרים (Missing Keys Count),${model.SourceMissingKeysCount},${model.TargetMissingKeysCount}\n\n`;
+            csv += "ספירת שורות גולמית (Raw Count)," + model.SourceRawCount + "," + model.TargetRawCount + "\n";
+            csv += "מפתחות ייחודיים תקינים (Unique Valid Keys)," + model.SourceUniqueValidKeys + "," + model.TargetUniqueValidKeys + "\n";
+            csv += "מפתחות כפולים (Duplicate Keys Count)," + model.SourceDuplicateKeysCount + "," + model.TargetDuplicateKeysCount + "\n";
+            csv += "מפתחות חסרים (Missing Keys Count)," + model.SourceMissingKeysCount + "," + model.TargetMissingKeysCount + "\n\n";
 
             if (model.SourceDuplicateKeysList.length > 0) {
                 csv += "מפתחות כפולים במקור\n";
-                model.SourceDuplicateKeysList.forEach(k => { csv += `"${k}"\n`; });
+                model.SourceDuplicateKeysList.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
             if (model.TargetDuplicateKeysList.length > 0) {
                 csv += "מפתחות כפולים ביעד\n";
-                model.TargetDuplicateKeysList.forEach(k => { csv += `"${k}"\n`; });
+                model.TargetDuplicateKeysList.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
             if (model.SourceMissingKeysList.length > 0) {
                 csv += "מפתחות חסרים במקור\n";
-                model.SourceMissingKeysList.forEach(k => { csv += `"${k}"\n`; });
+                model.SourceMissingKeysList.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
             if (model.TargetMissingKeysList.length > 0) {
                 csv += "מפתחות חסרים ביעד\n";
-                model.TargetMissingKeysList.forEach(k => { csv += `"${k}"\n`; });
+                model.TargetMissingKeysList.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
 
-            // שלב ב: זיהוי מפתחות חסרים
             csv += "=== שלב ב: זיהוי מפתחות חסרים ===\n";
-            csv += `חסר ביעד,${model.TotalMissingInOracle}\n`;
-            csv += `חסר במקור,${model.TotalMissingInSql}\n`;
-            csv += `כפילויות מפתח,${model.TotalDuplicates}\n\n`;
+            csv += "חסר ביעד," + model.TotalMissingInOracle + "\n";
+            csv += "חסר במקור," + model.TotalMissingInSql + "\n";
+            csv += "כפילויות מפתח," + model.TotalDuplicates + "\n\n";
 
             if (model.MissingInOracle.length > 0) {
                 csv += "מפתחות חסרים ביעד (מתוך שלב ב)\n";
-                model.MissingInOracle.forEach(k => { csv += `"${k}"\n`; });
+                model.MissingInOracle.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
-
             if (model.MissingInSql.length > 0) {
                 csv += "מפתחות חסרים במקור (מתוך שלב ב)\n";
-                model.MissingInSql.forEach(k => { csv += `"${k}"\n`; });
+                model.MissingInSql.forEach(function(k) { csv += '"' + k + '"\n'; });
                 csv += "\n";
             }
-
             if (model.Duplicates.length > 0) {
-                csv += "כפילויות מפתח (מתוך שלב ב)\n";
+                csv += "מפתחות עם חוסר התאמה בכמויות (מתוך שלב ב)\n";
                 csv += "ערך מפתח,כמות במקור,כמות ביעד\n";
-                model.Duplicates.forEach(d => {
-                    csv += `"${d.KeyValue}",${d.SqlCount},${d.OracleCount}\n`;
+                model.Duplicates.forEach(function(d) {
+                    csv += '"' + d.KeyValue + '",' + d.SqlCount + ',' + d.OracleCount + "\n";
                 });
                 csv += "\n";
             }
 
-            // שלב ג: ניתוח עקביות נתונים
             csv += "=== שלב ג: ניתוח עקביות נתונים ===\n";
-            csv += `רשומות זהות,${model.TotalMatched}\n`;
-            csv += `הפרשי ערכים,${model.TotalDiscrepancyRows}\n`;
-            csv += `פערי שלמות,${model.DataIntegrityGaps.length}\n\n`;
+            csv += "רשומות זהות," + model.TotalMatched + "\n";
+            csv += "הפרשי ערכים," + model.TotalDiscrepancyRows + "\n";
+            csv += "פערי שלמות," + model.DataIntegrityGaps.length + "\n\n";
 
             if (model.DiscrepancyPatterns.length > 0) {
                 csv += "תבניות הבדלים\n";
                 csv += "תיאור תבנית,כמות שורות,מפתחות לדוגמה,שדה,ערך במקור,ערך ביעד\n";
-                model.DiscrepancyPatterns.forEach(p => {
-                    const keys = p.ExampleKeys.join(" | ");
-                    p.Fields.forEach((f, idx) => {
-                        const desc = idx === 0 ? `"${p.PatternDescription}"` : "";
-                        const count = idx === 0 ? p.Count : "";
-                        const keysShow = idx === 0 ? `"${keys}"` : "";
-                        csv += `${desc},${count},${keysShow},"${f.FieldName}","${f.SqlValue}","${f.OracleValue}"\n`;
+                model.DiscrepancyPatterns.forEach(function(p) {
+                    var keys = p.ExampleKeys.join(" | ");
+                    p.Fields.forEach(function(f, idx) {
+                        var desc = idx === 0 ? '"' + p.PatternDescription + '"' : "";
+                        var count = idx === 0 ? p.Count : "";
+                        var keysShow = idx === 0 ? '"' + keys + '"' : "";
+                        csv += desc + "," + count + "," + keysShow + ',"' + f.FieldName + '","' + f.SqlValue + '","' + f.OracleValue + '"\n';
                     });
                 });
                 csv += "\n";
@@ -600,175 +628,137 @@
             if (model.DataIntegrityGaps.length > 0) {
                 csv += "פערי שלמות נתונים\n";
                 csv += "ערך מפתח,שם שדה,צד עם ערך,הערך שנמצא\n";
-                model.DataIntegrityGaps.forEach(g => {
-                    csv += `"${g.KeyValue}","${g.FieldName}","${g.PresentSide === 'Source' ? 'מקור' : 'יעד'}","${g.PresentValue}"\n`;
+                model.DataIntegrityGaps.forEach(function(g) {
+                    var side = g.PresentSide === 'Source' ? 'מקור' : 'יעד';
+                    csv += '"' + g.KeyValue + '","' + g.FieldName + '","' + side + '","' + g.PresentValue + '"\n';
                 });
             }
 
-            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `QA_Report_${model.SqlTable}_vs_${model.OracleTable}.csv`;
-            link.click();
+            var filename = "QA_Report_" + model.SqlTable + "_vs_" + model.OracleTable + ".csv";
+            downloadViaServer(csv, filename, 'text/csv;charset=utf-8;');
         }
 
         function exportToWord() {
-            const stepAStatus = (model.SourceMissingKeysCount > 0 || model.TargetMissingKeysCount > 0 || model.SourceDuplicateKeysList.length > 0 || model.TargetDuplicateKeysList.length > 0 || model.HasRowCountMismatch)
+            var stepAStatus = (model.SourceMissingKeysCount > 0 || model.TargetMissingKeysCount > 0 || model.SourceDuplicateKeysList.length > 0 || model.TargetDuplicateKeysList.length > 0 || model.HasRowCountMismatch)
                 ? '<span style="color:orange; font-weight:bold;">⚠ פערים בשלמות</span>' 
                 : '<span style="color:green; font-weight:bold;">✓ שלמות תקינה</span>';
             
-            let html = `
-            <html dir="rtl" lang="he">
-            <head>
-                <meta charset="utf-8">
-                <style>
-                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; text-align: right; }
-                    h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; text-align: center; }
-                    h2 { color: #2563eb; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-                    h3 { color: #374151; margin-top: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; direction: rtl; }
-                    th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }
-                    th { background-color: #f3f4f6; color: #1f2937; }
-                    .mono { font-family: Consolas, monospace; }
-                    .text-center { text-align: center; }
-                    .warning-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 15px 0; }
-                    .pass-box { background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin: 15px 0; }
-                </style>
-            </head>
-            <body>
-                <h1>דוח השוואת נתונים — QA Workflow</h1>
-                <p><strong>מקור:</strong> ${model.SqlTable}</p>
-                <p><strong>יעד:</strong> ${model.OracleTable}</p>
-                <p><strong>מפתח השוואה:</strong> ${model.PrimaryKeyColumn}</p>
-                <p><strong>תאריך הפקה:</strong> ${new Date().toLocaleString('he-IL')}</p>
+            var html = "";
+            html += '<html dir="rtl" lang="he">';
+            html += '<head>';
+            html += '<meta charset="utf-8">';
+            html += '<style>';
+            html += 'body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; text-align: right; }';
+            html += 'h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; text-align: center; }';
+            html += 'h2 { color: #2563eb; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }';
+            html += 'h3 { color: #374151; margin-top: 20px; }';
+            html += 'table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; direction: rtl; }';
+            html += 'th, td { border: 1px solid #ddd; padding: 10px; text-align: right; }';
+            html += 'th { background-color: #f3f4f6; color: #1f2937; }';
+            html += '.mono { font-family: Consolas, monospace; }';
+            html += '.text-center { text-align: center; }';
+            html += '.warning-box { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 15px 0; }';
+            html += '.pass-box { background: #d1fae5; border: 1px solid #10b981; border-radius: 8px; padding: 15px; margin: 15px 0; }';
+            html += '<' + '/style>';
+            html += '<' + '/head>';
+            html += '<body>';
+            html += '<h1>דוח השוואת נתונים — QA Workflow</h1>';
+            html += '<p><strong>מקור:</strong> ' + model.SqlTable + '</p>';
+            html += '<p><strong>יעד:</strong> ' + model.OracleTable + '</p>';
+            html += '<p><strong>מפתח השוואה:</strong> ' + model.PrimaryKeyColumn + '</p>';
+            html += '<p><strong>תאריך הפקה:</strong> ' + new Date().toLocaleString('he-IL') + '</p>';
 
-                <h2>שלב א — בדיקת שלמות שורות</h2>
-                <p><strong>סטטוס:</strong> ${stepAStatus}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>מדד</th>
-                            <th>מקור (${model.SqlTable})</th>
-                            <th>יעד (${model.OracleTable})</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>ספירת שורות גולמית (Raw Count)</td>
-                            <td class="text-center">${model.SourceRawCount}</td>
-                            <td class="text-center">${model.TargetRawCount}</td>
-                        </tr>
-                        <tr>
-                            <td>מפתחות ייחודיים תקינים (Unique Valid Keys)</td>
-                            <td class="text-center">${model.SourceUniqueValidKeys}</td>
-                            <td class="text-center">${model.TargetUniqueValidKeys}</td>
-                        </tr>
-                        <tr>
-                            <td>מפתחות כפולים (Duplicate Keys Count)</td>
-                            <td class="text-center">${model.SourceDuplicateKeysCount}</td>
-                            <td class="text-center">${model.TargetDuplicateKeysCount}</td>
-                        </tr>
-                        <tr>
-                            <td>מפתחות חסרים (Missing Keys Count)</td>
-                            <td class="text-center">${model.SourceMissingKeysCount}</td>
-                            <td class="text-center">${model.TargetMissingKeysCount}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
+            html += '<h2>שלב א — בדיקת שלמות שורות</h2>';
+            html += '<p><strong>סטטוס:</strong> ' + stepAStatus + '</p>';
+            html += '<table>';
+            html += '<thead><tr><th>מדד</th><th>' + model.SqlTable + '</th><th>' + model.OracleTable + '</th><' + '/tr><' + '/thead>';
+            html += '<tbody>';
+            html += '<tr><td>ספירת שורות גולמית (Raw Count)<' + '/td><td class="text-center">' + model.SourceRawCount + '<' + '/td><td class="text-center">' + model.TargetRawCount + '<' + '/td><' + '/tr>';
+            html += '<tr><td>מפתחות ייחודיים תקינים (Unique Valid Keys)<' + '/td><td class="text-center" style="color: green; font-weight: bold;">' + model.SourceUniqueValidKeys + '<' + '/td><td class="text-center" style="color: green; font-weight: bold;">' + model.TargetUniqueValidKeys + '<' + '/td><' + '/tr>';
+            html += '<tr><td>מפתחות כפולים (Duplicate Keys Count)<' + '/td><td class="text-center">' + model.SourceDuplicateKeysCount + '<' + '/td><td class="text-center">' + model.TargetDuplicateKeysCount + '<' + '/td><' + '/tr>';
+            html += '<tr><td>מפתחות חסרים (Missing Keys Count)<' + '/td><td class="text-center" style="color: orange; font-weight: bold;">' + model.SourceMissingKeysCount + '<' + '/td><td class="text-center" style="color: orange; font-weight: bold;">' + model.TargetMissingKeysCount + '<' + '/td><' + '/tr>';
+            html += '<' + '/tbody><' + '/table>';
 
             if (model.SourceDuplicateKeysList.length > 0) {
-                html += `<h3>מפתחות כפולים במקור (${model.SourceDuplicateKeysList.length})</h3><ul>`;
-                model.SourceDuplicateKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות כפולים במקור (' + model.SourceDuplicateKeysList.length + ')</h3><ul>';
+                model.SourceDuplicateKeysList.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
-
             if (model.TargetDuplicateKeysList.length > 0) {
-                html += `<h3>מפתחות כפולים ביעד (${model.TargetDuplicateKeysList.length})</h3><ul>`;
-                model.TargetDuplicateKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות כפולים ביעד (' + model.TargetDuplicateKeysList.length + ')</h3><ul>';
+                model.TargetDuplicateKeysList.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
-
             if (model.SourceMissingKeysList.length > 0) {
-                html += `<h3>מפתחות חסרים במקור (${model.SourceMissingKeysList.length})</h3><ul>`;
-                model.SourceMissingKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות חסרים במקור (' + model.SourceMissingKeysList.length + ')</h3><ul>';
+                model.SourceMissingKeysList.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
-
             if (model.TargetMissingKeysList.length > 0) {
-                html += `<h3>מפתחות חסרים ביעד (${model.TargetMissingKeysList.length})</h3><ul>`;
-                model.TargetMissingKeysList.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות חסרים ביעד (' + model.TargetMissingKeysList.length + ')</h3><ul>';
+                model.TargetMissingKeysList.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
 
-            html += `
-                <h2>שלב ב — זיהוי מפתחות חסרים</h2>
-                <table>
-                    <tr><th>קטגוריה</th><th>כמות</th></tr>
-                    <tr><td>חסר ביעד</td><td style="color: orange; font-weight: bold;">${model.TotalMissingInOracle}</td></tr>
-                    <tr><td>חסר במקור</td><td style="color: blue; font-weight: bold;">${model.TotalMissingInSql}</td></tr>
-                    <tr><td>כפילויות מפתח</td><td>${model.TotalDuplicates}</td></tr>
-                </table>
-            `;
+            html += '<h2>שלב ב — זיהוי מפתחות חסרים</h2>';
+            html += '<table><tr><th>קטגוריה</th><th>כמות</th><' + '/tr>';
+            html += '<tr><td>חסר ביעד<' + '/td><td style="color: orange; font-weight: bold;">' + model.TotalMissingInOracle + '<' + '/td><' + '/tr>';
+            html += '<tr><td>חסר במקור<' + '/td><td style="color: blue; font-weight: bold;">' + model.TotalMissingInSql + '<' + '/td><' + '/tr>';
+            html += '<tr><td>כפילויות מפתח<' + '/td><td>' + model.TotalDuplicates + '<' + '/td><' + '/tr>';
+            html += '<' + '/table>';
 
             if (model.MissingInOracle.length > 0) {
-                html += `<h3>מפתחות חסרים ביעד (${model.TotalMissingInOracle})</h3><ul>`;
-                model.MissingInOracle.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות חסרים ביעד (' + model.TotalMissingInOracle + ')</h3><ul>';
+                model.MissingInOracle.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
-
             if (model.MissingInSql.length > 0) {
-                html += `<h3>מפתחות חסרים במקור (${model.TotalMissingInSql})</h3><ul>`;
-                model.MissingInSql.forEach(k => { html += `<li class="mono">${k}</li>`; });
-                html += "</ul>";
+                html += '<h3>מפתחות חסרים במקור (' + model.TotalMissingInSql + ')</h3><ul>';
+                model.MissingInSql.forEach(function(k) { html += '<li class="mono">' + k + '<' + '/li>'; });
+                html += '<' + '/ul>';
             }
 
-            html += `
-                <h2>שלב ג — ניתוח עקביות נתונים</h2>
-                <table>
-                    <tr><th>קטגוריה</th><th>כמות</th><th>פירוט</th></tr>
-                    <tr><td>רשומות זהות</td><td style="color: green; font-weight: bold;">${model.TotalMatched}</td><td>${(model.TotalRowsInSql > 0 ? (model.TotalMatched / model.TotalRowsInSql * 100).toFixed(2) : 100)}% תאימות</td></tr>
-                    <tr><td>הפרשי ערכים</td><td style="color: red; font-weight: bold;">${model.TotalDiscrepancyRows}</td><td>${model.DiscrepancyPatterns.length} תבניות</td></tr>
-                    <tr><td>פערי שלמות</td><td style="color: orange; font-weight: bold;">${model.DataIntegrityGaps.length}</td><td>ערך מול ריק/אפס</td></tr>
-                </table>
-            `;
+            var matchPercent = model.SourceRawCount > 0 ? (model.TotalMatched / model.SourceRawCount * 100).toFixed(2) : 100;
+            html += '<h2>שלב ג — ניתוח עקביות נתונים</h2>';
+            html += '<table><tr><th>קטגוריה</th><th>כמות</th><th>פירוט</th><' + '/tr>';
+            html += '<tr><td>רשומות זהות<' + '/td><td style="color: green; font-weight: bold;">' + model.TotalMatched + '<' + '/td><td>' + matchPercent + '% תאימות<' + '/td><' + '/tr>';
+            html += '<tr><td>הפרשי ערכים<' + '/td><td style="color: red; font-weight: bold;">' + model.TotalDiscrepancyRows + '<' + '/td><td>' + model.DiscrepancyPatterns.length + ' תבניות<' + '/td><' + '/tr>';
+            html += '<tr><td>פערי שלמות<' + '/td><td style="color: orange; font-weight: bold;">' + model.DataIntegrityGaps.length + '<' + '/td><td>ערך מול ריק/אפס<' + '/td><' + '/tr>';
+            html += '<' + '/table>';
 
             if (model.DiscrepancyPatterns.length > 0) {
-                model.DiscrepancyPatterns.forEach((p, idx) => {
-                    html += `
-                        <h3>תבנית ${idx + 1}: ${p.PatternDescription}</h3>
-                        <p><strong>כמות שורות:</strong> ${p.Count} | <strong>מפתחות לדוגמה:</strong> <span class="mono">${p.ExampleKeys.join(" | ")}</span></p>
-                        <table>
-                            <thead><tr><th>שם שדה</th><th>ערך במקור</th><th>ערך ביעד</th></tr></thead>
-                            <tbody>
-                    `;
-                    p.Fields.forEach(f => {
-                        html += `<tr><td class="mono">${f.FieldName}</td><td class="mono" style="color:red;">${f.SqlValue}</td><td class="mono" style="color:red;">${f.OracleValue}</td></tr>`;
+                model.DiscrepancyPatterns.forEach(function(p, idx) {
+                    html += '<h3>תבנית ' + (idx + 1) + ': ' + p.PatternDescription + '</h3>';
+                    html += '<p><strong>כמות שורות:</strong> ' + p.Count + ' | <strong>מפתחות לדוגמה:</strong> <span class="mono">' + p.ExampleKeys.join(" | ") + '</span></p>';
+                    html += '<table><thead><tr><th>שם שדה</th><th>ערך במקור</th><th>ערך ביעד</th><' + '/tr><' + '/thead><tbody>';
+                    p.Fields.forEach(function(f) {
+                        html += '<tr><td class="mono">' + f.FieldName + '<' + '/td><td class="mono" style="color:red;">' + f.SqlValue + '<' + '/td><td class="mono" style="color:red;">' + f.OracleValue + '<' + '/td><' + '/tr>';
                     });
-                    html += `</tbody></table>`;
+                    html += '<' + '/tbody><' + '/table>';
                 });
             }
 
             if (model.DataIntegrityGaps.length > 0) {
-                html += `
-                    <h3>פערי שלמות נתונים (${model.DataIntegrityGaps.length})</h3>
-                    <table>
-                        <thead><tr><th>ערך מפתח</th><th>שם שדה</th><th>צד עם ערך</th><th>הערך</th></tr></thead>
-                        <tbody>
-                `;
-                model.DataIntegrityGaps.forEach(g => {
-                    html += `<tr><td class="mono">${g.KeyValue}</td><td>${g.FieldName}</td><td>${g.PresentSide === 'Source' ? 'מקור' : 'יעד'}</td><td class="mono" style="color:orange;">${g.PresentValue}</td></tr>`;
+                html += '<h3>פערי שלמות נתונים (' + model.DataIntegrityGaps.length + ')</h3>';
+                html += '<table><thead><tr><th>ערך מפתח</th><th>שם שדה</th><th>צד עם ערך</th><th>הערך</th><' + '/tr><' + '/thead><tbody>';
+                model.DataIntegrityGaps.forEach(function(g) {
+                    var side = g.PresentSide === 'Source' ? 'מקור' : 'יעד';
+                    html += '<tr><td class="mono">' + g.KeyValue + '<' + '/td><td>' + g.FieldName + '<' + '/td><td>' + side + '<' + '/td><td class="mono" style="color:orange;">' + g.PresentValue + '<' + '/td><' + '/tr>';
                 });
-                html += `</tbody></table>`;
+                html += '<' + '/tbody><' + '/table>';
             }
 
-            html += `</body></html>`;
+            html += '<' + '/body><' + '/html>';
 
-            const blob = new Blob(["\uFEFF" + html], { type: "application/msword" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `QA_Report_${model.SqlTable}_vs_${model.OracleTable}.doc`;
-            link.click();
+            var filename = "QA_Report_" + model.SqlTable + "_vs_" + model.OracleTable + ".doc";
+            downloadViaServer(html, filename, 'application/msword');
         }
     </script>
 }
+
+
+
+
+
+
+
