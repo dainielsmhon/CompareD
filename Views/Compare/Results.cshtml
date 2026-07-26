@@ -1,4 +1,4 @@
-﻿@model CompareD.Controllers.SmartComparisonResultViewModel
+@model CompareD.Controllers.SmartComparisonResultViewModel
 
 @{
     ViewData["Title"] = "דוח תוצאות השוואה חכם";
@@ -521,7 +521,7 @@
         function downloadViaServer(content, filename, contentType) {
             var form = document.createElement('form');
             form.method = 'POST';
-            form.action = '/Compare/DownloadReport';
+            form.action = '@Url.Action("DownloadReport", "Compare")';
             
             var contentInput = document.createElement('input');
             contentInput.type = 'hidden';
