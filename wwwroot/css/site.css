@@ -46,8 +46,8 @@ body {
 body::before {
     /* יצירת אלמנט מדומה לרקע */
     content: "";
-    /* הגדרת מיקום מוחלט בראש הדף */
-    position: absolute;
+    /* הגדרת מיקום קבוע בראש הדף למניעת גלילת יתר */
+    position: fixed;
     /* הצמדה לקצה העליון */
     top: -10%;
     /* הצמדה לקצה השמאלי */
@@ -70,8 +70,8 @@ body::before {
 body::after {
     /* יצירת אלמנט מדומה שני */
     content: "";
-    /* מיקום מוחלט */
-    position: absolute;
+    /* מיקום קבוע למניעת גלילת יתר */
+    position: fixed;
     /* הצמדה לקצה התחתון */
     bottom: -10%;
     /* הצמדה לקצה הימני */
@@ -319,3 +319,884 @@ input:disabled {
 }
 
 
+
+
+
+/* =====================================================================
+   Light Mode — משתני ערכת צבעים בהירה
+   גישה: override משתני CSS בלבד, הכל נגזר מהם
+   ===================================================================== */
+body.light-mode {
+    --bg-primary: #f8fafc;
+    --bg-secondary: rgba(255, 255, 255, 0.85);
+    --border-color: rgba(30, 41, 59, 0.08);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --accent-primary: #2563eb;
+    --accent-secondary: #7c3aed;
+    --color-success: #059669;
+    --color-danger: #dc2626;
+    --color-warning: #d97706;
+    background-color: var(--bg-primary);
+    background-image: linear-gradient(135deg, #fdfbfb 0%, #eaeff5 100%);
+    background-attachment: fixed;
+    color: var(--text-primary);
+}
+
+/* Light Mode: Aurora רקע עדין ויוקרתי יותר */
+body.light-mode::before {
+    background: radial-gradient(circle at 15% 30%, rgba(37, 99, 235, 0.09) 0%, rgba(124, 58, 237, 0.04) 40%, transparent 70%);
+}
+body.light-mode::after {
+    background: radial-gradient(circle at 85% 70%, rgba(124, 58, 237, 0.07) 0%, rgba(37, 99, 235, 0.03) 45%, transparent 70%);
+}
+
+/* Light Mode: Glassmorphism כרטיסים — שמור אפקט עם רקע בהיר */
+body.light-mode .glass-card {
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+body.light-mode .glass-card:hover {
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: 0 12px 40px rgba(37, 99, 235, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+    transform: translateY(-3px);
+}
+
+/* Light Mode: Navbar */
+body.light-mode nav.glass-card {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(30, 41, 59, 0.08) !important;
+}
+body.light-mode .navbar-dark .nav-link { color: #1e293b !important; }
+body.light-mode .navbar-dark .navbar-brand { color: #0f172a !important; }
+
+/* Light Mode: Footer */
+body.light-mode footer.glass-card { color: #475569 !important; }
+
+/* Light Mode: טקסט כללי — override Bootstrap classes */
+body.light-mode .text-light { color: #0f172a !important; }
+body.light-mode .text-secondary { color: #64748b !important; }
+body.light-mode .text-muted { color: #94a3b8 !important; }
+
+/* Light Mode: .font-monospace (טבלאות) — כהה וקריא */
+body.light-mode .font-monospace { color: #1e293b !important; }
+
+/* Light Mode: Bootstrap table-dark override */
+body.light-mode .table-dark,
+body.light-mode .table-dark td,
+body.light-mode .table-dark th {
+    background-color: transparent !important;
+    color: #1e293b !important;
+    border-color: rgba(30, 41, 59, 0.08) !important;
+}
+body.light-mode .table-hover tbody tr:hover td {
+    background-color: rgba(37, 99, 235, 0.05) !important;
+}
+
+/* Light Mode: שדות קלט */
+body.light-mode .form-control,
+body.light-mode .form-select,
+body.light-mode .admin-input,
+body.light-mode .form-input-glass {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(30, 41, 59, 0.18) !important;
+    color: #0f172a !important;
+}
+body.light-mode .form-control::placeholder,
+body.light-mode .admin-input::placeholder { color: rgba(15, 23, 42, 0.35) !important; }
+body.light-mode .form-control:focus,
+body.light-mode .admin-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Light Mode: input-group addon */
+body.light-mode .admin-input-addon,
+body.light-mode .input-group-text {
+    background: rgba(240, 244, 248, 0.9) !important;
+    border-color: rgba(30, 41, 59, 0.18) !important;
+    color: #475569 !important;
+}
+
+/* =====================================================================
+   Light Mode: Admin Dashboard — תיקון נראות טקסט (Bug #4)
+   כל class מנוהל עם admin-text-* שניתן לשלוט בו
+   ===================================================================== */
+
+/* admin-text-strong: טקסט ראשי בולט — שחור כהה */
+.admin-text-strong { color: var(--text-primary); }
+
+/* admin-text-muted: טקסט משני/secondary */
+.admin-text-muted { color: var(--text-secondary); }
+
+/* admin-text-accent: פעולות/links בצבע Accent */
+.admin-text-accent { color: var(--accent-primary); }
+
+/* admin-text-warning: אזהרות */
+.admin-text-warning { color: var(--color-warning); }
+
+/* כותרת Section בפאנל Admin — נגיש בשני המצבים */
+.admin-section-title {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* stat-value: מספרים גדולים בכרטיסי Analytics */
+.stat-label { color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; }
+.stat-sub { color: var(--text-secondary); font-size: 0.72rem; opacity: 0.8; }
+
+/* Light Mode: כרטיסי Stats — ווידג'טי Analytics */
+body.light-mode .analytics-stat-card .stat-value.text-success { color: #059669 !important; }
+body.light-mode .analytics-stat-card .stat-value.text-secondary { color: #64748b !important; }
+
+/* Light Mode: settings label */
+body.light-mode .settings-label { color: #374151 !important; }
+
+/* Light Mode: form-check-label */
+body.light-mode .form-check-label { color: #475569 !important; }
+
+/* Light Mode: health metric */
+body.light-mode .health-label { color: #475569 !important; }
+body.light-mode .health-value { color: #0f172a !important; }
+body.light-mode .health-metric-row { border-bottom-color: rgba(30, 41, 59, 0.08) !important; }
+
+/* Light Mode: Tabs */
+body.light-mode .nav-tabs { border-bottom-color: rgba(30, 41, 59, 0.12) !important; }
+body.light-mode .nav-tabs .nav-link { color: #64748b !important; }
+body.light-mode .nav-tabs .nav-link:hover { color: #1e293b !important; background: rgba(30, 41, 59, 0.04) !important; }
+body.light-mode .nav-tabs .nav-link.active {
+    color: #0f172a !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgba(30, 41, 59, 0.12) rgba(30, 41, 59, 0.12) transparent !important;
+    border-bottom: 3px solid var(--accent-primary) !important;
+}
+
+/* Light Mode: Admin Table */
+body.light-mode .admin-table { color: #1e293b !important; }
+body.light-mode .admin-table thead th { color: #475569 !important; border-bottom-color: rgba(30,41,59,0.1) !important; }
+body.light-mode .admin-table tbody tr { border-bottom-color: rgba(30,41,59,0.07) !important; }
+body.light-mode .admin-table tbody tr:hover { background: rgba(37, 99, 235, 0.04) !important; }
+body.light-mode .admin-table td { color: #1e293b !important; }
+
+/* Light Mode: Admin filter buttons */
+body.light-mode .admin-filter-btn { background: rgba(30,41,59,0.05); border-color: rgba(30,41,59,0.12); color: #475569; }
+body.light-mode .admin-filter-btn:hover,
+body.light-mode .admin-filter-btn.active { background: rgba(37,99,235,0.12); border-color: var(--accent-primary); color: #1d4ed8; }
+
+/* Light Mode: form-check-input switch */
+body.light-mode .form-check-input:not(:checked) { background-color: rgba(30,41,59,0.1) !important; border-color: rgba(30,41,59,0.2) !important; }
+
+/* Light Mode: Recent users */
+body.light-mode .recent-user-item { border-bottom-color: rgba(30,41,59,0.07) !important; }
+body.light-mode .user-avatar-dot { color: #059669 !important; }
+
+/* Light Mode: text-gradient (כותרות) — נשמרות גרדיאנט */
+body.light-mode .text-gradient {
+    background: linear-gradient(135deg, #0f172a 0%, #334155 50%, var(--accent-primary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Light Mode: Accent colors for data */
+body.light-mode .text-info-soft { color: #0369a1 !important; }
+body.light-mode .text-warning-soft { color: #b45309 !important; }
+body.light-mode .text-primary-soft { color: #2563eb !important; }
+body.light-mode .text-danger-soft { color: #dc2626 !important; }
+body.light-mode .text-success { color: #059669 !important; }
+body.light-mode .text-warning { color: #d97706 !important; }
+body.light-mode .text-danger { color: #dc2626 !important; }
+
+/* Light Mode: Footer version badge */
+body.light-mode .footer-version-badge { opacity: 1; }
+
+/* =====================================================================
+   Theme Toggle Button — כפתור החלפת ערכת צבעים
+   ===================================================================== */
+.theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2rem;
+    padding: 0.35rem 0.9rem;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+}
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: scale(1.04);
+}
+body.light-mode .theme-toggle-btn {
+    background: rgba(30, 41, 59, 0.08);
+    border-color: rgba(30, 41, 59, 0.18);
+    color: #1e293b;
+}
+body.light-mode .theme-toggle-btn:hover {
+    background: rgba(30, 41, 59, 0.14);
+}
+
+/* =====================================================================
+   Zoom Buttons — כפתורי גודל טקסט לנגישות
+   ===================================================================== */
+.zoom-controls { display: flex; align-items: center; gap: 0.2rem; }
+.zoom-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255,255,255,0.85);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    line-height: 1.4;
+}
+.zoom-btn:hover:not(:disabled) {
+    background: rgba(59,130,246,0.25);
+    border-color: var(--accent-primary);
+    color: #fff;
+}
+.zoom-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.zoom-btn-reset { font-size: 0.7rem; }
+body.light-mode .zoom-btn {
+    background: rgba(30,41,59,0.07);
+    border-color: rgba(30,41,59,0.15);
+    color: #1e293b;
+}
+body.light-mode .zoom-btn:hover:not(:disabled) {
+    background: rgba(37,99,235,0.15);
+    border-color: var(--accent-primary);
+    color: #1d4ed8;
+}
+
+/* =====================================================================
+   Feature 1: Footer Version Badge
+   ===================================================================== */
+.footer-version-badge {
+    display: inline-block;
+    margin-right: 0.75rem;
+    font-family: monospace;
+    font-size: 0.7rem;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: #fff !important;
+    padding: 0.15rem 0.65rem;
+    border-radius: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    opacity: 0.9;
+}
+
+/* =====================================================================
+   System Alert Banner
+   ===================================================================== */
+.system-alert-banner {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2));
+    border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+    padding: 0.6rem 1.5rem;
+    text-align: center;
+    font-size: 0.88rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+}
+.system-alert-close {
+    background: none; border: none; color: inherit;
+    cursor: pointer; opacity: 0.7; font-size: 1rem; line-height: 1; padding: 0.1rem 0.4rem;
+}
+.system-alert-close:hover { opacity: 1; }
+body.light-mode .system-alert-banner { color: #92400e; background: linear-gradient(90deg, rgba(245,158,11,0.12), rgba(239,68,68,0.08)); }
+
+/* =====================================================================
+   Feature 2: Scroll To Top / Bottom — כפתורי גלילה צפים
+   ===================================================================== */
+.scroll-fab-container {
+    position: fixed;
+    bottom: 1.75rem;
+    left: 1.75rem; /* RTL: שמאל = סוף הדף */
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 1050;
+}
+.scroll-fab {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border: none;
+    color: #fff;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    transition: var(--transition-smooth);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+}
+.scroll-fab.visible {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+}
+.scroll-fab:hover {
+    filter: brightness(1.12);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.55);
+    transform: scale(1.08) translateY(0);
+}
+/* כפתור "גלול למטה" תמיד גלוי */
+.scroll-fab-bottom {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    transform: translateY(0) !important;
+}
+body.light-mode .scroll-fab { box-shadow: 0 4px 15px rgba(37,99,235,0.25); }
+
+/* =====================================================================
+   Admin Dashboard Analytics Cards
+   ===================================================================== */
+.analytics-stat-card { transition: var(--transition-smooth); }
+.analytics-stat-card:hover { transform: translateY(-6px); }
+.stat-icon { font-size: 2rem; line-height: 1; }
+.stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    font-family: monospace;
+    line-height: 1.15;
+}
+
+/* צבעי טקסט נוספים */
+.text-info-soft { color: #67e8f9 !important; }
+.text-warning-soft { color: #fcd34d !important; }
+.text-primary-soft { color: #93c5fd !important; }
+.text-danger-soft { color: #fca5a5 !important; }
+
+/* =====================================================================
+   Admin Table & Text Utilities
+   ===================================================================== */
+.admin-text-muted { color: var(--text-secondary) !important; }
+.admin-text-strong { color: var(--text-primary) !important; font-weight: 600; }
+.admin-text-accent { color: var(--accent-primary) !important; font-weight: 600; }
+.admin-text-warning { color: var(--color-warning) !important; }
+.admin-text-danger { color: var(--color-danger) !important; }
+.admin-text-success { color: var(--color-success) !important; }
+
+.admin-table {
+    color: var(--text-primary);
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    background: transparent !important;
+    --bs-table-bg: transparent !important;
+}
+.admin-table thead tr { border-bottom: 1px solid var(--border-color); }
+.admin-table thead th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.75rem;
+    border: none;
+}
+.admin-table tbody tr {
+    transition: background 0.15s ease;
+    border-bottom: 1px solid var(--border-color);
+}
+.admin-table tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
+.admin-table tbody td { padding: 0.75rem; border: none; vertical-align: middle; background: transparent !important; }
+
+/* =====================================================================
+   Admin Badges
+   ===================================================================== */
+.admin-badge {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+.admin-badge-success {
+    background: rgba(16, 185, 129, 0.12);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+.admin-badge-danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+.admin-badge-warning {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+.admin-badge-secondary {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.2);
+}
+/* Light Mode badges - dark text on light bg */
+body.light-mode .admin-badge-success { background: rgba(5,150,105,0.1); color: #065f46; border-color: rgba(5,150,105,0.2); }
+body.light-mode .admin-badge-danger { background: rgba(220,38,38,0.1); color: #991b1b; border-color: rgba(220,38,38,0.2); }
+body.light-mode .admin-badge-warning { background: rgba(217,119,6,0.1); color: #78350f; border-color: rgba(217,119,6,0.2); }
+body.light-mode .admin-badge-secondary { background: rgba(100,116,139,0.1); color: #334155; border-color: rgba(100,116,139,0.15); }
+
+/* =====================================================================
+   Admin Filter Buttons
+   ===================================================================== */
+.admin-filter-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.8rem;
+    transition: var(--transition-smooth);
+}
+.admin-filter-btn:hover, .admin-filter-btn.active {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: var(--accent-primary);
+    color: #fff;
+}
+
+/* =====================================================================
+   Admin Input Fields
+   ===================================================================== */
+.admin-input {
+    background: rgba(15, 23, 42, 0.4) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    border-radius: 0.65rem !important;
+    transition: var(--transition-smooth);
+}
+.admin-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+    outline: none !important;
+}
+.admin-input::placeholder {
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+.admin-input-addon {
+    background: rgba(15, 23, 42, 0.35) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* =====================================================================
+   Settings Labels & Health Monitor
+   ===================================================================== */
+.settings-label { font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); }
+.health-metric-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);
+}
+.health-metric-row:last-child { border-bottom: none; }
+.health-label { color: var(--text-secondary); font-size: 0.88rem; }
+.health-value { font-weight: 700; font-family: monospace; font-size: 0.95rem; color: var(--text-primary); }
+
+/* =====================================================================
+   Recent Users List
+   ===================================================================== */
+.recent-user-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);
+}
+.recent-user-item:last-child { border-bottom: none; }
+.user-avatar-dot { color: var(--color-success); font-size: 0.6rem; }
+
+/* =====================================================================
+   Version Badge (in header/accent)
+   ===================================================================== */
+.bg-accent-badge { background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important; }
+
+
+body.light-mode {
+    /* צבע רקע בהיר - Slate לבן רך */
+    --bg-primary: #f0f4f8;
+    /* כרטיסים בהירים חצי שקופים */
+    --bg-secondary: rgba(255, 255, 255, 0.72);
+    /* גבול עדין לכרטיסי זכוכית בהירים */
+    --border-color: rgba(0, 0, 0, 0.08);
+    /* טקסט כהה למצב בהיר */
+    --text-primary: #1e293b;
+    /* טקסט משני כהה */
+    --text-secondary: #475569;
+    /* Accent כחול נגיש **/
+    --accent-primary: #2563eb;
+    /* סגול בהיר יותר */
+    --accent-secondary: #7c3aed;
+    /* ירוק נגיש */
+    --color-success: #059669;
+    /* אדום נגיש */
+    --color-danger: #dc2626;
+    /* כתום נגיש */
+    --color-warning: #d97706;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Light Mode: רקע גרדיאנט Aurora בהיר */
+body.light-mode::before {
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, rgba(124, 58, 237, 0.04) 50%, transparent 100%);
+}
+body.light-mode::after {
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.06) 0%, rgba(37, 99, 235, 0.02) 60%, transparent 100%);
+}
+
+/* Light Mode: כרטיס זכוכית בהיר - Glassmorphism נשמר */
+body.light-mode .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+body.light-mode .glass-card:hover {
+    border-color: rgba(37, 99, 235, 0.2);
+    box-shadow: 0 12px 40px 0 rgba(37, 99, 235, 0.1);
+}
+
+/* Light Mode: Navbar */
+body.light-mode .navbar-dark .nav-link,
+body.light-mode .navbar-dark .navbar-brand {
+    color: #1e293b !important;
+}
+body.light-mode .navbar { background: rgba(255,255,255,0.8) !important; }
+
+/* Light Mode: טבלאות */
+body.light-mode .table-dark {
+    --bs-table-bg: transparent;
+    color: var(--text-primary);
+}
+body.light-mode .text-light { color: var(--text-primary) !important; }
+body.light-mode .text-secondary { color: var(--text-secondary) !important; }
+body.light-mode .font-monospace { color: #1e293b; }
+
+/* Light Mode: שדות קלט */
+body.light-mode .form-control,
+body.light-mode .admin-input,
+body.light-mode .form-input-glass {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(0, 0, 0, 0.15) !important;
+    color: #1e293b !important;
+}
+body.light-mode .form-control::placeholder,
+body.light-mode .admin-input::placeholder { color: rgba(0,0,0,0.35) !important; }
+
+/* Light Mode: Footer */
+body.light-mode .footer { color: var(--text-secondary) !important; }
+
+/* =====================================================================
+   Feature 4: Theme Toggle Button
+   ===================================================================== */
+.theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 2rem;
+    padding: 0.35rem 0.9rem;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+}
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: scale(1.04);
+}
+body.light-mode .theme-toggle-btn {
+    background: rgba(0, 0, 0, 0.07);
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #1e293b;
+}
+
+/* =====================================================================
+   Feature 4: Zoom Control Buttons
+   ===================================================================== */
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+.zoom-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255,255,255,0.85);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    line-height: 1.4;
+}
+.zoom-btn:hover:not(:disabled) {
+    background: rgba(59,130,246,0.25);
+    border-color: var(--accent-primary);
+    color: #fff;
+}
+.zoom-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.zoom-btn-reset { font-size: 0.7rem; }
+body.light-mode .zoom-btn {
+    background: rgba(0,0,0,0.07);
+    border-color: rgba(0,0,0,0.15);
+    color: #1e293b;
+}
+
+/* =====================================================================
+   Feature 1: Footer Version Badge
+   ===================================================================== */
+.footer-version-badge {
+    display: inline-block;
+    margin-right: 0.75rem;
+    font-family: monospace;
+    font-size: 0.7rem;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: #fff;
+    padding: 0.15rem 0.65rem;
+    border-radius: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    opacity: 0.85;
+}
+
+/* =====================================================================
+   System Alert Banner - Feature 7 Integration
+   ===================================================================== */
+.system-alert-banner {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.2));
+    border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+    padding: 0.6rem 1.5rem;
+    text-align: center;
+    font-size: 0.88rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+}
+.system-alert-close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0.1rem 0.4rem;
+}
+.system-alert-close:hover { opacity: 1; }
+
+/* =====================================================================
+   Admin Dashboard Styles - Features 2, 3, 5, 6, 7
+   ===================================================================== */
+
+/* כרטיסי Analytics מהירים */
+.analytics-stat-card {
+    transition: var(--transition-smooth);
+}
+.analytics-stat-card:hover {
+    transform: translateY(-6px);
+}
+.stat-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+.stat-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    font-family: monospace;
+    line-height: 1.1;
+}
+.stat-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 0.3rem;
+}
+.stat-sub { font-size: 0.72rem; }
+
+/* צבעי טקסט נוספים */
+.text-info-soft { color: #67e8f9 !important; }
+.text-warning-soft { color: #fcd34d !important; }
+.text-primary-soft { color: #93c5fd !important; }
+.text-danger-soft { color: #fca5a5 !important; }
+body.light-mode .text-info-soft { color: #0891b2 !important; }
+body.light-mode .text-warning-soft { color: #b45309 !important; }
+body.light-mode .text-primary-soft { color: #2563eb !important; }
+body.light-mode .text-danger-soft { color: #dc2626 !important; }
+body.light-mode .text-success { color: #059669 !important; }
+
+/* Admin Table */
+.admin-table {
+    color: var(--text-primary);
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.admin-table thead tr {
+    border-bottom: 1px solid var(--border-color);
+}
+.admin-table thead th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.75rem 0.75rem;
+    border: none;
+}
+.admin-table tbody tr {
+    transition: background 0.15s ease;
+    border-bottom: 1px solid var(--border-color);
+}
+.admin-table tbody tr:hover { background: rgba(59, 130, 246, 0.05); }
+.admin-table tbody td { padding: 0.75rem; border: none; vertical-align: middle; }
+body.light-mode .admin-table thead th { color: #475569; }
+body.light-mode .admin-table tbody tr:hover { background: rgba(37, 99, 235, 0.04); }
+
+/* Admin Badges */
+.admin-badge {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+}
+.admin-badge-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.25);
+}
+.admin-badge-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.25);
+}
+.admin-badge-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.25);
+}
+.admin-badge-secondary {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border-color: rgba(148, 163, 184, 0.25);
+}
+body.light-mode .admin-badge-success { background: rgba(5,150,105,0.1); color: #065f46; border-color: rgba(5,150,105,0.2); }
+body.light-mode .admin-badge-danger { background: rgba(220,38,38,0.1); color: #991b1b; border-color: rgba(220,38,38,0.2); }
+body.light-mode .admin-badge-warning { background: rgba(217,119,6,0.1); color: #92400e; border-color: rgba(217,119,6,0.2); }
+
+/* Admin Filter Buttons */
+.admin-filter-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.9rem;
+    font-size: 0.8rem;
+    transition: var(--transition-smooth);
+}
+.admin-filter-btn:hover, .admin-filter-btn.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-primary);
+    color: #fff;
+}
+body.light-mode .admin-filter-btn { background: rgba(0,0,0,0.04); color: #475569; }
+body.light-mode .admin-filter-btn:hover, body.light-mode .admin-filter-btn.active {
+    background: rgba(37,99,235,0.15);
+    border-color: var(--accent-primary);
+    color: #1e40af;
+}
+
+/* Admin Input */
+.admin-input {
+    background: rgba(15, 23, 42, 0.4) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    border-radius: 0.65rem !important;
+    transition: var(--transition-smooth);
+}
+.admin-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+    outline: none !important;
+}
+.admin-input-addon {
+    background: rgba(15, 23, 42, 0.4) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+
+/* Settings Labels */
+.settings-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Health Monitor Rows */
+.health-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.health-metric-row:last-child { border-bottom: none; }
+.health-label { color: var(--text-secondary); font-size: 0.88rem; }
+.health-value { font-weight: 700; font-family: monospace; font-size: 0.95rem; }
+
+/* Recent Users List */
+.recent-user-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.recent-user-item:last-child { border-bottom: none; }
+.user-avatar-dot { color: var(--color-success); font-size: 0.6rem; }
+
+/* Accent Badge for version */
+.bg-accent-badge {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)) !important;
+}
+
+/* Light Mode: Admin Tab Adjustments */
+body.light-mode .nav-tabs { border-bottom-color: rgba(0,0,0,0.1) !important; }
+body.light-mode .nav-tabs .nav-link { color: rgba(0,0,0,0.55) !important; }
+body.light-mode .nav-tabs .nav-link:hover { color: #1e293b !important; background: rgba(0,0,0,0.03) !important; }
+body.light-mode .nav-tabs .nav-link.active { color: #1e293b !important; background: rgba(0,0,0,0.05) !important; }
+body.light-mode .form-check-input { background-color: rgba(0,0,0,0.08) !important; }
+body.light-mode .form-check-label { color: var(--text-secondary) !important; }

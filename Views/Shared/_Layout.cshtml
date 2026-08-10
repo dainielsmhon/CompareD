@@ -11,85 +11,233 @@
     <title>@ViewData["Title"] - CompareD | השוואת נתונים חכמה</title>
     @* תיאור הדף לצורך קידום אתרים במנועי חיפוש *@
     <meta name="description" content="מערכת CompareD להשוואת נתונים מהירה, מדויקת ודינמית בין מסדי נתונים SQL Server ו-Oracle כחלק מתהליך מיגרציה." />
-    
-    @* טעינת ספריית העיצוב Bootstrap בגרסה 5 לצורך פריסה נוחה מקומית ללא אינטרנט *@
+
+    @* תגיות התקנת האפליקציה (PWA) *@
+    <link rel="manifest" href="~/manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="~/images/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="~/images/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="~/images/icon-192.png" />
+    <meta name="theme-color" content="#0a0f1d" />
+
+    @* טעינת ספריית Bootstrap RTL *@
     <link rel="stylesheet" href="~/css/bootstrap.rtl.min.css" asp-append-version="true" />
-    @* טעינת קובץ העיצוב המותאם אישית של הפרויקט הכולל את עקרונות ה-Deep Dark Mode *@
+    @* טעינת קובץ העיצוב המותאם אישית - Dark/Light Mode + Zoom *@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body>
-    @* אזור הניווט הראשי בראש הדף *@
+<body id="app-body" class="dark-mode">
+    @* =====================================================================
+       בדיקת הודעת מערכת מהגדרות - Feature 7 Integration
+       ===================================================================== *@
+    @{
+        var sysSettings = CompareD.Models.SystemSettingsStore.Get();
+        var isUserAdmin = false;
+        if (User.Identity?.IsAuthenticated == true && User.Identity.Name != null)
+        {
+            var authorizedUsers = Configuration.GetSection("AdminSettings:AuthorizedUsers")
+                .GetChildren().Select(c => c.Value).Where(v => v != null).ToList();
+            if (authorizedUsers.Any(u => string.Equals(u, User.Identity.Name, StringComparison.OrdinalIgnoreCase)))
+                isUserAdmin = true;
+        }
+    }
+    @if (!string.IsNullOrWhiteSpace(sysSettings.SystemAlertMessage))
+    {
+        @* הצגת הודעת מערכת מותאמת אישית מלוח הניהול *@
+        <div class="system-alert-banner" id="system-alert-banner" role="alert">
+            <span>📢 @sysSettings.SystemAlertMessage</span>
+            <button class="system-alert-close" onclick="this.parentElement.style.display='none'" aria-label="סגור">✕</button>
+        </div>
+    }
+
+    @* אזור הניווט הראשי *@
     <header>
-        @* תפריט עליון מזכוכית מעוצב בעיצוב מודרני *@
         <nav class="navbar navbar-expand-sm navbar-dark glass-card m-3 py-3" id="main-navigation-bar">
             <div class="container-fluid">
-                @* לוגו או שם המערכת המקושר לדף הבית *@
+                @* לוגו המערכת *@
                 <a class="navbar-brand text-gradient fs-4" id="nav-brand-link" asp-area="" asp-controller="Home" asp-action="Index">CompareD</a>
-                @* כפתור לפתיחת תפריט הניווט במסכים קטנים *@
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation" id="nav-menu-toggle-btn">
+                @* כפתור תפריט מובייל *@
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
+                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation" id="nav-menu-toggle-btn">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                @* אזור הקישורים הראשי של הניווט *@
+                @* קישורי ניווט *@
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
-                        @* קישור לדף הבית *@
                         <li class="nav-item">
                             <a class="nav-link text-light fs-6 transition-all px-3" id="nav-home-link" asp-area="" asp-controller="Home" asp-action="Index">דף הבית</a>
                         </li>
-                        @{
-                            var isUserAdmin = false;
-                            if (User.Identity?.IsAuthenticated == true && User.Identity.Name != null)
-                            {
-                                var authorizedUsers = Configuration.GetSection("AdminSettings:AuthorizedUsers")
-                                    .GetChildren()
-                                    .Select(c => c.Value)
-                                    .Where(v => v != null)
-                                    .ToList();
-                                if (authorizedUsers.Any(u => string.Equals(u, User.Identity.Name, StringComparison.OrdinalIgnoreCase)))
-                                {
-                                    isUserAdmin = true;
-                                }
-                            }
-                        }
                         @if (isUserAdmin)
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-light fs-6 transition-all px-3" id="nav-admin-link" asp-controller="Admin" asp-action="Index">ניהול משתמשים</a>
+                                <a class="nav-link text-light fs-6 transition-all px-3" id="nav-admin-link" asp-controller="Admin" asp-action="Index">🛡️ לוח ניהול</a>
                             </li>
                         }
                     </ul>
-                    @if (User.Identity?.IsAuthenticated == true)
-                    {
-                        <div class="d-flex align-items-center text-secondary small px-3">
-                            <span class="me-2" style="opacity: 0.8;">👤 משתמש מחובר:</span>
-                            <span class="text-light fw-bold font-monospace">@User.Identity.Name</span>
+                    @* =====================================================================
+                       כפתורי UX: Dark/Light Mode Toggle + Zoom - Feature 4
+                       ===================================================================== *@
+                    <div class="d-flex align-items-center gap-2 px-3">
+                        @* כפתורי זום נגישות *@
+                        <div class="zoom-controls d-flex gap-1" id="zoom-controls" title="שינוי גודל טקסט">
+                            <button class="zoom-btn" id="zoom-out-btn" onclick="changeZoom(-1)" title="הקטן טקסט (A-)">A-</button>
+                            <button class="zoom-btn zoom-btn-reset" id="zoom-reset-btn" onclick="changeZoom(0)" title="אפס גודל טקסט">A</button>
+                            <button class="zoom-btn" id="zoom-in-btn" onclick="changeZoom(1)" title="הגדל טקסט (A+)">A+</button>
                         </div>
-                    }
+
+                        @* כפתור מעבר Dark/Light Mode *@
+                        <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="מעבר בין מצב כהה ובהיר">
+                            <span id="theme-icon">☀️</span>
+                            <span id="theme-label" class="d-none d-md-inline">מצב בהיר</span>
+                        </button>
+
+                        @* שם משתמש מחובר *@
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <div class="d-flex align-items-center text-secondary small">
+                                <span class="me-1" style="opacity:0.8;">👤</span>
+                                <span class="text-light fw-bold font-monospace small">@User.Identity.Name</span>
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
         </nav>
     </header>
 
-    @* האזור המרכזי של תוכן הדפים השונים *@
+    @* האזור המרכזי של תוכן הדפים *@
     <div class="container my-5" id="main-content-container">
         <main role="main" class="pb-3" id="main-content-layout">
-            @* ביצוע רינדור של תוכן דף ה-View שנקרא *@
             @RenderBody()
         </main>
     </div>
 
-    @* אזור כותרת תחתונה של הדף *@
+    @* =====================================================================
+       Footer עם גרסה דינמית - Feature 1
+       ===================================================================== *@
     <footer class="footer mt-auto py-4 text-center text-secondary glass-card mx-3 mb-3" id="main-footer">
         <div class="container">
-            @* טקסט זכויות יוצרים של המערכת *@
+            @* טקסט זכויות יוצרים *@
             <span id="footer-copyright-text">&copy; 2026 - CompareD - מערכת השוואת נתונים מנוהלת ומאובטחת</span>
+            @* גרסה דינמית ב-Footer *@
+            <span class="footer-version-badge" id="footer-version-badge">
+                @CompareD.Models.AppVersion.FullVersion
+            </span>
         </div>
     </footer>
 
-    @* טעינת סקריפטים תומכים של Bootstrap מקומית *@
+    @* =====================================================================
+       Feature 2: כפתורי גלילה מהירה Scroll to Top / Scroll to Bottom
+       ===================================================================== *@
+    <div class="scroll-fab-container" id="scroll-fab-container" aria-label="כפתורי ניווט מהיר">
+        @* כפתור גלילה לראש הדף — מופיע רק לאחר גלילה *@
+        <button class="scroll-fab" id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="גלול לראש הדף" aria-label="גלול לראש הדף">
+            ▲
+        </button>
+        @* כפתור גלילה לתחתית הדף — תמיד גלוי *@
+        <button class="scroll-fab scroll-fab-bottom" id="scroll-bottom-btn" onclick="window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})" title="גלול לתחתית הדף" aria-label="גלול לתחתית הדף">
+            ▼
+        </button>
+    </div>
+
+    @* טעינת Bootstrap JS *@
     <script src="~/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
-    @* רינדור סקריפטים נוספים הנדרשים בדפים ספציפיים *@
+    @* רינדור סקריפטים נוספים לדפים ספציפיים *@
     @await RenderSectionAsync("Scripts", required: false)
+
+    @* =====================================================================
+       סקריפטים גלובליים: Dark/Light Mode + Zoom - Feature 4
+       ===================================================================== *@
+    <script>
+        // =====================================================================
+        // ניהול Dark/Light Mode עם שמירת העדפה ב-localStorage
+        // =====================================================================
+        const appBody = document.getElementById("app-body");
+        const themeIcon = document.getElementById("theme-icon");
+        const themeLabel = document.getElementById("theme-label");
+
+        // שחזור העדפת ה-Theme שנשמרה בדפדפן
+        function applyTheme(theme) {
+            if (theme === "light") {
+                appBody.classList.remove("dark-mode");
+                appBody.classList.add("light-mode");
+                if (themeIcon) themeIcon.textContent = "🌙";
+                if (themeLabel) themeLabel.textContent = "החלף למצב כהה";
+            } else {
+                appBody.classList.remove("light-mode");
+                appBody.classList.add("dark-mode");
+                if (themeIcon) themeIcon.textContent = "☀️";
+                if (themeLabel) themeLabel.textContent = "החלף למצב בהיר";
+            }
+        }
+
+        // החלפת Theme בלחיצה על כפתור
+        function toggleTheme() {
+            const isLight = appBody.classList.contains("light-mode");
+            const newTheme = isLight ? "dark" : "light";
+            localStorage.setItem("comparedTheme", newTheme);
+            applyTheme(newTheme);
+        }
+
+        // אתחול: טעינת ה-Theme השמור
+        (function initTheme() {
+            const saved = localStorage.getItem("comparedTheme") || "dark";
+            applyTheme(saved);
+        })();
+
+        // =====================================================================
+        // ניהול Zoom (A+ / A-) לנגישות - שמירה ב-localStorage
+        // =====================================================================
+        const ZOOM_MIN = 0;
+        const ZOOM_MAX = 4;
+        const ZOOM_STEP = 1;
+        // גדלי פונט בסיסיים (rem) לכל רמת זום
+        const FONT_SIZES = [14, 15, 16, 18, 20];
+
+        let currentZoomLevel = parseInt(localStorage.getItem("comparedZoom") || "2");
+
+        function applyZoom(level) {
+            level = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, level));
+            currentZoomLevel = level;
+            document.documentElement.style.fontSize = FONT_SIZES[level] + "px";
+            localStorage.setItem("comparedZoom", level);
+
+            // עדכון מצב הכפתורים
+            const zoomOutBtn = document.getElementById("zoom-out-btn");
+            const zoomInBtn = document.getElementById("zoom-in-btn");
+            if (zoomOutBtn) zoomOutBtn.disabled = level <= ZOOM_MIN;
+            if (zoomInBtn) zoomInBtn.disabled = level >= ZOOM_MAX;
+        }
+
+        function changeZoom(direction) {
+            if (direction === 0) {
+                applyZoom(2); // איפוס לברירת מחדל
+            } else {
+                applyZoom(currentZoomLevel + direction);
+            }
+        }
+
+        // =====================================================================
+        // אתחול הזום בטעינת הדף
+        (function initZoom() {
+            applyZoom(currentZoomLevel);
+        })();
+
+        // =====================================================================
+        // Feature 2: הצגת/הסתרת כפתור Scroll-to-Top לפי מיקום הגלילה
+        // =====================================================================
+        (function initScrollFab() {
+            const scrollTopBtn = document.getElementById("scroll-top-btn");
+            if (!scrollTopBtn) return;
+
+            // הצג כפתור "גלול למעלה" רק כשגללנו יותר מ-300px
+            window.addEventListener("scroll", function () {
+                if (window.scrollY > 300) {
+                    scrollTopBtn.classList.add("visible");
+                } else {
+                    scrollTopBtn.classList.remove("visible");
+                }
+            }, { passive: true });
+        })();
+    </script>
 </body>
 </html>
+

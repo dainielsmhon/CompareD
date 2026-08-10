@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
@@ -227,6 +227,13 @@ public class CompareController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching schema details for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
+            // רישום שגיאת טעינת סכמה ב-Audit Log עם סטטוס Failed
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "SchemaReviewError",
+                $"שגיאה בטעינת סכמה עבור טבלאות SQL:{sqlTable}/Oracle:{oracleTable} | {ex.Message}", "Failed");
+            // רישום שגיאת מערכת עם תרגום עברי
+            CompareD.Models.SystemLogger.LogError(500, ex.Message,
+                $"/Compare/SchemaReview?sql={sqlTable}&oracle={oracleTable}",
+                User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "התרחשה שגיאה בעת טעינת סקירת הסכמה ומבנה הטבלאות.";
             ClearConnectionStringsFromSession();
             return RedirectToAction("Index", "Home");
@@ -261,8 +268,8 @@ public class CompareController : Controller
 
         try
         {
-            // תיעוד הרצת השוואה ב-Audit Log
-            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompare", $"Compared SQL Table: {sqlTable} with Oracle Table: {oracleTable}. Mode: {mappingMode}, MaxRows: {maxRows}");
+            // מדידת זמן עיבוד ההשוואה לצורך ניטור בריאות המערכת
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             var smartResultsViewModel = await _compareService.SmartCompareAsync(
                 sqlConnectionString,
@@ -274,11 +281,26 @@ public class CompareController : Controller
                 fieldRoles,
                 maxRows);
 
+            stopwatch.Stop();
+
+            // רישום זמן העיבוד ב-Health Monitor לנתוני Analytics אמיתיים
+            if (CompareD.Models.SystemSettingsStore.Get().IsHealthMonitorEnabled)
+                CompareD.Models.HealthMonitor.RecordProcessing(stopwatch.ElapsedMilliseconds, User.Identity?.Name ?? "Unknown");
+
+            // תיעוד הרצת השוואה מוצלחת ב-Audit Log
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompare",
+                $"השוואת DB: SQL:{sqlTable} vs Oracle:{oracleTable} | Mode:{mappingMode} | Rows:{maxRows} | Time:{stopwatch.ElapsedMilliseconds}ms", "Success");
+
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during smart data comparison for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
+            // רישום כישלון השוואה ב-Audit Log עם סטטוס Failed
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompareError",
+                $"כישלון השוואת DB: SQL:{sqlTable}/Oracle:{oracleTable} | {ex.Message}", "Failed");
+            // רישום שגיאת מערכת
+            CompareD.Models.SystemLogger.LogError(500, ex.Message, "/Compare/CompareData", User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "הרצת השוואת הנתונים נכשלה עקב שגיאה פנימית.";
             return RedirectToAction("Index", "Home");
         }
@@ -359,6 +381,11 @@ public class CompareController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing and uploading files");
+            // רישום כישלון העלאת קבצים ב-Audit Log עם סטטוס Failed - זה מה שחסר!
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FileUploadError",
+                $"כישלון העלאת קבצים | קובץ1: {file1?.FileName ?? "null"} | קובץ2: {file2?.FileName ?? "null"} | שגיאה: {ex.Message}", "Failed");
+            // רישום שגיאת מערכת עם קוד 500
+            CompareD.Models.SystemLogger.LogError(500, ex.Message, "/Compare/CompareUploadedFiles", User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "שגיאה בעיבוד או בהעלאת הקבצים. נא לוודא שהקובץ אינו פגום או פתוח בתוכנה אחרת.";
             return RedirectToAction("CompareFilesSetup");
         }
@@ -509,6 +536,9 @@ public class CompareController : Controller
             // תיעוד הרצת השוואת קבצים ב-Audit Log
             AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FilesCompare", $"Compared Csv/Excel files. Source: {name1 ?? Path.GetFileName(path1!)}, Target: {name2 ?? Path.GetFileName(path2!)}. MaxRows: {maxRows}");
 
+            // מדידת זמן עיבוד השוואת הקבצים לצורך Health Monitor
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+
             var smartResultsViewModel = _compareService.CompareInMemoryDatasets(
                 sqlDataLimited,
                 oracleDataLimited,
@@ -517,11 +547,27 @@ public class CompareController : Controller
                 finalSourceFields,
                 targetFields: finalTargetFields,
                 fieldRoles: finalFieldRoles);
+
+            sw.Stop();
+
+            // רישום זמן עיבוד ב-Health Monitor לנתוני דאשבורד אמיתיים
+            if (CompareD.Models.SystemSettingsStore.Get().IsHealthMonitorEnabled)
+                CompareD.Models.HealthMonitor.RecordProcessing(sw.ElapsedMilliseconds, User.Identity?.Name ?? "Unknown");
+
+            // תיעוד השוואת קבצים מוצלחת ב-Audit Log
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FilesCompare",
+                $"השוואת קבצים: {name1 ?? Path.GetFileName(path1!)} vs {name2 ?? Path.GetFileName(path2!)} | שורות:{maxRows} | זמן:{sw.ElapsedMilliseconds}ms", "Success");
+
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error running in-memory files comparison");
+            // רישום כישלון השוואת קבצים ב-Audit Log עם סטטוס Failed
+            AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "FilesCompareError",
+                $"כישלון השוואת קבצים | {ex.Message}", "Failed");
+            // רישום שגיאת מערכת
+            CompareD.Models.SystemLogger.LogError(500, ex.Message, "/Compare/RunFilesComparison", User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "שגיאה התרחשה במהלך הרצת השוואת הקבצים.";
             return RedirectToAction("CompareFilesSetup");
         }

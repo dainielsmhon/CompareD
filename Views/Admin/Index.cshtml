@@ -1,157 +1,634 @@
-@model List<CompareD.Models.UserInfo>
+@model CompareD.Models.AdminDashboardViewModel
 @{
-    ViewData["Title"] = "ניהול משתמשים";
+    ViewData["Title"] = "לוח בקרה - ניהול המערכת";
 }
 
-@* כותרת הדף המרכזית בעיצוב Glassmorphism *@
-<div class="text-center mb-5" id="admin-header">
-    <h1 class="display-4 text-gradient mb-3" id="admin-title">ניהול משתמשים והרשאות</h1>
-    <p class="lead text-secondary fs-5" id="admin-description">
-        פיקוח על גישת משתמשי Active Directory למערכת, ניטור כניסות אחרונות וחסימת גישה בזמן אמת.
-    </p>
+@* =====================================================================
+   כותרת ראשית של לוח הניהול - ללא Codename, ללא גרסה בראש הדף
+   (הגרסה מוצגת ב-Footer בלבד - Feature 1)
+   ===================================================================== *@
+<div class="text-center mb-5" id="admin-dashboard-header">
+    <h1 class="display-4 text-gradient mb-2" id="admin-main-title">🛡️ לוח בקרה ניהולי</h1>
+    <p class="text-secondary fs-6" id="admin-subtitle">ניהול, ניטור ובקרה של מערכת CompareD</p>
 </div>
 
-@* תיבת חיפוש וסינון דינמי בעיצוב Glassmorphism *@
-<div class="glass-card mb-5 p-4" id="search-card">
-    <div class="row align-items-center gap-3 gap-md-0">
-        <div class="col-12 col-md-8">
-            <div class="input-group">
-                <span class="input-group-text bg-dark border-white/10 text-secondary" style="border-radius: 0.5rem 0 0 0.5rem;">🔍</span>
-                <input type="text" class="form-control bg-dark/50 border-white/10 text-light py-2" id="user-search-input" placeholder="חיפוש משתמש לפי שם..." style="border-radius: 0 0.5rem 0.5rem 0; box-shadow: none;" />
+@* =====================================================================
+   כרטיסי Analytics מהירים - Feature 5 + 7
+   הנתונים נקראים ב-REAL-TIME מהלוגים האמיתיים
+   ===================================================================== *@
+<div class="row g-4 mb-5" id="analytics-cards-row">
+    @* כרטיס אחוז הצלחה - מחושב מ-AuditLogStore האמיתי *@
+    <div class="col-12 col-md-3">
+        <div class="glass-card p-4 text-center h-100 analytics-stat-card" id="success-rate-card">
+            <div class="stat-icon mb-2">📊</div>
+            <div class="stat-value @(Model.TotalActions == 0 ? "text-secondary" : "text-success")" id="success-rate-value">
+                @(Model.TotalActions == 0 ? "אין נתונים" : $"{Model.SuccessRate}%")
+            </div>
+            <div class="stat-label">אחוז הצלחה</div>
+            <div class="stat-sub mt-1">
+                @if (Model.TotalActions == 0)
+                {
+                    <span>אין פעולות מתועדות עדיין</span>
+                }
+                else
+                {
+                    <span>@Model.SuccessCount הצלחות / @Model.TotalActions סה"כ</span>
+                }
             </div>
         </div>
-        <div class="col-12 col-md-4 text-md-end">
-            <span class="text-secondary small">סה"כ משתמשים רשומים: <strong class="text-light" id="total-users-count">@Model.Count</strong></span>
+    </div>
+
+    @* כרטיס זמן עיבוד ממוצע - מחושב מ-HealthMonitor האמיתי *@
+    <div class="col-12 col-md-3">
+        <div class="glass-card p-4 text-center h-100 analytics-stat-card" id="health-card">
+            <div class="stat-icon mb-2">⚡</div>
+            <div class="stat-value @(Model.HealthSamplesCount == 0 ? "text-secondary" : "text-info-soft")" id="avg-processing-value">
+                @(Model.HealthSamplesCount == 0 ? "אין נתונים" : $"{Model.AvgProcessingTimeMs}ms")
+            </div>
+            <div class="stat-label">זמן עיבוד ממוצע</div>
+            <div class="stat-sub mt-1">
+                @(Model.HealthSamplesCount == 0 ? "טרם בוצעה השוואה" : $"{Model.HealthSamplesCount} דגימות נרשמו")
+            </div>
+        </div>
+    </div>
+
+    @* כרטיס משתמשים פעילים - מחושב מ-AuditLogStore האמיתי *@
+    <div class="col-12 col-md-3">
+        <div class="glass-card p-4 text-center h-100 analytics-stat-card" id="active-users-card">
+            <div class="stat-icon mb-2">👥</div>
+            <div class="stat-value text-warning-soft" id="active-users-value">@Model.RecentActiveUsers.Count</div>
+            <div class="stat-label">משתמשים פעילים</div>
+            <div class="stat-sub mt-1">ייחודיים בלוג</div>
+        </div>
+    </div>
+
+    @* כרטיס כמות משתמשים רשומים *@
+    <div class="col-12 col-md-3">
+        <div class="glass-card p-4 text-center h-100 analytics-stat-card" id="total-users-card">
+            <div class="stat-icon mb-2">🗄️</div>
+            <div class="stat-value text-primary-soft" id="total-users-value">@Model.Users.Count</div>
+            <div class="stat-label">סה"כ משתמשים</div>
+            <div class="stat-sub mt-1">
+                @Model.Users.Count(u => !u.IsBlocked) פעילים ·
+                <span class="text-danger-soft">@Model.Users.Count(u => u.IsBlocked) חסומים</span>
+            </div>
         </div>
     </div>
 </div>
 
-@* טבלת המשתמשים בעיצוב Bento Card *@
-<div class="glass-card mb-5 p-4" id="users-table-card">
-    <div class="table-responsive">
-        <table class="table table-dark table-hover table-borderless align-middle" id="users-management-table">
-            <thead>
-                <tr class="text-secondary border-bottom border-white/10 small">
-                    <th style="width: 40%;">שם משתמש (Active Directory)</th>
-                    <th style="width: 30%;">זמן כניסה אחרון</th>
-                    <th style="width: 15%;" class="text-center">סטטוס</th>
-                    <th style="width: 15%;" class="text-center">סטטוס הרשאה</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in Model)
-                {
-                    <tr class="user-row" data-username="@user.Username">
-                        <td class="font-monospace text-light fw-bold">@user.Username</td>
-                        <td class="text-secondary font-monospace">@user.LastLogin.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td class="text-center user-status-badge-cell">
-                            @if (user.IsBlocked)
-                            {
-                                <span class="badge bg-danger/20 text-danger border border-danger/30 px-3 py-1.5 rounded-pill user-status-badge">חסום</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-success/20 text-success border border-success/30 px-3 py-1.5 rounded-pill user-status-badge">מאושר</span>
-                            }
-                        </td>
-                        <td class="text-center">
-                            <div class="form-check form-switch d-inline-block">
-                                <input class="form-check-input user-auth-toggle" type="checkbox" role="switch" 
-                                       data-username="@user.Username" 
-                                       @(user.IsBlocked ? "" : "checked") 
-                                       style="width: 2.6rem; height: 1.3rem; cursor: pointer;"
-                                       title="החלף סטטוס הרשאה" />
-                            </div>
-                        </td>
-                    </tr>
-                }
-                @if (Model.Count == 0)
-                {
-                    <tr id="no-users-row">
-                        <td colspan="4" class="text-center text-secondary py-4">אין משתמשים רשומים במערכת.</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+@* =====================================================================
+   ניווט Tabs
+   ===================================================================== *@
+<ul class="nav nav-tabs mb-4" id="admin-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-users-btn" data-bs-toggle="tab" data-bs-target="#tab-users" type="button">
+            👤 ניהול משתמשים
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-audit-btn" data-bs-toggle="tab" data-bs-target="#tab-audit" type="button">
+            📋 Audit Log
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-syslogs-btn" data-bs-toggle="tab" data-bs-target="#tab-syslogs" type="button">
+            🔴 System Logs
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-health-btn" data-bs-toggle="tab" data-bs-target="#tab-health" type="button">
+            💚 System Health
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-settings-btn" data-bs-toggle="tab" data-bs-target="#tab-settings" type="button">
+            ⚙️ הגדרות מערכת
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="admin-tab-content">
+
+    @* ========================= TAB 1: ניהול משתמשים ========================= *@
+    <div class="tab-pane fade show active" id="tab-users" role="tabpanel">
+        <div class="glass-card mb-4 p-4" id="search-card">
+            <div class="row align-items-center gap-3 gap-md-0">
+                <div class="col-12 col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text admin-input-addon">🔍</span>
+                        <input type="text" class="form-control admin-input" id="user-search-input" placeholder="חיפוש משתמש לפי שם..." />
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 text-md-end">
+                    <span class="admin-text-muted small">סה"כ: <strong class="admin-text-strong" id="total-users-count">@Model.Users.Count</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-4" id="users-table-card">
+            <div class="table-responsive">
+                <table class="table admin-table" id="users-management-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40%">שם משתמש (AD)</th>
+                            <th style="width:30%">כניסה אחרונה</th>
+                            <th style="width:15%" class="text-center">סטטוס</th>
+                            <th style="width:15%" class="text-center">הרשאה</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Model.Users)
+                        {
+                            <tr class="user-row" data-username="@user.Username">
+                                <td class="font-monospace admin-text-strong fw-bold">@user.Username</td>
+                                <td class="admin-text-muted font-monospace small">@user.LastLogin.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td class="text-center user-status-badge-cell">
+                                    @if (user.IsBlocked)
+                                    {
+                                        <span class="admin-badge admin-badge-danger user-status-badge">חסום</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="admin-badge admin-badge-success user-status-badge">מאושר</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <div class="form-check form-switch d-inline-block">
+                                        <input class="form-check-input user-auth-toggle" type="checkbox" role="switch"
+                                               data-username="@user.Username"
+                                               @(user.IsBlocked ? "" : "checked")
+                                               style="width:2.6rem;height:1.3rem;cursor:pointer;" />
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        @if (!Model.Users.Any())
+                        {
+                            <tr><td colspan="4" class="text-center admin-text-muted py-4">אין משתמשים רשומים במערכת.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    @* ========================= TAB 2: Audit Log ========================= *@
+    <div class="tab-pane fade" id="tab-audit" role="tabpanel">
+        
+        <div class="glass-card mb-4 p-4" id="audit-search-card">
+            <div class="row align-items-center gap-3 gap-md-0">
+                <div class="col-12 col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text admin-input-addon">🔍</span>
+                        <input type="text" class="form-control admin-input" id="audit-search-input" placeholder="חיפוש לפי עובד או פעולה..." />
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 text-md-end">
+                    <span class="admin-text-muted small">סה"כ רשומות המוצגות: <strong class="admin-text-strong" id="total-audit-count">...</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-4" id="audit-log-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="admin-section-title mb-0">📋 יומן פעולות משתמשים</h5>
+                <span class="admin-text-muted small">עד 1,000 רשומות אחרונות</span>
+            </div>
+            <div class="d-flex gap-2 mb-4 flex-wrap">
+                <button class="btn admin-filter-btn active" data-filter="all" id="audit-filter-all">הכל</button>
+                <button class="btn admin-filter-btn" data-filter="Success" id="audit-filter-success">✅ הצלחות</button>
+                <button class="btn admin-filter-btn" data-filter="Failed" id="audit-filter-failed">❌ כישלונות</button>
+            </div>
+            <div class="table-responsive">
+                @{
+                    var auditEntries = CompareD.Models.AuditLogStore.GetAll();
+                }
+                <table class="table admin-table" id="audit-log-table">
+                    <thead>
+                        <tr>
+                            <th style="width:18%">תאריך ושעה</th>
+                            <th style="width:22%">משתמש</th>
+                            <th style="width:20%">פעולה</th>
+                            <th style="width:28%">פרטים</th>
+                            <th style="width:12%" class="text-center">סטטוס</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!auditEntries.Any())
+                        {
+                            <tr><td colspan="5" class="text-center admin-text-muted py-5">
+                                <div class="mb-2" style="font-size:2rem;">📋</div>
+                                אין רשומות Audit Log עדיין.<br/>
+                                <small>הלוג יתמלא אוטומטית עם כל פעולה שתבוצע במערכת.</small>
+                            </td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var entry in auditEntries)
+                            {
+                                <tr class="audit-row" data-status="@entry.Status">
+                                    <td class="admin-text-muted font-monospace small">@entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td class="admin-text-strong font-monospace small">@entry.Username</td>
+                                    <td class="admin-text-accent small fw-semibold">@entry.Action</td>
+                                    <td class="admin-text-muted small" title="@entry.Details">
+                                        @(entry.Details.Length > 60 ? entry.Details.Substring(0, 60) + "..." : entry.Details)
+                                    </td>
+                                    <td class="text-center">
+                                        @if (entry.Status == "Success")
+                                        {
+                                            <span class="admin-badge admin-badge-success">✅ הצלחה</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="admin-badge admin-badge-danger">❌ כישלון</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ========================= TAB 3: System Logs ========================= *@
+    <div class="tab-pane fade" id="tab-syslogs" role="tabpanel">
+
+        <div class="glass-card mb-4 p-4" id="syslog-search-card">
+            <div class="row align-items-center gap-3 gap-md-0">
+                <div class="col-12 col-md-8">
+                    <div class="input-group">
+                        <span class="input-group-text admin-input-addon">🔍</span>
+                        <input type="text" class="form-control admin-input" id="syslog-search-input" placeholder="חיפוש לפי שגיאה, קוד או נתיב..." />
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 text-md-end">
+                    <span class="admin-text-muted small">סה"כ שגיאות המוצגות: <strong class="admin-text-strong" id="total-syslog-count">...</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card p-4" id="system-logs-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="admin-section-title mb-0">🔴 לוג שגיאות מערכת</h5>
+                <span class="admin-text-muted small">תרגום אוטומטי לעברית · שגיאות אמיתיות בלבד</span>
+            </div>
+            <div class="table-responsive">
+                @{
+                    var systemLogs = CompareD.Models.SystemLogger.GetAll();
+                }
+                <table class="table admin-table" id="system-logs-table">
+                    <thead>
+                        <tr>
+                            <th style="width:15%">תאריך</th>
+                            <th style="width:8%" class="text-center">קוד</th>
+                            <th style="width:20%">נתיב בקשה</th>
+                            <th style="width:15%">משתמש</th>
+                            <th style="width:42%">הסבר בעברית</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!systemLogs.Any())
+                        {
+                            <tr><td colspan="5" class="text-center admin-text-muted py-5">
+                                <div class="mb-2" style="font-size:2rem;">🎉</div>
+                                אין שגיאות מערכת רשומות! המערכת פועלת תקין.<br/>
+                                <small>שגיאות HTTP 4xx/5xx יירשמו כאן אוטומטית.</small>
+                            </td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var log in systemLogs)
+                            {
+                                <tr class="syslog-row">
+                                    <td class="admin-text-muted font-monospace small">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                    <td class="text-center">
+                                        <span class="admin-badge @(log.HttpStatusCode >= 500 ? "admin-badge-danger" : "admin-badge-warning")">
+                                            @log.HttpStatusCode
+                                        </span>
+                                    </td>
+                                    <td class="admin-text-muted font-monospace small">@log.RequestPath</td>
+                                    <td class="admin-text-strong font-monospace small">@log.Username</td>
+                                    <td class="admin-text-warning small">@log.HebrewExplanation</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ========================= TAB 4: System Health ========================= *@
+    <div class="tab-pane fade" id="tab-health" role="tabpanel">
+        <div class="row g-4" id="health-monitor-section">
+            <div class="col-12 col-lg-6">
+                <div class="glass-card p-4 h-100" id="health-widget-card">
+                    <h5 class="admin-section-title mb-4">💚 ניטור בריאות מערכת</h5>
+                    @if (Model.HealthSamplesCount == 0)
+                    {
+                        <div class="text-center py-4 admin-text-muted">
+                            <div class="mb-2" style="font-size:2rem;">⏳</div>
+                            <p>אין דגימות עדיין.</p>
+                            <small>זמן עיבוד ייתועד אוטומטית עם הרצת ההשוואה הראשונה.</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="health-metric-row">
+                            <span class="health-label">זמן עיבוד ממוצע:</span>
+                            <span class="health-value @(Model.AvgProcessingTimeMs < 3000 ? "text-success" : Model.AvgProcessingTimeMs < 8000 ? "text-warning" : "text-danger")">
+                                @Model.AvgProcessingTimeMs ms
+                            </span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-label">מספר דגימות:</span>
+                            <span class="health-value admin-text-strong">@Model.HealthSamplesCount</span>
+                        </div>
+                        <div class="health-metric-row">
+                            <span class="health-label">סטטוס מערכת:</span>
+                            <span class="health-value">
+                                @if (Model.AvgProcessingTimeMs < 3000)
+                                { <span class="admin-badge admin-badge-success">✅ תקין</span> }
+                                else if (Model.AvgProcessingTimeMs < 8000)
+                                { <span class="admin-badge admin-badge-warning">⚠️ עומס בינוני</span> }
+                                else
+                                { <span class="admin-badge admin-badge-danger">❌ עומס גבוה</span> }
+                            </span>
+                        </div>
+                    }
+                    <div class="health-metric-row">
+                        <span class="health-label">אחוז הצלחה כולל:</span>
+                        <span class="health-value @(Model.TotalActions == 0 ? "admin-text-muted" : Model.SuccessRate >= 80 ? "text-success" : "text-warning")">
+                            @(Model.TotalActions == 0 ? "—" : $"{Model.SuccessRate}%")
+                        </span>
+                    </div>
+                    <div class="health-metric-row">
+                        <span class="health-label">סה"כ פעולות:</span>
+                        <span class="health-value admin-text-strong">@(Model.TotalActions == 0 ? "אין עדיין" : Model.TotalActions.ToString())</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="glass-card p-4 h-100" id="recent-users-card">
+                    <h5 class="admin-section-title mb-4">🕐 משתמשים פעילים לאחרונה</h5>
+                    @if (!Model.RecentActiveUsers.Any())
+                    {
+                        <div class="text-center py-4 admin-text-muted">
+                            <div class="mb-2" style="font-size:2rem;">👤</div>
+                            <p>אין פעילות מתועדת עדיין.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var u in Model.RecentActiveUsers)
+                            {
+                                <li class="recent-user-item">
+                                    <span class="user-avatar-dot">●</span>
+                                    <span class="font-monospace admin-text-strong small">@u</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ========================= TAB 5: הגדרות מערכת ========================= *@
+    <div class="tab-pane fade" id="tab-settings" role="tabpanel">
+        <div class="glass-card p-4" id="system-settings-card">
+            <h5 class="admin-section-title mb-2">⚙️ הגדרות מערכת דינמיות</h5>
+            <p class="admin-text-muted small mb-4">שינויים אלו יחולו מיידית ללא הפעלה מחדש של השרת.</p>
+            <form id="settings-form">
+                @Html.AntiForgeryToken()
+                <div class="row g-4">
+                    <div class="col-12 col-md-6">
+                        <label class="settings-label" for="max-file-upload-input">📦 גודל קובץ מקסימלי להעלאה (MB)</label>
+                        <input type="number" id="max-file-upload-input" name="MaxFileUploadMb"
+                               class="form-control admin-input mt-2"
+                               value="@Model.Settings.MaxFileUploadMb" min="1" max="500" />
+                        <small class="admin-text-muted">שים לב: לשינוי Kestrel/IIS יש לעדכן appsettings.json.</small>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="settings-label" for="system-alert-input">📢 הודעת מערכת (תוצג למשתמשים)</label>
+                        <input type="text" id="system-alert-input" name="SystemAlertMessage"
+                               class="form-control admin-input mt-2"
+                               value="@Model.Settings.SystemAlertMessage"
+                               placeholder="השאר ריק לביטול ההודעה" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="settings-label" for="admin-contact-input">👤 שם מנהל המערכת לתצוגה</label>
+                        <input type="text" id="admin-contact-input" name="AdminContactName"
+                               class="form-control admin-input mt-2"
+                               value="@Model.Settings.AdminContactName" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="settings-label" for="app-version-input">🔖 גרסת מערכת נוכחית (PWA / Footer)</label>
+                        <input type="text" id="app-version-input" name="AppVersion"
+                               class="form-control admin-input mt-2 font-monospace"
+                               value="@Model.Settings.AppVersion"
+                               placeholder="לדוגמה: 1.1.0" dir="ltr" />
+                        <small class="admin-text-muted">שינוי הערך כאן יעדכן מידית את הגרסה המוצגת לכל המשתמשים.</small>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="settings-label d-block">🔧 הפעלת שירותים</label>
+                        <div class="mt-2 d-flex flex-column gap-2">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="audit-logging-toggle"
+                                       name="IsAuditLoggingEnabled" @(Model.Settings.IsAuditLoggingEnabled ? "checked" : "") />
+                                <label class="form-check-label admin-text-muted" for="audit-logging-toggle">רישום Audit Log</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="error-logging-toggle"
+                                       name="IsErrorLoggingEnabled" @(Model.Settings.IsErrorLoggingEnabled ? "checked" : "") />
+                                <label class="form-check-label admin-text-muted" for="error-logging-toggle">רישום שגיאות מערכת</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="health-monitor-toggle"
+                                       name="IsHealthMonitorEnabled" @(Model.Settings.IsHealthMonitorEnabled ? "checked" : "") />
+                                <label class="form-check-label admin-text-muted" for="health-monitor-toggle">ניטור בריאות מערכת</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Settings.LastUpdatedBy))
+                {
+                    <div class="mt-4 admin-text-muted small">
+                        עדכון אחרון: <strong class="admin-text-strong">@Model.Settings.LastUpdatedBy</strong>
+                        ב-<strong class="admin-text-strong">@Model.Settings.LastUpdated.ToString("yyyy-MM-dd HH:mm")</strong>
+                    </div>
+                }
+                <div class="mt-4">
+                    <button type="button" class="btn btn-glow" id="save-settings-btn">💾 שמור הגדרות</button>
+                    <span id="settings-save-feedback" class="ms-3 small"></span>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 
-@* טוקן מנדטורי למניעת CSRF עבור קריאות ה-POST *@
 @Html.AntiForgeryToken()
 
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+            // חיפוש משתמשים בזמן אמת
             const searchInput = document.getElementById("user-search-input");
             const userRows = document.querySelectorAll(".user-row");
             const totalCountSpan = document.getElementById("total-users-count");
-            const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
-            // סינון בזמן אמת של הטבלה
-            searchInput.addEventListener("input", function () {
-                const query = searchInput.value.toLowerCase().trim();
-                let visibleCount = 0;
-
-                userRows.forEach(row => {
-                    const username = row.getAttribute("data-username").toLowerCase();
-                    if (username.includes(query)) {
-                        row.classList.remove("d-none");
-                        visibleCount++;
-                    } else {
-                        row.classList.add("d-none");
-                    }
+            if (searchInput) {
+                searchInput.addEventListener("input", function () {
+                    const query = searchInput.value.toLowerCase().trim();
+                    let visible = 0;
+                    userRows.forEach(row => {
+                        const username = row.getAttribute("data-username").toLowerCase();
+                        const show = username.includes(query);
+                        row.classList.toggle("d-none", !show);
+                        if (show) visible++;
+                    });
+                    if (totalCountSpan) totalCountSpan.textContent = visible;
                 });
+            }
 
-                totalCountSpan.textContent = visibleCount;
-            });
-
-            // שינוי הרשאה באמצעות AJAX
-            const toggles = document.querySelectorAll(".user-auth-toggle");
-            toggles.forEach(toggle => {
+            // Toggle חסימת משתמש
+            document.querySelectorAll(".user-auth-toggle").forEach(toggle => {
                 toggle.addEventListener("change", function () {
                     const username = toggle.getAttribute("data-username");
-                    const isApproved = toggle.checked;
-                    const isBlocked = !isApproved;
-
-                    // מניעת שינוי כפול זמני
+                    const isBlocked = !toggle.checked;
                     toggle.disabled = true;
-
                     const formData = new FormData();
                     formData.append("username", username);
                     formData.append("isBlocked", isBlocked);
-
                     fetch('@Url.Action("ToggleStatus", "Admin")', {
                         method: 'POST',
-                        headers: {
-                            'X-Csrf-Token': csrfToken
-                        },
+                        headers: { 'X-Csrf-Token': csrfToken },
                         body: formData
                     })
-                    .then(response => response.json())
+                    .then(r => r.json())
                     .then(data => {
                         toggle.disabled = false;
                         if (data.success) {
-                            // עדכון הסטטוס והצבע באופן דינמי
                             const row = toggle.closest("tr");
                             const badgeCell = row.querySelector(".user-status-badge-cell");
-                            if (isApproved) {
-                                badgeCell.innerHTML = '<span class="badge bg-success/20 text-success border border-success/30 px-3 py-1.5 rounded-pill user-status-badge">מאושר</span>';
-                            } else {
-                                badgeCell.innerHTML = '<span class="badge bg-danger/20 text-danger border border-danger/30 px-3 py-1.5 rounded-pill user-status-badge">חסום</span>';
-                            }
+                            badgeCell.innerHTML = isBlocked
+                                ? '<span class="admin-badge admin-badge-danger user-status-badge">חסום</span>'
+                                : '<span class="admin-badge admin-badge-success user-status-badge">מאושר</span>';
                         } else {
-                            // החזרת הסטטוס לקדמותו
-                            toggle.checked = !isApproved;
-                            alert(data.message || "אירעה שגיאה בעדכון ההרשאה.");
+                            toggle.checked = !isBlocked;
+                            alert(data.message || "אירעה שגיאה.");
                         }
                     })
-                    .catch(error => {
-                        toggle.disabled = false;
-                        toggle.checked = !isApproved;
-                        alert("שגיאת תקשורת מול השרת.");
-                    });
+                    .catch(() => { toggle.disabled = false; toggle.checked = !isBlocked; alert("שגיאת תקשורת."); });
                 });
             });
+
+            // סינון Audit Log (כפתורי סטטוס + חיפוש טקסט חופשי)
+            const auditSearchInput = document.getElementById("audit-search-input");
+            const auditFilterBtns = document.querySelectorAll(".admin-filter-btn");
+            const totalAuditCountSpan = document.getElementById("total-audit-count");
+            let currentAuditFilter = "all";
+
+            function filterAuditLog() {
+                const query = auditSearchInput ? auditSearchInput.value.toLowerCase() : "";
+                let visible = 0;
+                document.querySelectorAll(".audit-row").forEach(row => {
+                    const status = row.getAttribute("data-status");
+                    const username = row.children[1].textContent.toLowerCase();
+                    const action = row.children[2].textContent.toLowerCase();
+                    
+                    const matchesFilter = currentAuditFilter === "all" || status === currentAuditFilter;
+                    const matchesSearch = username.includes(query) || action.includes(query);
+                    
+                    const isVisible = matchesFilter && matchesSearch;
+                    row.classList.toggle("d-none", !isVisible);
+                    if (isVisible) visible++;
+                });
+                if (totalAuditCountSpan) totalAuditCountSpan.textContent = visible;
+            }
+
+            // אתחול ספירה ראשונית
+            filterAuditLog();
+
+            auditFilterBtns.forEach(btn => {
+                btn.addEventListener("click", function () {
+                    auditFilterBtns.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    currentAuditFilter = btn.getAttribute("data-filter");
+                    filterAuditLog();
+                });
+            });
+
+            if (auditSearchInput) {
+                auditSearchInput.addEventListener("input", filterAuditLog);
+            }
+
+            // סינון System Logs
+            const syslogSearchInput = document.getElementById("syslog-search-input");
+            const totalSyslogCountSpan = document.getElementById("total-syslog-count");
+
+            function filterSysLog() {
+                const query = syslogSearchInput ? syslogSearchInput.value.toLowerCase() : "";
+                let visible = 0;
+                document.querySelectorAll(".syslog-row").forEach(row => {
+                    const code = row.children[1].textContent.toLowerCase();
+                    const path = row.children[2].textContent.toLowerCase();
+                    const error = row.children[4].textContent.toLowerCase();
+                    
+                    const isVisible = code.includes(query) || path.includes(query) || error.includes(query);
+                    row.classList.toggle("d-none", !isVisible);
+                    if (isVisible) visible++;
+                });
+                if (totalSyslogCountSpan) totalSyslogCountSpan.textContent = visible;
+            }
+
+            if (syslogSearchInput) {
+                syslogSearchInput.addEventListener("input", filterSysLog);
+                filterSysLog(); // אתחול
+            }
+
+            // שמירת הגדרות מערכת
+            const saveBtn = document.getElementById("save-settings-btn");
+            const feedback = document.getElementById("settings-save-feedback");
+            if (saveBtn) {
+                saveBtn.addEventListener("click", function () {
+                    const formData = new FormData();
+                    formData.append("MaxFileUploadMb", document.getElementById("max-file-upload-input").value);
+                    formData.append("SystemAlertMessage", document.getElementById("system-alert-input").value);
+                    formData.append("AdminContactName", document.getElementById("admin-contact-input").value);
+                    formData.append("AppVersion", document.getElementById("app-version-input").value);
+                    formData.append("IsAuditLoggingEnabled", document.getElementById("audit-logging-toggle").checked);
+                    formData.append("IsErrorLoggingEnabled", document.getElementById("error-logging-toggle").checked);
+                    formData.append("IsHealthMonitorEnabled", document.getElementById("health-monitor-toggle").checked);
+                    const csrfInput = document.getElementById("settings-form").querySelector('input[name="__RequestVerificationToken"]');
+                    if (csrfInput) formData.append("__RequestVerificationToken", csrfInput.value);
+
+                    saveBtn.disabled = true;
+                    if (feedback) { feedback.textContent = "שומר..."; feedback.className = "ms-3 small admin-text-muted"; }
+
+                    fetch('@Url.Action("SaveSettings", "Admin")', {
+                        method: 'POST',
+                        headers: { 'X-Csrf-Token': csrfToken },
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        saveBtn.disabled = false;
+                        feedback.textContent = data.success ? "✅ " + data.message : "❌ " + data.message;
+                        feedback.className = "ms-3 small " + (data.success ? "text-success" : "text-danger");
+                        setTimeout(() => { if (feedback) feedback.textContent = ""; }, 5000);
+                    })
+                    .catch(() => {
+                        saveBtn.disabled = false;
+                        if (feedback) { feedback.textContent = "❌ שגיאת תקשורת."; feedback.className = "ms-3 small text-danger"; }
+                    });
+                });
+            }
         });
     </script>
 }

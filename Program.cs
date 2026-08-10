@@ -93,6 +93,9 @@ app.UseHttpsRedirection();
 // הגדרת הגשת קבצים סטטיים מתיקיית wwwroot כגון עיצובים ותמונות
 app.UseStaticFiles();
 
+// הפעלת Middleware לרישום אוטומטי של שגיאות HTTP לקובץ פיזי מקומי עם תרגום לעברית
+app.UseMiddleware<CompareD.Middleware.ErrorLoggingMiddleware>();
+
 // הגדרת מערכת הניתוב (Routing) של הבקשות ברשת
 app.UseRouting();
 

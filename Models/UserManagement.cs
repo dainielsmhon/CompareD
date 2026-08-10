@@ -131,33 +131,17 @@ namespace CompareD.Models
         }
     }
 
-    // מחלקת עזר לרישום Audit Log לקובץ טקסט מקומי בשרת ללא פגיעה בביצועי ה-DB
+    // =====================================================================
+    // מחלקת גשר (Bridge) - שומרת על תאימות אחורה עם קריאות ישנות
+    // ומפנה אותן למנגנון הרישום המשודרג עם סטטוס מלא
+    // =====================================================================
     public static class AuditLogger
     {
-        private static readonly string LogsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        private static readonly string FilePath = Path.Combine(LogsDirectory, "audit.log");
-        private static readonly object LogLock = new object();
-
-        // רישום שורת לוג מאובטחת
-        public static void LogAction(string username, string action, string details)
+        // רישום שורת לוג - ממשק תואם לקוד הקיים (Status ברירת מחדל: Success)
+        public static void LogAction(string username, string action, string details, string status = "Success")
         {
-            lock (LogLock)
-            {
-                try
-                {
-                    if (!Directory.Exists(LogsDirectory))
-                    {
-                        Directory.CreateDirectory(LogsDirectory);
-                    }
-
-                    var logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] User: {username} | Action: {action} | Details: {details}{Environment.NewLine}";
-                    File.AppendAllText(FilePath, logLine);
-                }
-                catch
-                {
-                    // כשל ברישום לוג לקובץ
-                }
-            }
+            // קריאה למחלקת ה-AuditLogStore המשודרגת שכותבת JSON מובנה
+            AuditLogStore.Log(username, action, details, status);
         }
     }
 
