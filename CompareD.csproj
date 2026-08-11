@@ -16,6 +16,7 @@
     <PackageReference Include="MiniExcel" Version="1.44.1" />
     <!-- ספריית ה-ADO.NET הרשמית של אורקל להתחברות ל-Oracle Database -->
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.6.0" />
+    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.10" />
   </ItemGroup>
 
 </Project>

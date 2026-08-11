@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Versioning;
+using System.DirectoryServices.AccountManagement;
 using CompareD.Models;
 
 namespace CompareD.Controllers
@@ -156,6 +158,85 @@ namespace CompareD.Controllers
                 $"שינה סטטוס של משתמש '{username}' לחסום={isBlocked}");
 
             return Json(new { success = true });
+        }
+
+        // =====================================================================
+        // Feature 8: חיפוש משתמשים ב-Active Directory 
+        // =====================================================================
+        [HttpGet]
+        [SupportedOSPlatform("windows")]
+        public IActionResult SearchAD(string query)
+        {
+            if (!IsUserAuthorized())
+                return Json(new { success = false, message = "אין הרשאות." });
+
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+                return Json(new { success = true, results = new List<object>() });
+
+            var results = new List<object>();
+            try
+            {
+                // ניסיון התחברות לדומיין הנוכחי
+                using (var context = new PrincipalContext(ContextType.Domain))
+                using (var searcher = new UserPrincipal(context))
+                {
+                    searcher.SamAccountName = $"*{query}*";
+                    // אפשר גם לחפש לפי שם מלא: searcher.DisplayName = $"*{query}*";
+                    
+                    using (var search = new PrincipalSearcher(searcher))
+                    {
+                        foreach (var result in search.FindAll().Take(10))
+                        {
+                            var user = result as UserPrincipal;
+                            if (user != null)
+                            {
+                                results.Add(new {
+                                    displayName = user.DisplayName ?? user.SamAccountName,
+                                    samAccountName = user.SamAccountName,
+                                    email = user.EmailAddress ?? "",
+                                    domain = context.Name
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // במקרה של שגיאת התחברות ל-AD (למשל סביבה מנותקת)
+                SystemLogger.LogError(500, $"שגיאת AD: {ex.Message}", "SearchAD", User.Identity?.Name ?? "Unknown");
+                return Json(new { success = false, message = "לא ניתן להתחבר לשרת ה-Active Directory כעת." });
+            }
+
+            return Json(new { success = true, results });
+        }
+
+        // =====================================================================
+        // הוספת משתמש שאושר מראש (Pre-Approved User) - AD או ידני
+        // =====================================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult AddUser(string username, string fullName, string email, string authType = "Active Directory")
+        {
+            if (!IsUserAuthorized())
+                return Json(new { success = false, message = "אין הרשאות לביצוע פעולה זו." });
+
+            if (string.IsNullOrWhiteSpace(username))
+                return Json(new { success = false, message = "שם משתמש חובה." });
+
+            if (string.IsNullOrWhiteSpace(authType)) 
+                authType = "Active Directory";
+
+            bool added = UserStore.AddApprovedUser(username, fullName ?? string.Empty, email ?? string.Empty, authType);
+            
+            if (added)
+            {
+                AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "AddApprovedUser",
+                    $"הוסיף מראש משתמש מאושר ({authType}): {username}");
+                return Json(new { success = true, message = "המשתמש נוסף ואושר בהצלחה!" });
+            }
+
+            return Json(new { success = false, message = "שגיאה בהוספת המשתמש." });
         }
     }
 }

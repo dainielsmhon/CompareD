@@ -111,37 +111,65 @@
 
     @* ========================= TAB 1: ניהול משתמשים ========================= *@
     <div class="tab-pane fade show active" id="tab-users" role="tabpanel">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="admin-section-title mb-0">ניהול משתמשים</h4>
+            <button class="btn btn-primary btn-glow px-4" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                + הוספת משתמש
+            </button>
+        </div>
+
         <div class="glass-card mb-4 p-4" id="search-card">
             <div class="row align-items-center gap-3 gap-md-0">
                 <div class="col-12 col-md-8">
                     <div class="input-group">
                         <span class="input-group-text admin-input-addon">🔍</span>
-                        <input type="text" class="form-control admin-input" id="user-search-input" placeholder="חיפוש משתמש לפי שם..." />
+                        <input type="text" class="form-control admin-input" id="user-search-input" placeholder="חיפוש אנשים..." />
                     </div>
                 </div>
                 <div class="col-12 col-md-4 text-md-end">
-                    <span class="admin-text-muted small">סה"כ: <strong class="admin-text-strong" id="total-users-count">@Model.Users.Count</strong></span>
+                    <span class="admin-text-muted small"><strong class="admin-text-strong" id="total-users-count">@Model.Users.Count</strong> משתמשים במערכת</span>
                 </div>
             </div>
         </div>
 
-        <div class="glass-card p-4" id="users-table-card">
+        <div class="glass-card p-0 overflow-hidden" id="users-table-card">
             <div class="table-responsive">
-                <table class="table admin-table" id="users-management-table">
+                <table class="table admin-table mb-0" id="users-management-table">
                     <thead>
                         <tr>
-                            <th style="width:40%">שם משתמש (AD)</th>
-                            <th style="width:30%">כניסה אחרונה</th>
+                            <th style="width:25%">משתמש</th>
+                            <th style="width:20%">אימייל</th>
+                            <th style="width:15%">סוג הזדהות</th>
+                            <th style="width:15%">כניסה אחרונה</th>
                             <th style="width:15%" class="text-center">סטטוס</th>
-                            <th style="width:15%" class="text-center">הרשאה</th>
+                            <th style="width:10%" class="text-center">הרשאה</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var user in Model.Users)
+                        @foreach (var user in Model.Users.OrderByDescending(u => u.CreatedAt))
                         {
-                            <tr class="user-row" data-username="@user.Username">
-                                <td class="font-monospace admin-text-strong fw-bold">@user.Username</td>
-                                <td class="admin-text-muted font-monospace small">@user.LastLogin.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            var initial = !string.IsNullOrEmpty(user.FullName) ? user.FullName.Substring(0, 1).ToUpper() : (!string.IsNullOrEmpty(user.Username) ? user.Username.Substring(0, 1).ToUpper() : "?");
+                            var displayName = !string.IsNullOrEmpty(user.FullName) ? user.FullName : user.Username;
+
+                            <tr class="user-row align-middle" data-username="@user.Username">
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="user-avatar-circle">@initial</div>
+                                        <div>
+                                            <div class="admin-text-strong fw-bold">@displayName</div>
+                                            <div class="admin-text-muted font-monospace small">@user.Username</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="admin-text-muted small">@(string.IsNullOrEmpty(user.Email) ? "—" : user.Email)</td>
+                                <td>
+                                    <span class="auth-type-badge">
+                                        <span class="auth-type-icon">@(user.AuthType == "Active Directory" ? "💻" : "👤")</span>
+                                        @user.AuthType
+                                    </span>
+                                </td>
+                                <td class="admin-text-muted font-monospace small">@(user.LastLogin > DateTime.MinValue ? user.LastLogin.ToString("yyyy-MM-dd") : "—")</td>
                                 <td class="text-center user-status-badge-cell">
                                     @if (user.IsBlocked)
                                     {
@@ -471,6 +499,103 @@
 
 </div>
 
+@* ========================= MODAL: הוספת משתמש / חיפוש מול AD ========================= *@
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card border-0">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title admin-section-title mb-0">הוספת משתמש מורשה חדש</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-4">
+                
+                <ul class="nav nav-tabs mb-4" role="tablist" style="border-bottom-color: rgba(255,255,255,0.1);">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-ad" data-bs-toggle="tab" data-bs-target="#pane-ad" type="button" role="tab" style="background: transparent; border: none; color: var(--text-primary);">
+                            <span class="fs-5 me-2">💻</span> Active Directory
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-manual" data-bs-toggle="tab" data-bs-target="#pane-manual" type="button" role="tab" style="background: transparent; border: none; color: var(--text-secondary);">
+                            <span class="fs-5 me-2">📝</span> הזנה ידנית
+                        </button>
+                    </li>
+                </ul>
+                
+                <style>
+                    /* Custom Active Tab Styling for Modal */
+                    #addUserModal .nav-link.active {
+                        border-bottom: 2px solid var(--accent-color) !important;
+                        color: var(--accent-color) !important;
+                        font-weight: bold;
+                    }
+                </style>
+
+                <div class="tab-content">
+                    <!-- חלונית AD -->
+                    <div class="tab-pane fade show active" id="pane-ad" role="tabpanel">
+                        <div class="mb-4 position-relative">
+                            <label class="settings-label mb-1">שם מלא או שם משתמש</label>
+                            <p class="admin-text-muted small mb-2">התחילו להקליד לחיפוש עובדים בדומיין (Active Directory).</p>
+                            <div class="input-group">
+                                <span class="input-group-text admin-input-addon">🔍</span>
+                                <input type="text" class="form-control admin-input" id="ad-search-input" placeholder="לדוגמה: דניאל ש..." autocomplete="off" />
+                            </div>
+                            
+                            @* תפריט התוצאות הצף *@
+                            <div id="ad-search-results" class="position-absolute w-100 mt-1 d-none" style="z-index: 1050; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); max-height: 250px; overflow-y: auto;">
+                                <div class="text-center py-3 admin-text-muted small" id="ad-search-loading" style="display:none;">מחפש בדומיין...</div>
+                                <ul class="list-unstyled mb-0" id="ad-search-list"></ul>
+                            </div>
+                        </div>
+
+                        <div id="ad-selected-user-form" class="d-none">
+                            <div class="mb-3">
+                                <label class="settings-label mb-1">שם משתמש בדומיין</label>
+                                <input type="text" id="ad-selected-username" class="form-control admin-input font-monospace text-muted" readonly dir="ltr" />
+                                <small class="admin-text-muted">פורמט: DOMAIN\user — הזדהות מול הדומיין ללא סיסמה מקומית.</small>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="settings-label mb-1">אימייל ארגוני</label>
+                                <input type="email" id="ad-selected-email" class="form-control admin-input text-muted" readonly dir="ltr" />
+                            </div>
+
+                            <input type="hidden" id="ad-selected-fullname" />
+                            
+                            <button type="button" class="btn btn-primary btn-glow w-100" id="btn-submit-ad-user">יצירת משתמש מאושר</button>
+                            <div id="add-user-feedback" class="mt-2 text-center small"></div>
+                        </div>
+                    </div>
+
+                    <!-- חלונית הזנה ידנית -->
+                    <div class="tab-pane fade" id="pane-manual" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="settings-label mb-1">שם משתמש למערכת</label>
+                            <input type="text" id="manual-username" class="form-control admin-input font-monospace" dir="ltr" placeholder="לדוגמה: DOMAIN\user" />
+                            <small class="admin-text-muted">למשתמשי קבלן/חיצוניים. הקפד על שם המחשב או הדומיין המדויק.</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="settings-label mb-1">שם מלא</label>
+                            <input type="text" id="manual-fullname" class="form-control admin-input" placeholder="שם העובד" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="settings-label mb-1">אימייל</label>
+                            <input type="email" id="manual-email" class="form-control admin-input" placeholder="כתובת דואר אלקטרוני (אופציונלי)" dir="ltr" />
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary btn-glow w-100" id="btn-submit-manual-user">יצירת משתמש ידני</button>
+                        <div id="add-manual-feedback" class="mt-2 text-center small"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 @Html.AntiForgeryToken()
 
 @section Scripts {
@@ -487,8 +612,8 @@
                     const query = searchInput.value.toLowerCase().trim();
                     let visible = 0;
                     userRows.forEach(row => {
-                        const username = row.getAttribute("data-username").toLowerCase();
-                        const show = username.includes(query);
+                        const rowText = row.textContent.toLowerCase();
+                        const show = rowText.includes(query);
                         row.classList.toggle("d-none", !show);
                         if (show) visible++;
                     });
@@ -626,6 +751,176 @@
                     .catch(() => {
                         saveBtn.disabled = false;
                         if (feedback) { feedback.textContent = "❌ שגיאת תקשורת."; feedback.className = "ms-3 small text-danger"; }
+                    });
+                });
+            }
+
+            // =====================================================================
+            // לוגיקת חיפוש והוספת משתמש AD
+            // =====================================================================
+            const adSearchInput = document.getElementById("ad-search-input");
+            const adSearchResults = document.getElementById("ad-search-results");
+            const adSearchList = document.getElementById("ad-search-list");
+            const adSearchLoading = document.getElementById("ad-search-loading");
+            
+            const adSelectedForm = document.getElementById("ad-selected-user-form");
+            const adSelectedUsername = document.getElementById("ad-selected-username");
+            const adSelectedEmail = document.getElementById("ad-selected-email");
+            const adSelectedFullName = document.getElementById("ad-selected-fullname");
+            const btnSubmitAdUser = document.getElementById("btn-submit-ad-user");
+            const addUserFeedback = document.getElementById("add-user-feedback");
+
+            let searchTimeout = null;
+
+            if (adSearchInput) {
+                adSearchInput.addEventListener("input", function() {
+                    const query = this.value.trim();
+                    if (query.length < 2) {
+                        adSearchResults.classList.add("d-none");
+                        return;
+                    }
+
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        adSearchResults.classList.remove("d-none");
+                        adSearchList.innerHTML = "";
+                        adSearchLoading.style.display = "block";
+
+                        fetch(`@Url.Action("SearchAD", "Admin")?query=${encodeURIComponent(query)}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                adSearchLoading.style.display = "none";
+                                if (data.success && data.results.length > 0) {
+                                    data.results.forEach(u => {
+                                        const li = document.createElement("li");
+                                        li.className = "p-3 border-bottom border-secondary ad-result-item";
+                                        li.style.cursor = "pointer";
+                                        li.innerHTML = `
+                                            <div class="admin-text-strong fw-bold">${u.displayName}</div>
+                                            <div class="admin-text-muted small font-monospace" dir="ltr">${u.email} | ${u.domain}\\${u.samAccountName}</div>
+                                        `;
+                                        li.addEventListener("click", () => {
+                                            adSearchInput.value = u.displayName;
+                                            adSearchResults.classList.add("d-none");
+                                            
+                                            adSelectedUsername.value = `${u.domain}\\${u.samAccountName}`;
+                                            adSelectedEmail.value = u.email;
+                                            adSelectedFullName.value = u.displayName;
+                                            adSelectedForm.classList.remove("d-none");
+                                        });
+                                        // הוספת אפקט Hover דרך JS
+                                        li.addEventListener("mouseenter", () => li.style.background = "rgba(255,255,255,0.05)");
+                                        li.addEventListener("mouseleave", () => li.style.background = "transparent");
+                                        
+                                        adSearchList.appendChild(li);
+                                    });
+                                } else if (!data.success) {
+                                    adSearchList.innerHTML = `<li class="p-3 text-center text-danger small">${data.message}</li>`;
+                                } else {
+                                    adSearchList.innerHTML = `<li class="p-3 text-center admin-text-muted small">לא נמצאו עובדים מתאימים.</li>`;
+                                }
+                            })
+                            .catch(() => {
+                                adSearchLoading.style.display = "none";
+                                adSearchList.innerHTML = `<li class="p-3 text-center text-danger small">שגיאת חיבור לשרת ה-AD.</li>`;
+                            });
+                    }, 500); // Debounce
+                });
+
+                // סגירת חלון החיפוש בלחיצה מחוץ אליו
+                document.addEventListener("click", (e) => {
+                    if (!adSearchInput.contains(e.target) && !adSearchResults.contains(e.target)) {
+                        adSearchResults.classList.add("d-none");
+                    }
+                });
+            }
+
+            if (btnSubmitAdUser) {
+                btnSubmitAdUser.addEventListener("click", function() {
+                    const formData = new FormData();
+                    formData.append("username", adSelectedUsername.value);
+                    formData.append("email", adSelectedEmail.value);
+                    formData.append("fullName", adSelectedFullName.value);
+                    const csrfInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                    if (csrfInput) formData.append("__RequestVerificationToken", csrfInput.value);
+
+                    btnSubmitAdUser.disabled = true;
+                    addUserFeedback.textContent = "יוצר משתמש...";
+                    addUserFeedback.className = "mt-2 text-center small admin-text-muted";
+
+                    fetch('@Url.Action("AddUser", "Admin")', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            addUserFeedback.textContent = "✅ המשתמש נוסף ואושר!";
+                            addUserFeedback.className = "mt-2 text-center small text-success";
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            btnSubmitAdUser.disabled = false;
+                            addUserFeedback.textContent = "❌ " + data.message;
+                            addUserFeedback.className = "mt-2 text-center small text-danger";
+                        }
+                    })
+                    .catch(() => {
+                        btnSubmitAdUser.disabled = false;
+                        addUserFeedback.textContent = "❌ שגיאת תקשורת.";
+                        addUserFeedback.className = "mt-2 text-center small text-danger";
+                    });
+                });
+            }
+
+            // =====================================================================
+            // לוגיקת הוספת משתמש ידני
+            // =====================================================================
+            const btnSubmitManualUser = document.getElementById("btn-submit-manual-user");
+            if (btnSubmitManualUser) {
+                btnSubmitManualUser.addEventListener("click", function() {
+                    const mUser = document.getElementById("manual-username").value.trim();
+                    const mName = document.getElementById("manual-fullname").value.trim();
+                    const mEmail = document.getElementById("manual-email").value.trim();
+                    const fb = document.getElementById("add-manual-feedback");
+
+                    if (!mUser) {
+                        fb.textContent = "❌ שדה שם משתמש הוא חובה.";
+                        fb.className = "mt-2 text-center small text-danger";
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append("username", mUser);
+                    formData.append("fullName", mName);
+                    formData.append("email", mEmail);
+                    formData.append("authType", "Local");
+                    const csrfInput = document.querySelector('input[name="__RequestVerificationToken"]');
+                    if (csrfInput) formData.append("__RequestVerificationToken", csrfInput.value);
+
+                    btnSubmitManualUser.disabled = true;
+                    fb.textContent = "יוצר משתמש...";
+                    fb.className = "mt-2 text-center small admin-text-muted";
+
+                    fetch('@Url.Action("AddUser", "Admin")', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            fb.textContent = "✅ המשתמש נוסף ואושר!";
+                            fb.className = "mt-2 text-center small text-success";
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            btnSubmitManualUser.disabled = false;
+                            fb.textContent = "❌ " + data.message;
+                            fb.className = "mt-2 text-center small text-danger";
+                        }
+                    })
+                    .catch(() => {
+                        btnSubmitManualUser.disabled = false;
+                        fb.textContent = "❌ שגיאת תקשורת.";
+                        fb.className = "mt-2 text-center small text-danger";
                     });
                 });
             }

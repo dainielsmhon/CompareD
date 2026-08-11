@@ -13,19 +13,19 @@
         <h1 class="h3 text-gradient mb-3" id="access-denied-title">הגישה למערכת CompareD נחסמה</h1>
         
         <p class="text-secondary mb-4" id="access-denied-message">
-            מנהל המערכת הגדיר חסימת גישה עבור חשבונך, או שאתה מנסה לגשת לאזור ניהולי ללא הרשאות מנהל מתאימות.
+            חשבונך ממתין לאישור. <strong>רק מנהל מערכת יכול לאשר את כניסתך.</strong>
         </p>
 
         @if (User.Identity?.IsAuthenticated == true)
         {
             <div class="bg-dark/30 border border-white/5 rounded p-3 mb-4 text-start font-monospace small" id="detected-user-info">
-                <div class="text-secondary small mb-1">👤 משתמש מחובר:</div>
+                <div class="text-secondary small mb-1">👤 משתמש מזוהה:</div>
                 <div class="text-light fw-bold text-break">@User.Identity.Name</div>
             </div>
         }
 
         <p class="text-secondary small mb-4" id="access-denied-help">
-            לבירור והסדרת הרשאות הגישה, אנא פנה למנהלי המערכת מורשי ה-Active Directory.
+            לבירור והסדרת הרשאות הגישה, יש לשלוח מייל ל<strong>דניאל שמחון</strong>.
         </p>
 
         <a asp-controller="Home" asp-action="Index" class="btn btn-outline-light transition-all px-4 py-2" id="back-to-home-btn" style="border-radius: 0.5rem;">

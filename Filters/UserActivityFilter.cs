@@ -36,9 +36,27 @@ namespace CompareD.Filters
             // עדכון זמן כניסה אחרון של המשתמש ב-JSON
             UserStore.UpdateLastLogin(username);
 
-            // בדיקת סטטוס חסימה
+            // בדיקת סטטוס חסימה - למעט מנהלי מערכת הרשומים בקובץ התצורה
             var user = UserStore.GetOrCreateUser(username);
-            if (user.IsBlocked)
+            
+            bool isAdmin = false;
+            var configuration = httpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)) as Microsoft.Extensions.Configuration.IConfiguration;
+            if (configuration != null)
+            {
+                var authorizedUsers = configuration.GetSection("AdminSettings:AuthorizedUsers").Get<System.Collections.Generic.List<string>>();
+                if (authorizedUsers != null && authorizedUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase)))
+                {
+                    isAdmin = true;
+                    // אם המנהל חסום בטעות (למשל בכניסה ראשונה), נשחרר אותו אוטומטית
+                    if (user.IsBlocked)
+                    {
+                        UserStore.ToggleBlockedStatus(username, false);
+                        user.IsBlocked = false;
+                    }
+                }
+            }
+
+            if (user.IsBlocked && !isAdmin)
             {
                 // רישום ניסיון כניסה של משתמש חסום ב-Audit Log
                 AuditLogger.LogAction(username, "BlockedAccessAttempt", $"Blocked user tried to access: {controllerName}/{actionName}");

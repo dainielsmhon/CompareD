@@ -6,10 +6,13 @@ using System.Text.Json;
 
 namespace CompareD.Models
 {
-    // מודל המייצג פרטי משתמש במערכת
     public class UserInfo
     {
         public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string AuthType { get; set; } = "Active Directory";
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime LastLogin { get; set; }
         public bool IsBlocked { get; set; }
     }
@@ -70,11 +73,15 @@ namespace CompareD.Models
                 var user = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
                 if (user == null)
                 {
+                    // אבטחה מחמירה (Strict Auth): כל משתמש חדש שמנסה להתחבר נוצר כחסום אוטומטית!
+                    // רק מנהל יכול לאשר אותו או להוסיף אותו מראש
                     user = new UserInfo
                     {
                         Username = username,
+                        CreatedAt = DateTime.Now,
                         LastLogin = DateTime.Now,
-                        IsBlocked = false
+                        IsBlocked = true, // חסום כברירת מחדל!
+                        AuthType = "Active Directory"
                     };
                     users.Add(user);
                     SaveUsers(users);
@@ -97,8 +104,10 @@ namespace CompareD.Models
                     user = new UserInfo
                     {
                         Username = username,
+                        CreatedAt = DateTime.Now,
                         LastLogin = DateTime.Now,
-                        IsBlocked = false
+                        IsBlocked = true, // חסום כברירת מחדל!
+                        AuthType = "Active Directory"
                     };
                     users.Add(user);
                 }
@@ -125,6 +134,44 @@ namespace CompareD.Models
                 }
 
                 user.IsBlocked = isBlocked;
+                SaveUsers(users);
+                return true;
+            }
+        }
+
+        // יצירת משתמש שאושר מראש (Pre-Approved) על ידי המנהל מהממשק
+        public static bool AddApprovedUser(string username, string fullName, string email, string authType)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return false;
+
+            lock (FileLock)
+            {
+                var users = GetUsers();
+                var user = users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
+                
+                if (user != null)
+                {
+                    // משתמש כבר קיים - רק נעדכן פרטים ונאשר אותו
+                    user.FullName = fullName;
+                    user.Email = email;
+                    user.AuthType = authType;
+                    user.IsBlocked = false; // נאשר אותו
+                }
+                else
+                {
+                    // הוספת משתמש חדש כמאושר
+                    users.Add(new UserInfo
+                    {
+                        Username = username,
+                        FullName = fullName,
+                        Email = email,
+                        AuthType = authType,
+                        CreatedAt = DateTime.Now,
+                        LastLogin = DateTime.MinValue, // טרם התחבר
+                        IsBlocked = false // מאושר מראש!
+                    });
+                }
+                
                 SaveUsers(users);
                 return true;
             }

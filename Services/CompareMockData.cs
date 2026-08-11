@@ -42,7 +42,6 @@ public static class CompareMockData
             data.Add(new Dictionary<string, object> { { "ID", 9 }, { "NAME", "טליה פרידמן" }, { "EMAIL", "talia.f@gmail.com" }, { "AGE", 27 }, { "CREATED_AT", DateTime.Parse("2026-06-23 11:30:00") } }); // זהה
             data.Add(new Dictionary<string, object> { { "ID", 11 }, { "NAME", "לימור חדד" }, { "EMAIL", "limor.h@gmail.com" }, { "AGE", 38 }, { "CREATED_AT", DateTime.Parse("2026-06-23 12:30:00") } }); // מפתח כפול ביעד (ורשומה אחת במקור)
             data.Add(new Dictionary<string, object> { { "ID", 12 }, { "NAME", "דניאל שמחון" }, { "EMAIL", "danielsimhon931.cohen@gmail.com" }, { "AGE", 31 }, { "CREATED_AT", DateTime.Parse("2026-06-20 08:30:00") } }); // ME
-
         }
         else
         {

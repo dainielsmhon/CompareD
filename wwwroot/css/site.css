@@ -1200,3 +1200,61 @@ body.light-mode .nav-tabs .nav-link:hover { color: #1e293b !important; backgroun
 body.light-mode .nav-tabs .nav-link.active { color: #1e293b !important; background: rgba(0,0,0,0.05) !important; }
 body.light-mode .form-check-input { background-color: rgba(0,0,0,0.08) !important; }
 body.light-mode .form-check-label { color: var(--text-secondary) !important; }
+
+/* =====================================================================
+   User Management UI enhancements (Avatars & AD Badges)
+   ===================================================================== */
+.user-avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.auth-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.auth-type-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--accent-primary);
+    margin-left: 0.4rem; /* RTL */
+    font-size: 0.7rem;
+}
+
+body.light-mode .auth-type-badge {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+    color: #475569;
+}
+body.light-mode .auth-type-icon {
+    background: rgba(37, 99, 235, 0.1);
+}
+
+/* Hover effects for AD search results */
+.ad-result-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+body.light-mode .ad-result-item:hover {
+    background: rgba(0, 0, 0, 0.03) !important;
+}
