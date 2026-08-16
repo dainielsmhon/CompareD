@@ -83,7 +83,8 @@ public class CompareController : Controller
             };
             return builder.ConnectionString;
         } else if (provider == "Oracle") {
-            return $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SERVICE_NAME={sid})));User Id={username};Password={password};";
+            // הוסר ADDRESS_LIST לטובת תמיכה בגרסאות קודמות של הדרייבר, והוגדר SID
+            return $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SID={sid})));User Id={username};Password={password};";
         }
         return string.Empty;
     }

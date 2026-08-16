@@ -370,7 +370,7 @@ window.testConnection = function(side) {
         formData.append("__RequestVerificationToken", tokenInput.value);
     }
 
-    fetch('/Compare/TestConnection', {
+    fetch('@Url.Action("TestConnection", "Compare")', {
         method: 'POST',
         body: formData
     })

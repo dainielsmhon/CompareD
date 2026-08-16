@@ -49,11 +49,15 @@ public class CompareService : ICompareService
                 await connection.OpenAsync();
                 string query = "SELECT TABLE_NAME, 'TABLE' AS TABLE_TYPE FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME, 'VIEW' AS TABLE_TYPE FROM USER_VIEWS ORDER BY TABLE_NAME";
                 using (var command = new OracleCommand(query, connection))
-                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    while (await reader.ReadAsync())
+                    // הגדרת פסק זמן לשאילתה על מנת למנוע תקיעות שרת מול אורקל ישן
+                    command.CommandTimeout = 30;
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        objects.Add(new DatabaseObject { Name = reader.GetString(0), Type = reader.GetString(1) });
+                        while (await reader.ReadAsync())
+                        {
+                            objects.Add(new DatabaseObject { Name = reader.GetString(0), Type = reader.GetString(1) });
+                        }
                     }
                 }
             }
