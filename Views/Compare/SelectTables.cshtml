@@ -1,4 +1,4 @@
-@model CompareD.Controllers.TableSelectionViewModel
+﻿@model CompareD.Controllers.TableSelectionViewModel
 
 @* הגדרת כותרת הדף — שלב 2: בחירת טבלה או תצוגה *@
 @{
@@ -91,10 +91,10 @@
             @* תיבת בחירת הטבלה/תצוגה מתוך הרשימה שנשלפה מהמסד *@
             <div class="mb-3">
                 <label for="sql-table-select" class="form-label text-secondary fs-6" id="sql-table-select-label">בחרו טבלה או תצוגה</label>
-                <select class="form-select form-input-glass text-light w-100" id="sql-table-select" name="sqlTable" required>
+                <select class="form-select form-input-glass text-light w-100" id="sql-table-select" name="SourceTable" required>
                     <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
                     @* לולאה על כל הטבלאות והתצוגות שנשלפו מ-SQL Server *@
-                    @foreach (var table in Model.SqlTables)
+                    @foreach (var table in Model.SourceTables)
                     {
                         @* הצגת שם הטבלה עם סוג האובייקט בסוגריים *@
                         <option value="@table.Name">@table.Name (@(table.Type == "VIEW" ? "תצוגה" : "טבלה"))</option>
@@ -103,7 +103,7 @@
             </div>
             @* תצוגת סיכום כמות האובייקטים שנמצאו — מידע מהיר למשתמש *@
             <div class="text-secondary small" id="sql-count-info">
-                נמצאו <strong class="text-light">@Model.SqlTables.Count</strong> טבלאות ותצוגות זמינות.
+                נמצאו <strong class="text-light">@Model.SourceTables.Count</strong> טבלאות ותצוגות זמינות.
             </div>
         </div>
 
@@ -120,10 +120,10 @@
             @* תיבת בחירת הטבלה/תצוגה מתוך הרשימה שנשלפה מהמסד *@
             <div class="mb-3">
                 <label for="oracle-table-select" class="form-label text-secondary fs-6" id="oracle-table-select-label">בחרו טבלה או תצוגה</label>
-                <select class="form-select form-input-glass text-light w-100" id="oracle-table-select" name="oracleTable" required>
+                <select class="form-select form-input-glass text-light w-100" id="oracle-table-select" name="TargetTable" required>
                     <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
                     @* לולאה על כל הטבלאות והתצוגות שנשלפו מ-Oracle *@
-                    @foreach (var table in Model.OracleTables)
+                    @foreach (var table in Model.TargetTables)
                     {
                         @* הצגת שם הטבלה עם סוג האובייקט בסוגריים *@
                         <option value="@table.Name">@table.Name (@(table.Type == "VIEW" ? "תצוגה" : "טבלה"))</option>
@@ -132,7 +132,7 @@
             </div>
             @* תצוגת סיכום כמות האובייקטים שנמצאו — מידע מהיר למשתמש *@
             <div class="text-secondary small" id="oracle-count-info">
-                נמצאו <strong class="text-light">@Model.OracleTables.Count</strong> טבלאות ותצוגות זמינות.
+                נמצאו <strong class="text-light">@Model.TargetTables.Count</strong> טבלאות ותצוגות זמינות.
             </div>
         </div>
 
@@ -220,7 +220,7 @@
                     const config = JSON.parse(e.target.result);
                     
                     // בדיקת תקינות השדות הנדרשים בקובץ התצורה
-                    if (!config.sqlTable || !config.oracleTable || !config.sourceFields || !config.targetFields || !config.fieldRoles) {
+                    if (!config.SourceTable || !config.TargetTable || !config.sourceFields || !config.targetFields || !config.fieldRoles) {
                         alert("קובץ התצורה אינו תקין או שחסרים בו שדות חובה.");
                         return;
                     }
@@ -246,8 +246,8 @@
                         form.appendChild(input);
                     };
 
-                    addInput("sqlTable", config.sqlTable);
-                    addInput("oracleTable", config.oracleTable);
+                    addInput("SourceTable", config.SourceTable);
+                    addInput("TargetTable", config.TargetTable);
                     addInput("mappingMode", config.mappingMode || "Manual");
                     addInput("maxRows", config.maxRows || 1000);
 

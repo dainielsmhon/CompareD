@@ -61,100 +61,119 @@ public class CompareController : Controller
 
     private void ClearConnectionStringsFromSession()
     {
-        HttpContext.Session.Remove("SqlConnectionString");
-        HttpContext.Session.Remove("OracleConnectionString");
-        HttpContext.Session.Remove("SelectedSqlTable");
-        HttpContext.Session.Remove("SelectedOracleTable");
+        HttpContext.Session.Remove("SourceConnectionString");
+        HttpContext.Session.Remove("TargetConnectionString");
+        HttpContext.Session.Remove("SourceProvider");
+        HttpContext.Session.Remove("TargetProvider");
+        HttpContext.Session.Remove("SelectedSourceTable");
+        HttpContext.Session.Remove("SelectedTargetTable");
     }
 
-    private static string BuildSqlConnectionString(
-        string server, string database, string username, string password)
+    private static string BuildConnectionString(string provider, string server, string database, string host, string port, string sid, string username, string password)
     {
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = server,
-            InitialCatalog = database,
-            UserID = username,
-            Password = password,
-            ApplicationIntent = ApplicationIntent.ReadOnly,
-            TrustServerCertificate = true
-        };
-        return builder.ConnectionString;
+        if (provider == "SQLServer") {
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = server,
+                InitialCatalog = database,
+                UserID = username,
+                Password = password,
+                ApplicationIntent = ApplicationIntent.ReadOnly,
+                TrustServerCertificate = true
+            };
+            return builder.ConnectionString;
+        } else if (provider == "Oracle") {
+            return $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SERVICE_NAME={sid})));User Id={username};Password={password};";
+        }
+        return string.Empty;
     }
 
-    private static string BuildOracleConnectionString(
-        string server, string database, string username, string password)
+    [HttpPost]
+    public async Task<IActionResult> TestConnection(string provider, string server, string database, string host, string port, string sid, string username, string password)
     {
-        var builder = new OracleConnectionStringBuilder
+        try
         {
-            UserID = username,
-            Password = password,
-            DataSource = $"{server}/{database}"
-        };
-        return builder.ConnectionString;
+            string connectionString = BuildConnectionString(provider, server, database, host, port, sid, username, password);
+            if (provider == "SQLServer") {
+                using var conn = new SqlConnection(connectionString);
+                await conn.OpenAsync();
+            } else if (provider == "Oracle") {
+                using var conn = new OracleConnection(connectionString);
+                await conn.OpenAsync();
+            } else {
+                return Json(new { success = false, message = "ספק מסד הנתונים אינו מוכר." });
+            }
+            return Json(new { success = true, message = "חיבור בוצע בהצלחה!" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "TestConnection failed for provider: {Provider}, server: {Server}", provider, server);
+            string hebrewMessage;
+            string msg = ex.Message;
+            if (msg.Contains("timeout", StringComparison.OrdinalIgnoreCase) || msg.Contains("Timeout"))
+                hebrewMessage = "פסק הזמן חלף (Timeout). בדקו שהשרת פועל ונגיש.";
+            else if (msg.Contains("Login failed") || msg.Contains("password") || msg.Contains("ORA-01017"))
+                hebrewMessage = "שם משתמש או סיסמה שגויים. אנא בדקו את פרטי ההתחברות.";
+            else if (msg.Contains("server was not found") || msg.Contains("not accessible") || msg.Contains("ORA-12541") || msg.Contains("ORA-12170"))
+                hebrewMessage = "השרת לא נמצא או אינו נגיש. בדקו את כתובת השרת והפורט.";
+            else if (msg.Contains("Cannot open database") || msg.Contains("ORA-12514"))
+                hebrewMessage = "מסד הנתונים לא נמצא. בדקו את שם הדטאבייס / Service Name.";
+            else if (msg.Contains("network") || msg.Contains("Named Pipes") || msg.Contains("TCP"))
+                hebrewMessage = "שגיאת רשת. בדקו שה-SQL Server/Oracle מקשיבים לחיבורים מרחוק.";
+            else
+                hebrewMessage = "לא ניתן להתחבר למסד הנתונים. בדקו את פרטי החיבור ונסו שוב.";
+            return Json(new { success = false, message = hebrewMessage });
+        }
     }
+
 
     // מקבל אישורי גישה דינמיים מטופס ממשק המשתמש, בונה מחרוזות חיבור בזמן ריצה,
     // ומאמת את שני חיבורי מסד הנתונים. אישורי הגישה נשמרים בסשן בלבד (ארעי).
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Connect(
-        string sourceServer, string sourceDatabase, string sourceUsername, string sourcePassword,
-        string targetServer, string targetDatabase, string targetUsername, string targetPassword)
+        string sourceProvider, string sourceServer, string sourceDatabase, string sourceHost, string sourcePort, string sourceSid, string sourceUsername, string sourcePassword,
+        string targetProvider, string targetServer, string targetDatabase, string targetHost, string targetPort, string targetSid, string targetUsername, string targetPassword)
     {
-        // אימות שכל שדות החובה קיימים
-        if (string.IsNullOrWhiteSpace(sourceServer) || string.IsNullOrWhiteSpace(sourceDatabase) ||
-            string.IsNullOrWhiteSpace(sourceUsername) || string.IsNullOrWhiteSpace(sourcePassword) ||
-            string.IsNullOrWhiteSpace(targetServer) || string.IsNullOrWhiteSpace(targetDatabase) ||
-            string.IsNullOrWhiteSpace(targetUsername) || string.IsNullOrWhiteSpace(targetPassword))
-        {
-            TempData["ErrorMessage"] = "יש למלא את כל שדות החיבור עבור המקור והיעד.";
-            return RedirectToAction("Index", "Home");
-        }
-
         var rateLimitKey = User.Identity?.Name ?? HttpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
         if (!_connectRateLimiter.IsAllowed(rateLimitKey))
         {
             TempData["ErrorMessage"] = "יותר מדי ניסיונות חיבור. נא לנסות שוב בעוד מספר דקות.";
-            return RedirectToAction("Index", "Home");
+            return View("~/Views/Home/Index.cshtml");
         }
 
-        // Build connection strings via typed builders to prevent connection-string injection
-        string sqlConnectionString = BuildSqlConnectionString(
-            sourceServer, sourceDatabase, sourceUsername, sourcePassword);
-        string oracleConnectionString = BuildOracleConnectionString(
-            targetServer, targetDatabase, targetUsername, targetPassword);
+        string sourceConnectionString = BuildConnectionString(sourceProvider, sourceServer, sourceDatabase, sourceHost, sourcePort, sourceSid, sourceUsername, sourcePassword);
+        string targetConnectionString = BuildConnectionString(targetProvider, targetServer, targetDatabase, targetHost, targetPort, targetSid, targetUsername, targetPassword);
 
-        var sqlObjects = new List<DatabaseObject>();
-        var oracleObjects = new List<DatabaseObject>();
+        var sourceObjects = new List<DatabaseObject>();
+        var targetObjects = new List<DatabaseObject>();
         string? errorMessage = null;
 
         try
         {
-            // בדיקת שני החיבורים במקביל לשיפור הביצועים
             await Task.WhenAll(
                 Task.Run(async () =>
                 {
                     try
                     {
-                        sqlObjects = await _compareService.GetSqlObjectsAsync(sqlConnectionString);
+                        sourceObjects = await _compareService.GetDatabaseObjectsAsync(sourceConnectionString, sourceProvider);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to connect to SQL Server using dynamic string");
-                        throw new Exception("שגיאה בחיבור ל-SQL Server");
+                        _logger.LogError(ex, "Failed to connect to source");
+                        throw new Exception("שגיאה בחיבור למקור");
                     }
                 }),
                 Task.Run(async () =>
                 {
                     try
                     {
-                        oracleObjects = await _compareService.GetOracleObjectsAsync(oracleConnectionString);
+                        targetObjects = await _compareService.GetDatabaseObjectsAsync(targetConnectionString, targetProvider);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to connect to Oracle using dynamic string");
-                        throw new Exception("שגיאה בחיבור ל-Oracle");
+                        _logger.LogError(ex, "Failed to connect to target");
+                        throw new Exception("שגיאה בחיבור ליעד");
                     }
                 })
             );
@@ -168,20 +187,20 @@ public class CompareController : Controller
         if (errorMessage != null)
         {
             TempData["ErrorMessage"] = errorMessage;
-            return RedirectToAction("Index", "Home");
+            return View("~/Views/Home/Index.cshtml");
         }
 
-        // תיעוד חיבור מוצלח ב-Audit Log
-        AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseConnect", $"Connected to Source SQL Server: {sourceServer}/{sourceDatabase}, Target Oracle: {targetServer}/{targetDatabase}");
+        AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseConnect", $"Connected successfully");
 
-        // שמירת מחרוזות החיבור בסשן בצורה מוצפנת ומאובטחת (Data Protection)
-        HttpContext.Session.SetString("SqlConnectionString", ProtectConnectionString(sqlConnectionString));
-        HttpContext.Session.SetString("OracleConnectionString", ProtectConnectionString(oracleConnectionString));
+        HttpContext.Session.SetString("SourceConnectionString", ProtectConnectionString(sourceConnectionString));
+        HttpContext.Session.SetString("TargetConnectionString", ProtectConnectionString(targetConnectionString));
+        HttpContext.Session.SetString("SourceProvider", sourceProvider);
+        HttpContext.Session.SetString("TargetProvider", targetProvider);
 
         var viewModel = new TableSelectionViewModel
         {
-            SqlTables = sqlObjects,
-            OracleTables = oracleObjects
+            SourceTables = sourceObjects,
+            TargetTables = targetObjects
         };
 
         return View("SelectTables", viewModel);
@@ -190,49 +209,45 @@ public class CompareController : Controller
     // פעולה (Action) המטפלת בקבלת הטבלאות/תצוגות שנבחרו וביצוע השוואת סכמה להצגה במסך שלב 4
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SchemaReview(string sqlTable, string oracleTable)
+    public async Task<IActionResult> SchemaReview(string sourceTable, string targetTable)
     {
-        // שליפת מחרוזות החיבור הפעילות מתוך ה-Session של המשתמש ופענוחן
-        var protectedSql = HttpContext.Session.GetString("SqlConnectionString");
-        var protectedOracle = HttpContext.Session.GetString("OracleConnectionString");
-        var sqlConnectionString = UnprotectConnectionString(protectedSql);
-        var oracleConnectionString = UnprotectConnectionString(protectedOracle);
+        var protectedSource = HttpContext.Session.GetString("SourceConnectionString");
+        var protectedTarget = HttpContext.Session.GetString("TargetConnectionString");
+        var sourceConnectionString = UnprotectConnectionString(protectedSource);
+        var targetConnectionString = UnprotectConnectionString(protectedTarget);
+        var sourceProvider = HttpContext.Session.GetString("SourceProvider") ?? "SQLServer";
+        var targetProvider = HttpContext.Session.GetString("TargetProvider") ?? "Oracle";
 
-        // בדיקה האם פג תוקף הסשן או שלא הועברו טבלאות בבקשה
-        if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString) ||
-            string.IsNullOrEmpty(sqlTable) || string.IsNullOrEmpty(oracleTable))
+        if (string.IsNullOrEmpty(sourceConnectionString) || string.IsNullOrEmpty(targetConnectionString) ||
+            string.IsNullOrEmpty(sourceTable) || string.IsNullOrEmpty(targetTable))
         {
-            // הגדרת הודעת שגיאה מתאימה למשתמש
             TempData["ErrorMessage"] = "פג תוקף החיבור המאובטח או שלא נבחרו טבלאות. נא להתחבר מחדש.";
-            // הפניה מחדש לדף הבית
             return RedirectToAction("Index", "Home");
         }
 
         try
         {
-            // קריאה לשירות ההשוואה לביצוע השוואת סכמה מקיפה בין הטבלאות במקביל
             var schemaReviewModel = await _compareService.CompareSchemaAsync(
-                sqlConnectionString,
-                oracleConnectionString,
-                sqlTable,
-                oracleTable);
+                sourceConnectionString,
+                sourceProvider,
+                targetConnectionString,
+                targetProvider,
+                sourceTable,
+                targetTable);
 
-            // שמירת שמות הטבלאות שנבחרו בסשן להמשך שלבי העבודה הבאים
-            HttpContext.Session.SetString("SelectedSqlTable", sqlTable);
-            HttpContext.Session.SetString("SelectedOracleTable", oracleTable);
+            HttpContext.Session.SetString("SelectedSourceTable", sourceTable);
+            HttpContext.Session.SetString("SelectedTargetTable", targetTable);
 
-            // החזרת View סקירת הסכמה SchemaReview יחד עם המודל שנבנה
             return View("SchemaReview", schemaReviewModel);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching schema details for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
-            // רישום שגיאת טעינת סכמה ב-Audit Log עם סטטוס Failed
+            _logger.LogError(ex, "Error fetching schema details");
             AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "SchemaReviewError",
-                $"שגיאה בטעינת סכמה עבור טבלאות SQL:{sqlTable}/Oracle:{oracleTable} | {ex.Message}", "Failed");
+                $"שגיאה בטעינת סכמה עבור טבלאות {sourceTable}/{targetTable} | {ex.Message}", "Failed");
             // רישום שגיאת מערכת עם תרגום עברי
             CompareD.Models.SystemLogger.LogError(500, ex.Message,
-                $"/Compare/SchemaReview?sql={sqlTable}&oracle={oracleTable}",
+                $"/Compare/SchemaReview?sql={sourceTable}&oracle={targetTable}",
                 User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "התרחשה שגיאה בעת טעינת סקירת הסכמה ומבנה הטבלאות.";
             ClearConnectionStringsFromSession();
@@ -244,38 +259,38 @@ public class CompareController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CompareData(
-        string sqlTable, 
-        string oracleTable, 
+        string sourceTable, 
+        string targetTable, 
         string mappingMode, 
         List<string> sourceFields, 
         List<string> targetFields, 
         List<string> fieldRoles,
         int maxRows)
     {
-        // שליפת מחרוזות החיבור מה-Session של המשתמש ופענוחן בצורה מאובטחת
-        var protectedSql = HttpContext.Session.GetString("SqlConnectionString");
-        var protectedOracle = HttpContext.Session.GetString("OracleConnectionString");
-        var sqlConnectionString = UnprotectConnectionString(protectedSql);
-        var oracleConnectionString = UnprotectConnectionString(protectedOracle);
+        var protectedSource = HttpContext.Session.GetString("SourceConnectionString");
+        var protectedTarget = HttpContext.Session.GetString("TargetConnectionString");
+        var sourceConnectionString = UnprotectConnectionString(protectedSource);
+        var targetConnectionString = UnprotectConnectionString(protectedTarget);
+        var sourceProvider = HttpContext.Session.GetString("SourceProvider") ?? "SQLServer";
+        var targetProvider = HttpContext.Session.GetString("TargetProvider") ?? "Oracle";
 
-        // בדיקה האם פג תוקף החיבור למסדי הנתונים
-        if (string.IsNullOrEmpty(sqlConnectionString) || string.IsNullOrEmpty(oracleConnectionString))
+        if (string.IsNullOrEmpty(sourceConnectionString) || string.IsNullOrEmpty(targetConnectionString))
         {
-            // הגדרת הודעה והפניה לדף הבית
             TempData["ErrorMessage"] = "פג תוקף החיבור המאובטח למסדי הנתונים. נא להתחבר מחדש.";
             return RedirectToAction("Index", "Home");
         }
 
         try
         {
-            // מדידת זמן עיבוד ההשוואה לצורך ניטור בריאות המערכת
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             var smartResultsViewModel = await _compareService.SmartCompareAsync(
-                sqlConnectionString,
-                oracleConnectionString,
-                sqlTable,
-                oracleTable,
+                sourceConnectionString,
+                sourceProvider,
+                targetConnectionString,
+                targetProvider,
+                sourceTable,
+                targetTable,
                 sourceFields,
                 targetFields,
                 fieldRoles,
@@ -283,22 +298,19 @@ public class CompareController : Controller
 
             stopwatch.Stop();
 
-            // רישום זמן העיבוד ב-Health Monitor לנתוני Analytics אמיתיים
             if (CompareD.Models.SystemSettingsStore.Get().IsHealthMonitorEnabled)
                 CompareD.Models.HealthMonitor.RecordProcessing(stopwatch.ElapsedMilliseconds, User.Identity?.Name ?? "Unknown");
 
-            // תיעוד הרצת השוואה מוצלחת ב-Audit Log
             AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompare",
-                $"השוואת DB: SQL:{sqlTable} vs Oracle:{oracleTable} | Mode:{mappingMode} | Rows:{maxRows} | Time:{stopwatch.ElapsedMilliseconds}ms", "Success");
+                $"השוואת DB: {sourceTable} vs {targetTable} | Mode:{mappingMode} | Rows:{maxRows} | Time:{stopwatch.ElapsedMilliseconds}ms", "Success");
 
             return View("Results", smartResultsViewModel);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during smart data comparison for SQL: {SqlTable}, Oracle: {OracleTable}", sqlTable, oracleTable);
-            // רישום כישלון השוואה ב-Audit Log עם סטטוס Failed
+            _logger.LogError(ex, "Error during smart data comparison");
             AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "DatabaseCompareError",
-                $"כישלון השוואת DB: SQL:{sqlTable}/Oracle:{oracleTable} | {ex.Message}", "Failed");
+                $"כישלון השוואת DB: {sourceTable}/{targetTable} | {ex.Message}", "Failed");
             // רישום שגיאת מערכת
             CompareD.Models.SystemLogger.LogError(500, ex.Message, "/Compare/CompareData", User.Identity?.Name ?? "Unknown");
             TempData["ErrorMessage"] = "הרצת השוואת הנתונים נכשלה עקב שגיאה פנימית.";

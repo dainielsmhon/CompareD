@@ -16,36 +16,36 @@ public class DatabaseObject
 public class TableSelectionViewModel
 {
     // רשימת האובייקטים הזמינים ב-SQL Server
-    public List<DatabaseObject> SqlTables { get; set; } = new();
+    public List<DatabaseObject> SourceTables { get; set; } = new();
 
     // רשימת האובייקטים הזמינים ב-Oracle
-    public List<DatabaseObject> OracleTables { get; set; } = new();
+    public List<DatabaseObject> TargetTables { get; set; } = new();
 }
 
 // מודל נתונים להעברת שמות עמודות לממשק מיפוי השדות
 public class FieldMappingViewModel
 {
     // שם טבלת המקור ב-SQL Server
-    public string SqlTable { get; set; } = string.Empty;
+    public string SourceTable { get; set; } = string.Empty;
 
     // שם טבלת היעד ב-Oracle
-    public string OracleTable { get; set; } = string.Empty;
+    public string TargetTable { get; set; } = string.Empty;
 
     // רשימת העמודות בטבלת המקור (SQL Server)
-    public List<string> SqlColumns { get; set; } = new();
+    public List<string> SourceColumns { get; set; } = new();
 
     // רשימת העמודות בטבלת היעד (Oracle)
-    public List<string> OracleColumns { get; set; } = new();
+    public List<string> TargetColumns { get; set; } = new();
 }
 
 // מודל תוצאות ההשוואה הסופי להצגה בדשבורד ובטבלת התוצאות
 public class ComparisonResultViewModel
 {
     // שם טבלת המקור (SQL Server)
-    public string SqlTable { get; set; } = string.Empty;
+    public string SourceTable { get; set; } = string.Empty;
 
     // שם טבלת היעד (Oracle)
-    public string OracleTable { get; set; } = string.Empty;
+    public string TargetTable { get; set; } = string.Empty;
 
     // כמות הרשומות שנמצאו זהות לחלוטין
     public int TotalMatched { get; set; }
@@ -54,10 +54,10 @@ public class ComparisonResultViewModel
     public int TotalDifferences { get; set; }
 
     // כמות הרשומות שקיימות ב-SQL Server אך חסרות ב-Oracle
-    public int TotalMissingInOracle { get; set; }
+    public int TotalMissingInTarget { get; set; }
 
     // כמות הרשומות שקיימות ב-Oracle אך חסרות ב-SQL Server
-    public int TotalMissingInSql { get; set; }
+    public int TotalMissingInSource { get; set; }
 
     // רשימת פרטי ההבדלים של השורות הלא תואמות
     public List<ComparisonRowDetail> Details { get; set; } = new();
@@ -83,10 +83,10 @@ public class FieldComparisonDetail
     public string FieldName { get; set; } = string.Empty;
 
     // ערך השדה ב-SQL Server
-    public string SqlValue { get; set; } = string.Empty;
+    public string SourceValue { get; set; } = string.Empty;
 
     // ערך השדה ב-Oracle
-    public string OracleValue { get; set; } = string.Empty;
+    public string TargetValue { get; set; } = string.Empty;
 
     // האם הערכים זהים
     public bool IsMatch { get; set; }
@@ -123,10 +123,10 @@ public class ColumnSchemaInfo
     public string ColumnName { get; set; } = string.Empty;
     
     // טיפוס הנתונים של העמודה במסד SQL Server (למשל: int, nvarchar, datetime)
-    public string SqlDataType { get; set; } = string.Empty;
+    public string SourceDataType { get; set; } = string.Empty;
     
     // טיפוס הנתונים של העמודה במסד Oracle (למשל: NUMBER, VARCHAR2, DATE)
-    public string OracleDataType { get; set; } = string.Empty;
+    public string TargetDataType { get; set; } = string.Empty;
     
     // האם העמודה קיימת בשני מסדי הנתונים (על פי התאמת שם לא רגישה לרישיות)
     public bool ExistsInBoth { get; set; }
@@ -139,10 +139,10 @@ public class ColumnSchemaInfo
 public class SchemaReviewViewModel
 {
     // שם טבלת המקור שנבחרה ב-SQL Server
-    public string SqlTable { get; set; } = string.Empty;
+    public string SourceTable { get; set; } = string.Empty;
     
     // שם טבלת היעד שנבחרה ב-Oracle
-    public string OracleTable { get; set; } = string.Empty;
+    public string TargetTable { get; set; } = string.Empty;
     
     // האם מבנה הסכמה של שתי הטבלאות זהה לחלוטין (אין עמודות חסרות באף צד)
     public bool IsSchemaIdentical { get; set; }
@@ -180,10 +180,10 @@ public class DuplicateKeyRecord
     public string KeyValue { get; set; } = string.Empty;
     
     // מספר המופעים שנמצאו ב-SQL Server עם מפתח זה
-    public int SqlCount { get; set; }
+    public int SourceCount { get; set; }
     
     // מספר המופעים שנמצאו ב-Oracle עם מפתח זה
-    public int OracleCount { get; set; }
+    public int TargetCount { get; set; }
 }
 
 // QA step result representing the outcome of a single validation step
@@ -222,34 +222,34 @@ public class DataIntegrityGap
 public class SmartComparisonResultViewModel
 {
     // שם טבלת המקור (SQL Server)
-    public string SqlTable { get; set; } = string.Empty;
+    public string SourceTable { get; set; } = string.Empty;
     
     // שם טבלת היעד (Oracle)
-    public string OracleTable { get; set; } = string.Empty;
+    public string TargetTable { get; set; } = string.Empty;
     
     // שם עמודת המפתח הראשי המשמשת להתאמת שורות
     public string PrimaryKeyColumn { get; set; } = string.Empty;
     
     // סה"כ השורות שנטענו מ-SQL Server
-    public int TotalRowsInSql { get; set; }
+    public int TotalRowsInSource { get; set; }
     
     // סה"כ השורות שנטענו מ-Oracle
-    public int TotalRowsInOracle { get; set; }
+    public int TotalRowsInTarget { get; set; }
     
     // סה"כ השורות שנמצאו זהות לחלוטין
     public int TotalMatched { get; set; }
     
     // רשימת מפתחות שקיימים ב-SQL אך חסרים ב-Oracle (עד 50 מפתחות לדוגמה)
-    public List<string> MissingInOracle { get; set; } = new();
+    public List<string> MissingInTarget { get; set; } = new();
     
     // סה"כ השורות שקיימות ב-SQL וחסרות ב-Oracle
-    public int TotalMissingInOracle { get; set; }
+    public int TotalMissingInTarget { get; set; }
     
     // רשימת מפתחות שקיימים ב-Oracle אך חסרים ב-SQL (עד 50 מפתחות לדוגמה)
-    public List<string> MissingInSql { get; set; } = new();
+    public List<string> MissingInSource { get; set; } = new();
     
     // סה"כ השורות שקיימות ב-Oracle וחסרות ב-SQL
-    public int TotalMissingInSql { get; set; }
+    public int TotalMissingInSource { get; set; }
     
     // רשימה של כפילויות מפתח שנמצאו במסדים
     public List<DuplicateKeyRecord> Duplicates { get; set; } = new();

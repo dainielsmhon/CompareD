@@ -11,8 +11,7 @@ namespace CompareD.Services;
 // מימוש של שירות ההשוואה המרכז את כל הלוגיקה העסקית והחיבורים למסדי הנתונים
 public class CompareService : ICompareService
 {
-    // הבאת טבלאות ותצוגות מ-SQL Server באמצעות ADO.NET נקי ובשאילתה מאובטחת
-    public async Task<List<DatabaseObject>> GetSqlObjectsAsync(string connectionString)
+    public async Task<List<DatabaseObject>> GetDatabaseObjectsAsync(string connectionString, string provider)
     {
         if (connectionString == "MockConnectionString")
         {
@@ -25,136 +24,85 @@ public class CompareService : ICompareService
         }
 
         var objects = new List<DatabaseObject>();
-        using (var connection = new SqlConnection(connectionString))
+        if (provider == "SQLServer")
         {
-            await connection.OpenAsync();
-            string query = "SELECT TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW') ORDER BY TABLE_NAME";
-            using (var command = new SqlCommand(query, connection))
-            using (var reader = await command.ExecuteReaderAsync())
+            using (var connection = new SqlConnection(connectionString))
             {
-                while (await reader.ReadAsync())
-                {
-                    string rawType = reader.GetString(1);
-                    string normalizedType = rawType == "VIEW" ? "VIEW" : "TABLE";
-                    
-                    objects.Add(new DatabaseObject
-                    {
-                        Name = reader.GetString(0),
-                        Type = normalizedType
-                    });
-                }
-            }
-        }
-        return objects;
-    }
-
-    // הבאת טבלאות ותצוגות מ-Oracle באמצעות ADO.NET נקי ובשאילתה מאובטחת
-    public async Task<List<DatabaseObject>> GetOracleObjectsAsync(string connectionString)
-    {
-        if (connectionString == "MockConnectionString")
-        {
-            return new List<DatabaseObject>
-            {
-                new DatabaseObject { Name = "USERS", Type = "TABLE" },
-                new DatabaseObject { Name = "ORDERS", Type = "TABLE" },
-                new DatabaseObject { Name = "PRODUCTS", Type = "VIEW" }
-            };
-        }
-
-        var objects = new List<DatabaseObject>();
-        using (var connection = new OracleConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            string query = "SELECT TABLE_NAME, 'TABLE' AS TABLE_TYPE FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME, 'VIEW' AS TABLE_TYPE FROM USER_VIEWS ORDER BY TABLE_NAME";
-            using (var command = new OracleCommand(query, connection))
-            using (var reader = await command.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
-                {
-                    objects.Add(new DatabaseObject
-                    {
-                        Name = reader.GetString(0),
-                        Type = reader.GetString(1)
-                    });
-                }
-            }
-        }
-        return objects;
-    }
-
-    // שליפת עמודות מ-SQL Server באמצעות שאילתה מבוססת פרמטרים ומאובטחת
-    public async Task<List<string>> GetSqlColumnsAsync(string connectionString, string tableName)
-    {
-        if (connectionString == "MockConnectionString")
-        {
-            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<string> { "ID", "NAME", "EMAIL", "AGE", "CREATED_AT" };
-            }
-            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<string> { "ORDER_ID", "USER_ID", "AMOUNT", "STATUS" };
-            }
-            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<string> { "PRODUCT_ID", "NAME", "PRICE" };
-            }
-            return new List<string> { "ID", "NAME" };
-        }
-
-        var columns = new List<string>();
-        using (var connection = new SqlConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            string query = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName ORDER BY COLUMN_NAME";
-            using (var command = new SqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@tableName", tableName);
+                await connection.OpenAsync();
+                string query = "SELECT TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW') ORDER BY TABLE_NAME";
+                using (var command = new SqlCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        columns.Add(reader.GetString(0));
+                        string rawType = reader.GetString(1);
+                        string normalizedType = rawType == "VIEW" ? "VIEW" : "TABLE";
+                        objects.Add(new DatabaseObject { Name = reader.GetString(0), Type = normalizedType });
                     }
                 }
             }
         }
-        return columns;
-    }
-
-    // שליפת עמודות מ-Oracle באמצעות שאילתה מבוססת פרמטרים ומאובטחת
-    public async Task<List<string>> GetOracleColumnsAsync(string connectionString, string tableName)
-    {
-        if (connectionString == "MockConnectionString")
+        else if (provider == "Oracle")
         {
-            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            using (var connection = new OracleConnection(connectionString))
             {
-                return new List<string> { "ID", "NAME", "EMAIL", "AGE", "CREATED_AT" };
-            }
-            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<string> { "ORDER_ID", "USER_ID", "AMOUNT", "STATUS" };
-            }
-            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<string> { "PRODUCT_ID", "NAME", "PRICE" };
-            }
-            return new List<string> { "ID", "NAME" };
-        }
-
-        var columns = new List<string>();
-        using (var connection = new OracleConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            string query = "SELECT COLUMN_NAME FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :tableName ORDER BY COLUMN_NAME";
-            using (var command = new OracleCommand(query, connection))
-            {
-                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                await connection.OpenAsync();
+                string query = "SELECT TABLE_NAME, 'TABLE' AS TABLE_TYPE FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME, 'VIEW' AS TABLE_TYPE FROM USER_VIEWS ORDER BY TABLE_NAME";
+                using (var command = new OracleCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        columns.Add(reader.GetString(0));
+                        objects.Add(new DatabaseObject { Name = reader.GetString(0), Type = reader.GetString(1) });
+                    }
+                }
+            }
+        }
+        return objects;
+    }
+
+    public async Task<List<string>> GetColumnsAsync(string connectionString, string provider, string tableName)
+    {
+        if (connectionString == "MockConnectionString")
+        {
+            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+                return new List<string> { "ID", "NAME", "EMAIL", "AGE", "CREATED_AT" };
+            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
+                return new List<string> { "ORDER_ID", "USER_ID", "AMOUNT", "STATUS" };
+            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
+                return new List<string> { "PRODUCT_ID", "NAME", "PRICE" };
+            return new List<string> { "ID", "NAME" };
+        }
+
+        var columns = new List<string>();
+        if (provider == "SQLServer")
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                string query = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName ORDER BY COLUMN_NAME";
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@tableName", tableName);
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync()) columns.Add(reader.GetString(0));
+                    }
+                }
+            }
+        }
+        else if (provider == "Oracle")
+        {
+            using (var connection = new OracleConnection(connectionString))
+            {
+                await connection.OpenAsync();
+                string query = "SELECT COLUMN_NAME FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :tableName ORDER BY COLUMN_NAME";
+                using (var command = new OracleCommand(query, connection))
+                {
+                    command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync()) columns.Add(reader.GetString(0));
                     }
                 }
             }
@@ -164,39 +112,28 @@ public class CompareService : ICompareService
 
     // ביצוע השוואת הנתונים בפועל והרצת האלגוריתם בזיכרון
     public async Task<ComparisonResultViewModel> CompareDataAsync(
-        string sqlConnectionString,
-        string oracleConnectionString,
-        string sqlTable,
-        string oracleTable,
+        string sourceConnectionString,
+        string sourceProvider,
+        string targetConnectionString,
+        string targetProvider,
+        string sourceTable,
+        string targetTable,
         string mappingMode,
         List<string> sourceFields,
         List<string> targetFields,
         List<string> fieldRoles,
         int maxRows)
     {
-        // אימות אבטחה מבוסס קטלוג (Whitelisting) עבור שמות הטבלאות למניעת SQL Injection
-        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
-        {
-            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
-        }
-        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
-        {
-            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
-        }
+        if (!await IsTableValidAsync(sourceConnectionString, sourceProvider, sourceTable))
+            throw new ArgumentException("שם טבלת המקור אינו תקין או שאינו קיים במערכת.");
+        if (!await IsTableValidAsync(targetConnectionString, targetProvider, targetTable))
+            throw new ArgumentException("שם טבלת היעד אינו תקין או שאינו קיים במערכת.");
 
-        // שליפת עמודות מאומתות מהקטלוג למניעת הזרקת קוד בשמות שדות
-        var validSqlCols = await GetSqlColumnsAsync(sqlConnectionString, sqlTable);
-        var validOracleCols = await GetOracleColumnsAsync(oracleConnectionString, oracleTable);
+        var validSqlCols = await GetColumnsAsync(sourceConnectionString, sourceProvider, sourceTable);
+        var validOracleCols = await GetColumnsAsync(targetConnectionString, targetProvider, targetTable);
 
-        // הגבלת כמות השורות המקסימלית ומניעת ערכים שליליים כחלק מהגנה מפני עומס יתר (DoS)
-        if (maxRows <= 0)
-        {
-            maxRows = 1000; // ברירת מחדל מאובטחת
-        }
-        else if (maxRows > 10000)
-        {
-            maxRows = 10000; // גבול עליון קשיח למניעת נפילת שרת
-        }
+        if (maxRows <= 0) maxRows = 1000;
+        else if (maxRows > 10000) maxRows = 10000;
 
         var keys = new List<(string SqlField, string OracleField)>();
         var compares = new List<(string SqlField, string OracleField)>();
@@ -268,83 +205,90 @@ public class CompareService : ICompareService
             }
         }
 
-        // בניית שאילתת SQL Server מאובטחת
-        var sqlColsToSelect = keys.Select(k => k.SqlField).Union(compares.Select(c => c.SqlField)).Distinct().ToList();
-        string sqlSelectString = string.Join(", ", sqlColsToSelect.Select(c => $"[{c}]"));
-        string sqlQuery = $"SELECT TOP ({maxRows}) {sqlSelectString} FROM [{sqlTable}]";
-
-        // בניית שאילתת Oracle מאובטחת
-        var oracleColsToSelect = keys.Select(k => k.OracleField).Union(compares.Select(c => c.OracleField)).Distinct().ToList();
-        string oracleSelectString = string.Join(", ", oracleColsToSelect.Select(c => $"\"{c}\""));
-        string oracleQuery = $"SELECT {oracleSelectString} FROM \"{oracleTable}\" FETCH FIRST {maxRows} ROWS ONLY";
-
-        // שליפת הרשומות מ-SQL Server
-        var sqlData = new Dictionary<string, Dictionary<string, object>>();
-        if (sqlConnectionString == "MockConnectionString")
+        string GetSelectQuery(string provider, string table, IEnumerable<string> fields, int maxRowsLimit)
         {
-            var mockRaw = CompareMockData.GetMockData(sqlTable, "SQL");
-            foreach (var row in mockRaw)
-            {
-                var keyParts = keys.Select(k => row.TryGetValue(k.SqlField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
-                string compositeKey = string.Join("|", keyParts);
-                sqlData[compositeKey] = row;
+            var distinctFields = fields.Distinct().ToList();
+            if (provider == "SQLServer") {
+                string selectString = string.Join(", ", distinctFields.Select(c => $"[{c}]"));
+                return $"SELECT TOP ({maxRowsLimit}) {selectString} FROM [{table}]";
+            } else {
+                string selectString = string.Join(", ", distinctFields.Select(c => $"\"{c}\""));
+                return $"SELECT {selectString} FROM \"{table}\" FETCH FIRST {maxRowsLimit} ROWS ONLY";
             }
         }
-        else
-        {
-            using (var connection = new SqlConnection(sqlConnectionString))
-            {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(sqlQuery, connection))
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.GetValue(i);
-                        }
 
-                        var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
-                        string compositeKey = string.Join("|", keyParts);
-                        sqlData[compositeKey] = row;
+        string sqlQuery = GetSelectQuery(sourceProvider, sourceTable, keys.Select(k => k.SqlField).Union(compares.Select(c => c.SqlField)), maxRows);
+        string oracleQuery = GetSelectQuery(targetProvider, targetTable, keys.Select(k => k.OracleField).Union(compares.Select(c => c.OracleField)), maxRows);
+
+        var sqlData = new Dictionary<string, Dictionary<string, object>>();
+        if (sourceConnectionString == "MockConnectionString") {
+            var mockRaw = CompareMockData.GetMockData(sourceTable, "SQL");
+            foreach (var row in mockRaw) {
+                var keyParts = keys.Select(k => row.TryGetValue(k.SqlField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
+                sqlData[string.Join("|", keyParts)] = row;
+            }
+        } else {
+            if (sourceProvider == "SQLServer") {
+                using (var connection = new SqlConnection(sourceConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(sqlQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
+                            sqlData[string.Join("|", keyParts)] = row;
+                        }
+                    }
+                }
+            } else {
+                using (var connection = new OracleConnection(sourceConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new OracleCommand(sqlQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            var keyParts = keys.Select(k => row[k.SqlField]?.ToString()?.Trim() ?? "NULL");
+                            sqlData[string.Join("|", keyParts)] = row;
+                        }
                     }
                 }
             }
         }
 
-        // שליפת הרשומות מ-Oracle
         var oracleData = new Dictionary<string, Dictionary<string, object>>();
-        if (oracleConnectionString == "MockConnectionString")
-        {
-            var mockRaw = CompareMockData.GetMockData(oracleTable, "Oracle");
-            foreach (var row in mockRaw)
-            {
+        if (targetConnectionString == "MockConnectionString") {
+            var mockRaw = CompareMockData.GetMockData(targetTable, "Oracle");
+            foreach (var row in mockRaw) {
                 var keyParts = keys.Select(k => row.TryGetValue(k.OracleField, out var v) ? v?.ToString()?.Trim() ?? "NULL" : "NULL");
-                string compositeKey = string.Join("|", keyParts);
-                oracleData[compositeKey] = row;
+                oracleData[string.Join("|", keyParts)] = row;
             }
-        }
-        else
-        {
-            using (var connection = new OracleConnection(oracleConnectionString))
-            {
-                await connection.OpenAsync();
-                using (var command = new OracleCommand(oracleQuery, connection))
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.GetValue(i);
+        } else {
+            if (targetProvider == "SQLServer") {
+                using (var connection = new SqlConnection(targetConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(oracleQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
+                            oracleData[string.Join("|", keyParts)] = row;
                         }
-
-                        var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
-                        string compositeKey = string.Join("|", keyParts);
-                        oracleData[compositeKey] = row;
+                    }
+                }
+            } else {
+                using (var connection = new OracleConnection(targetConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new OracleCommand(oracleQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            var keyParts = keys.Select(k => row[k.OracleField]?.ToString()?.Trim() ?? "NULL");
+                            oracleData[string.Join("|", keyParts)] = row;
+                        }
                     }
                 }
             }
@@ -384,8 +328,8 @@ public class CompareService : ICompareService
                     fieldsList.Add(new FieldComparisonDetail
                     {
                         FieldName = $"{c.SqlField} / {c.OracleField}",
-                        SqlValue = sqlValStr,
-                        OracleValue = oracleValStr,
+                        SourceValue = sqlValStr,
+                        TargetValue = oracleValStr,
                         IsMatch = isFieldMatch
                     });
                 }
@@ -411,15 +355,15 @@ public class CompareService : ICompareService
                 var fieldsList = compares.Select(c => new FieldComparisonDetail
                 {
                     FieldName = $"{c.SqlField} / {c.OracleField}",
-                    SqlValue = sqlRow[c.SqlField]?.ToString()?.Trim() ?? "NULL",
-                    OracleValue = "חסר ביעד",
+                    SourceValue = sqlRow[c.SqlField]?.ToString()?.Trim() ?? "NULL",
+                    TargetValue = "חסר ביעד",
                     IsMatch = false
                 }).ToList();
 
                 details.Add(new ComparisonRowDetail
                 {
                     KeyValue = compositeKey,
-                    Status = "MissingInOracle",
+                    Status = "MissingInTarget",
                     Fields = fieldsList
                 });
             }
@@ -436,15 +380,15 @@ public class CompareService : ICompareService
                 var fieldsList = compares.Select(c => new FieldComparisonDetail
                 {
                     FieldName = $"{c.SqlField} / {c.OracleField}",
-                    SqlValue = "חסר במקור",
-                    OracleValue = oracleRow[c.OracleField]?.ToString()?.Trim() ?? "NULL",
+                    SourceValue = "חסר במקור",
+                    TargetValue = oracleRow[c.OracleField]?.ToString()?.Trim() ?? "NULL",
                     IsMatch = false
                 }).ToList();
 
                 details.Add(new ComparisonRowDetail
                 {
                     KeyValue = compositeKey,
-                    Status = "MissingInSql",
+                    Status = "MissingInSource",
                     Fields = fieldsList
                 });
             }
@@ -452,18 +396,17 @@ public class CompareService : ICompareService
 
         return new ComparisonResultViewModel
         {
-            SqlTable = sqlTable,
-            OracleTable = oracleTable,
+            SourceTable = sourceTable,
+            TargetTable = targetTable,
             TotalMatched = matchedCount,
             TotalDifferences = diffCount,
-            TotalMissingInOracle = missingInOracleCount,
-            TotalMissingInSql = missingInSqlCount,
+            TotalMissingInTarget = missingInOracleCount,
+            TotalMissingInSource = missingInSqlCount,
             Details = details
         };
     }
 
-    // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-SQL Server למניעת הזרקות קוד
-    private async Task<bool> IsSqlTableValidAsync(string connectionString, string tableName)
+    public async Task<bool> IsTableValidAsync(string connectionString, string provider, string tableName)
     {
         if (connectionString == "MockConnectionString")
         {
@@ -473,216 +416,116 @@ public class CompareService : ICompareService
         }
 
         if (string.IsNullOrWhiteSpace(tableName)) return false;
-        using (var connection = new SqlConnection(connectionString))
+        
+        if (provider == "SQLServer")
         {
-            await connection.OpenAsync();
-            string query = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @tableName AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')";
-            using (var command = new SqlCommand(query, connection))
+            using (var connection = new SqlConnection(connectionString))
             {
-                command.Parameters.AddWithValue("@tableName", tableName);
-                var result = await command.ExecuteScalarAsync();
-                return Convert.ToInt32(result) > 0;
+                await connection.OpenAsync();
+                string query = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @tableName AND TABLE_TYPE IN ('BASE TABLE', 'VIEW')";
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@tableName", tableName);
+                    var result = await command.ExecuteScalarAsync();
+                    return Convert.ToInt32(result) > 0;
+                }
             }
         }
-    }
-
-    // שיטת עזר לאימות קיום ושפיות שם טבלה/תצוגה ב-Oracle למניעת הזרקות קוד
-    private async Task<bool> IsOracleTableValidAsync(string connectionString, string tableName)
-    {
-        if (connectionString == "MockConnectionString")
+        else if (provider == "Oracle")
         {
-            return string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (string.IsNullOrWhiteSpace(tableName)) return false;
-        using (var connection = new OracleConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            string query = "SELECT COUNT(*) FROM (SELECT TABLE_NAME FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME FROM USER_VIEWS) WHERE UPPER(TABLE_NAME) = :tableName";
-            using (var command = new OracleCommand(query, connection))
+            using (var connection = new OracleConnection(connectionString))
             {
-                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
-                var result = await command.ExecuteScalarAsync();
-                return Convert.ToInt32(result) > 0;
+                await connection.OpenAsync();
+                string query = "SELECT COUNT(*) FROM (SELECT TABLE_NAME FROM USER_TABLES UNION ALL SELECT VIEW_NAME AS TABLE_NAME FROM USER_VIEWS) WHERE UPPER(TABLE_NAME) = :tableName";
+                using (var command = new OracleCommand(query, connection))
+                {
+                    command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                    var result = await command.ExecuteScalarAsync();
+                    return Convert.ToInt32(result) > 0;
+                }
             }
         }
+        return false;
     }
 
-    // שליפת עמודות וטיפוסי הנתונים שלהן מ-SQL Server בצורה מאובטחת ומבוססת פרמטרים
-    public async Task<List<(string ColumnName, string DataType)>> GetSqlColumnsWithTypesAsync(string connectionString, string tableName)
+    public async Task<List<(string ColumnName, string DataType)>> GetColumnsWithTypesAsync(string connectionString, string provider, string tableName)
     {
         if (connectionString == "MockConnectionString")
         {
             if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
             {
-                return new List<(string ColumnName, string DataType)>
-                {
-                    ("ID", "int"),
-                    ("NAME", "nvarchar"),
-                    ("EMAIL", "nvarchar"),
-                    ("AGE", "int"),
-                    ("CREATED_AT", "datetime")
-                };
+                return provider == "SQLServer" ? new List<(string, string)> { ("ID", "int"), ("NAME", "nvarchar"), ("EMAIL", "nvarchar"), ("AGE", "int"), ("CREATED_AT", "datetime") }
+                                               : new List<(string, string)> { ("ID", "NUMBER"), ("NAME", "VARCHAR2"), ("EMAIL", "VARCHAR2"), ("AGE", "NUMBER"), ("CREATED_AT", "DATE") };
             }
-            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<(string ColumnName, string DataType)>
-                {
-                    ("ORDER_ID", "int"),
-                    ("USER_ID", "int"),
-                    ("AMOUNT", "decimal"),
-                    ("STATUS", "nvarchar")
-                };
-            }
-            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<(string ColumnName, string DataType)>
-                {
-                    ("PRODUCT_ID", "int"),
-                    ("NAME", "nvarchar"),
-                    ("PRICE", "decimal")
-                };
-            }
-            return new List<(string ColumnName, string DataType)> { ("ID", "int"), ("NAME", "nvarchar") };
+            return provider == "SQLServer" ? new List<(string, string)> { ("ID", "int"), ("NAME", "nvarchar") }
+                                           : new List<(string, string)> { ("ID", "NUMBER"), ("NAME", "VARCHAR2") };
         }
 
-        // יצירת רשימה המכילה צמדים של שם עמודה וטיפוס נתונים
         var columns = new List<(string ColumnName, string DataType)>();
-        // יצירת חיבור מנוהל ל-SQL Server בתוך בלוק using לשחרור משאבים אוטומטי
-        using (var connection = new SqlConnection(connectionString))
+        if (provider == "SQLServer")
         {
-            // פתיחת החיבור למסד הנתונים באופן אסינכרוני
-            await connection.OpenAsync();
-            // שאילתת SQL קטלוגית השולפת את שם העמודה וטיפוסה באופן ממוקד וממוין
-            string query = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName ORDER BY COLUMN_NAME";
-            // בניית פקודת ההרצה
-            using (var command = new SqlCommand(query, connection))
+            using (var connection = new SqlConnection(connectionString))
             {
-                // הוספת פרמטר שם הטבלה למניעת הזרקת קוד זדוני (SQL Injection)
-                command.Parameters.AddWithValue("@tableName", tableName);
-                // הרצת השאילתה וקבלת Reader לקריאת הנתונים בצורה אסינכרונית
-                using (var reader = await command.ExecuteReaderAsync())
+                await connection.OpenAsync();
+                string query = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tableName ORDER BY COLUMN_NAME";
+                using (var command = new SqlCommand(query, connection))
                 {
-                    // קריאה שורה אחר שורה של התוצאות
-                    while (await reader.ReadAsync())
+                    command.Parameters.AddWithValue("@tableName", tableName);
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        // הוספת העמודה והטיפוס שלה כצמד לרשימה
-                        columns.Add((reader.GetString(0), reader.GetString(1)));
+                        while (await reader.ReadAsync()) columns.Add((reader.GetString(0), reader.GetString(1)));
                     }
                 }
             }
         }
-        // החזרת רשימת העמודות עם טיפוסי הנתונים
-        return columns;
-    }
-
-    // שליפת עמודות וטיפוסי הנתונים שלהן מ-Oracle בצורה מאובטחת ומבוססת פרמטרים
-    public async Task<List<(string ColumnName, string DataType)>> GetOracleColumnsWithTypesAsync(string connectionString, string tableName)
-    {
-        if (connectionString == "MockConnectionString")
+        else if (provider == "Oracle")
         {
-            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase))
+            using (var connection = new OracleConnection(connectionString))
             {
-                return new List<(string ColumnName, string DataType)>
+                await connection.OpenAsync();
+                string query = "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :tableName ORDER BY COLUMN_NAME";
+                using (var command = new OracleCommand(query, connection))
                 {
-                    ("ID", "NUMBER"),
-                    ("NAME", "VARCHAR2"),
-                    ("EMAIL", "VARCHAR2"),
-                    ("AGE", "NUMBER"),
-                    ("CREATED_AT", "DATE")
-                };
-            }
-            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<(string ColumnName, string DataType)>
-                {
-                    ("ORDER_ID", "NUMBER"),
-                    ("USER_ID", "NUMBER"),
-                    ("AMOUNT", "NUMBER"),
-                    ("STATUS", "VARCHAR2")
-                };
-            }
-            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase))
-            {
-                return new List<(string ColumnName, string DataType)>
-                {
-                    ("PRODUCT_ID", "NUMBER"),
-                    ("NAME", "VARCHAR2"),
-                    ("PRICE", "NUMBER")
-                };
-            }
-            return new List<(string ColumnName, string DataType)> { ("ID", "NUMBER"), ("NAME", "VARCHAR2") };
-        }
-
-        // יצירת רשימה לאחסון צמדי שם עמודה וטיפוס נתונים עבור Oracle
-        var columns = new List<(string ColumnName, string DataType)>();
-        // פתיחת חיבור מנוהל ל-Oracle בתוך בלוק using
-        using (var connection = new OracleConnection(connectionString))
-        {
-            // פתיחת החיבור בצורה אסינכרונית
-            await connection.OpenAsync();
-            // שאילתת SQL לטבלת הקטלוג של Oracle לשליפת שם העמודה וטיפוס הנתונים שלה
-            string query = "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = :tableName ORDER BY COLUMN_NAME";
-            // בניית פקודת ההרצה מול Oracle
-            using (var command = new OracleCommand(query, connection))
-            {
-                // הוספת פרמטר שם הטבלה באותיות גדולות (Uppercase) כנדרש בקטלוג של Oracle
-                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
-                // הרצת השאילתה וקבלת ה-Reader
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    // לולאת קריאה של כל עמודה
-                    while (await reader.ReadAsync())
+                    command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                    using (var reader = await command.ExecuteReaderAsync())
                     {
-                        // שמירת שם העמודה וסוג הנתונים כצמד
-                        columns.Add((reader.GetString(0), reader.GetString(1)));
+                        while (await reader.ReadAsync()) columns.Add((reader.GetString(0), reader.GetString(1)));
                     }
                 }
             }
         }
-        // החזרת רשימת העמודות שנסרקו
         return columns;
     }
 
-    // ביצוע השוואת סכמה מקיפה ובניית מודל סקירת הסכמה
     public async Task<SchemaReviewViewModel> CompareSchemaAsync(
-        string sqlConnectionString, 
-        string oracleConnectionString, 
-        string sqlTable, 
-        string oracleTable)
+        string sourceConnectionString, 
+        string sourceProvider, 
+        string targetConnectionString, 
+        string targetProvider,
+        string sourceTable, 
+        string targetTable)
     {
-        // אימות תקינות שם טבלת SQL Server בקטלוג למניעת SQL Injection
-        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
-        {
-            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
-        }
-        // אימות תקינות שם טבלת Oracle בקטלוג למניעת SQL Injection
-        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
-        {
-            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
-        }
+        if (!await IsTableValidAsync(sourceConnectionString, sourceProvider, sourceTable))
+            throw new ArgumentException("שם טבלת המקור אינו תקין או שאינו קיים במערכת.");
+        if (!await IsTableValidAsync(targetConnectionString, targetProvider, targetTable))
+            throw new ArgumentException("שם טבלת היעד אינו תקין או שאינו קיים במערכת.");
 
-        // יצירת משתנים לאחסון זמני של הנתונים שיישלפו
         var sqlCols = new List<(string Name, string Type)>();
         var oracleCols = new List<(string Name, string Type)>();
         string sqlPk = string.Empty;
         string oraclePk = string.Empty;
 
-        // שליפה אסינכרונית ומקבילית של כלל נתוני הסכמה והמפתחות משני מסדי הנתונים לחיסכון בזמן
         await Task.WhenAll(
-            Task.Run(async () => { sqlCols = await GetSqlColumnsWithTypesAsync(sqlConnectionString, sqlTable); }),
-            Task.Run(async () => { oracleCols = await GetOracleColumnsWithTypesAsync(oracleConnectionString, oracleTable); }),
-            Task.Run(async () => { sqlPk = await GetSqlPrimaryKeyAsync(sqlConnectionString, sqlTable); }),
-            Task.Run(async () => { oraclePk = await GetOraclePrimaryKeyAsync(oracleConnectionString, oracleTable); })
+            Task.Run(async () => { sqlCols = await GetColumnsWithTypesAsync(sourceConnectionString, sourceProvider, sourceTable); }),
+            Task.Run(async () => { oracleCols = await GetColumnsWithTypesAsync(targetConnectionString, targetProvider, targetTable); }),
+            Task.Run(async () => { sqlPk = await GetPrimaryKeyAsync(sourceConnectionString, sourceProvider, sourceTable); }),
+            Task.Run(async () => { oraclePk = await GetPrimaryKeyAsync(targetConnectionString, targetProvider, targetTable); })
         );
 
-        // אתחול מודל סקירת הסכמה
         var model = new SchemaReviewViewModel
         {
-            SqlTable = sqlTable,
-            OracleTable = oracleTable,
+            SourceTable = sourceTable,
+            TargetTable = targetTable,
             Columns = new List<ColumnSchemaInfo>()
         };
 
@@ -698,8 +541,8 @@ public class CompareService : ICompareService
                 model.Columns.Add(new ColumnSchemaInfo
                 {
                     ColumnName = sqlCol.Name,
-                    SqlDataType = sqlCol.Type,
-                    OracleDataType = match.Type,
+                    SourceDataType = sqlCol.Type,
+                    TargetDataType = match.Type,
                     ExistsInBoth = true,
                     Source = "Both"
                 });
@@ -710,8 +553,8 @@ public class CompareService : ICompareService
                 model.Columns.Add(new ColumnSchemaInfo
                 {
                     ColumnName = sqlCol.Name,
-                    SqlDataType = sqlCol.Type,
-                    OracleDataType = "חסר ביעד",
+                    SourceDataType = sqlCol.Type,
+                    TargetDataType = "חסר ביעד",
                     ExistsInBoth = false,
                     Source = "SqlOnly"
                 });
@@ -729,8 +572,8 @@ public class CompareService : ICompareService
                 model.Columns.Add(new ColumnSchemaInfo
                 {
                     ColumnName = oracleCol.Name,
-                    SqlDataType = "חסר במקור",
-                    OracleDataType = oracleCol.Type,
+                    SourceDataType = "חסר במקור",
+                    TargetDataType = oracleCol.Type,
                     ExistsInBoth = false,
                     Source = "OracleOnly"
                 });
@@ -770,8 +613,7 @@ public class CompareService : ICompareService
         return model;
     }
 
-    // שליפת עמודת המפתח הראשי של טבלה ב-SQL Server מקטלוג המערכת בצורה מאובטחת
-    private async Task<string> GetSqlPrimaryKeyAsync(string connectionString, string tableName)
+    private async Task<string> GetPrimaryKeyAsync(string connectionString, string provider, string tableName)
     {
         if (connectionString == "MockConnectionString")
         {
@@ -781,61 +623,35 @@ public class CompareService : ICompareService
             return "ID";
         }
 
-        // פתיחת חיבור למסד SQL Server
-        using (var connection = new SqlConnection(connectionString))
+        if (provider == "SQLServer")
         {
-            await connection.OpenAsync();
-            // שאילתה לאחזור עמודת המפתח הראשי המוגדרת על הטבלה
-            string query = @"
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
-                WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1 
-                AND TABLE_NAME = @tableName";
-            using (var command = new SqlCommand(query, connection))
+            using (var connection = new SqlConnection(connectionString))
             {
-                // מניעת הזרקת קוד
-                command.Parameters.AddWithValue("@tableName", tableName);
-                // הרצה וקבלת תוצאה בודדת
-                var result = await command.ExecuteScalarAsync();
-                // החזרת שם העמודה או מחרוזת ריקה אם לא נמצא
-                return result?.ToString() ?? string.Empty;
+                await connection.OpenAsync();
+                string query = "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + CONSTRAINT_NAME), 'IsPrimaryKey') = 1 AND TABLE_NAME = @tableName";
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@tableName", tableName);
+                    var result = await command.ExecuteScalarAsync();
+                    return result?.ToString() ?? string.Empty;
+                }
             }
         }
-    }
-
-    // שליפת עמודת המפתח הראשי של טבלה ב-Oracle מקטלוג המערכת בצורה מאובטחת
-    private async Task<string> GetOraclePrimaryKeyAsync(string connectionString, string tableName)
-    {
-        if (connectionString == "MockConnectionString")
+        else if (provider == "Oracle")
         {
-            if (string.Equals(tableName, "USERS", StringComparison.OrdinalIgnoreCase)) return "ID";
-            if (string.Equals(tableName, "ORDERS", StringComparison.OrdinalIgnoreCase)) return "ORDER_ID";
-            if (string.Equals(tableName, "PRODUCTS", StringComparison.OrdinalIgnoreCase)) return "PRODUCT_ID";
-            return "ID";
-        }
-
-        // פתיחת חיבור למסד Oracle
-        using (var connection = new OracleConnection(connectionString))
-        {
-            await connection.OpenAsync();
-            // שאילתה המשלבת Constraints וחלוקת עמודות כדי לאתר את המפתח הראשוני
-            string query = @"
-                SELECT cols.column_name 
-                FROM all_constraints cons, all_cons_columns cols 
-                WHERE cons.constraint_type = 'P' 
-                AND cons.constraint_name = cols.constraint_name 
-                AND cons.owner = cols.owner 
-                AND UPPER(cons.table_name) = :tableName";
-            using (var command = new OracleCommand(query, connection))
+            using (var connection = new OracleConnection(connectionString))
             {
-                // העברת שם הטבלה באותיות גדולות ומניעת הזרקות קוד
-                command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
-                // הרצה וקבלת התוצאה
-                var result = await command.ExecuteScalarAsync();
-                // החזרת התוצאה
-                return result?.ToString() ?? string.Empty;
+                await connection.OpenAsync();
+                string query = "SELECT cols.column_name FROM all_constraints cons, all_cons_columns cols WHERE cons.constraint_type = 'P' AND cons.constraint_name = cols.constraint_name AND cons.owner = cols.owner AND UPPER(cons.table_name) = :tableName";
+                using (var command = new OracleCommand(query, connection))
+                {
+                    command.Parameters.Add(new OracleParameter("tableName", tableName.ToUpper()));
+                    var result = await command.ExecuteScalarAsync();
+                    return result?.ToString() ?? string.Empty;
+                }
             }
         }
+        return string.Empty;
     }
 
     // פונקציית עזר להשוואת ערכים כללית המנרמלת ערכים ריקים
@@ -869,33 +685,25 @@ public class CompareService : ICompareService
         return str;
     }
 
-    // מנוע ההשוואה החכם - ביצוע השוואת נתונים, זיהוי כפילויות, חוסרים וקיבוץ לפי תבניות
     public async Task<SmartComparisonResultViewModel> SmartCompareAsync(
-        string sqlConnectionString,
-        string oracleConnectionString,
-        string sqlTable,
-        string oracleTable,
+        string sourceConnectionString,
+        string sourceProvider,
+        string targetConnectionString,
+        string targetProvider,
+        string sourceTable,
+        string targetTable,
         List<string> sourceFields,
         List<string> targetFields,
         List<string> fieldRoles,
         int maxRows)
     {
+        if (!await IsTableValidAsync(sourceConnectionString, sourceProvider, sourceTable))
+            throw new ArgumentException("שם טבלת המקור אינו תקין או שאינו קיים במערכת.");
+        if (!await IsTableValidAsync(targetConnectionString, targetProvider, targetTable))
+            throw new ArgumentException("שם טבלת היעד אינו תקין או שאינו קיים במערכת.");
 
-
-        // אימות אבטחה של שם טבלת SQL Server בקטלוג
-        if (!await IsSqlTableValidAsync(sqlConnectionString, sqlTable))
-        {
-            throw new ArgumentException("שם טבלת המקור (SQL Server) אינו תקין או שאינו קיים במערכת.");
-        }
-        // אימות אבטחה של שם טבלת Oracle בקטלוג
-        if (!await IsOracleTableValidAsync(oracleConnectionString, oracleTable))
-        {
-            throw new ArgumentException("שם טבלת היעד (Oracle) אינו תקין או שאינו קיים במערכת.");
-        }
-
-        // שליפת עמודות מאומתות מהקטלוג למניעת הזרקת קוד בשמות שדות בשאילתות
-        var validSqlCols = await GetSqlColumnsAsync(sqlConnectionString, sqlTable);
-        var validOracleCols = await GetOracleColumnsAsync(oracleConnectionString, oracleTable);
+        var validSqlCols = await GetColumnsAsync(sourceConnectionString, sourceProvider, sourceTable);
+        var validOracleCols = await GetColumnsAsync(targetConnectionString, targetProvider, targetTable);
 
         // אימות שכל השדות המבוקשים קיימים בקטלוג המערכת
         foreach (var field in sourceFields)
@@ -944,80 +752,92 @@ public class CompareService : ICompareService
             throw new Exception("חובה להגדיר לפחות שדה מפתח אחד לביצוע ההשוואה.");
         }
 
-        // בניית שאילתת SQL Server מאובטחת
-        var sqlColsToSelect = keys.Select(k => k.SqlField).Union(compares.Select(c => c.SqlField)).Distinct().ToList();
-        string sqlSelectString = string.Join(", ", sqlColsToSelect.Select(c => $"[{c}]"));
-        string sqlQuery = $"SELECT TOP ({maxRows}) {sqlSelectString} FROM [{sqlTable}]";
+        string GetSelectQuery(string provider, string table, IEnumerable<string> fields, int maxRowsLimit)
+        {
+            var distinctFields = fields.Distinct().ToList();
+            if (provider == "SQLServer") {
+                string selectString = string.Join(", ", distinctFields.Select(c => $"[{c}]"));
+                return $"SELECT TOP ({maxRowsLimit}) {selectString} FROM [{table}]";
+            } else {
+                string selectString = string.Join(", ", distinctFields.Select(c => $"\"{c}\""));
+                return $"SELECT {selectString} FROM \"{table}\" FETCH FIRST {maxRowsLimit} ROWS ONLY";
+            }
+        }
 
-        // בניית שאילתת Oracle מאובטחת
-        var oracleColsToSelect = keys.Select(k => k.OracleField).Union(compares.Select(c => c.OracleField)).Distinct().ToList();
-        string oracleSelectString = string.Join(", ", oracleColsToSelect.Select(c => $"\"{c}\""));
-        string oracleQuery = $"SELECT {oracleSelectString} FROM \"{oracleTable}\" FETCH FIRST {maxRows} ROWS ONLY";
+        string sqlQuery = GetSelectQuery(sourceProvider, sourceTable, keys.Select(k => k.SqlField).Union(compares.Select(c => c.SqlField)), maxRows);
+        string oracleQuery = GetSelectQuery(targetProvider, targetTable, keys.Select(k => k.OracleField).Union(compares.Select(c => c.OracleField)), maxRows);
 
-        // שליפת הרשומות מ-SQL Server
         var sqlRawData = new List<Dictionary<string, object>>();
-        if (sqlConnectionString == "MockConnectionString")
-        {
-            sqlRawData = CompareMockData.GetMockData(sqlTable, "SQL");
-        }
-        else
-        {
-            using (var connection = new SqlConnection(sqlConnectionString))
-            {
-                await connection.OpenAsync();
-                using (var command = new SqlCommand(sqlQuery, connection))
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.GetValue(i);
+        if (sourceConnectionString == "MockConnectionString") {
+            sqlRawData = CompareMockData.GetMockData(sourceTable, "SQL");
+        } else {
+            if (sourceProvider == "SQLServer") {
+                using (var connection = new SqlConnection(sourceConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(sqlQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            sqlRawData.Add(row);
                         }
-                        sqlRawData.Add(row);
+                    }
+                }
+            } else {
+                using (var connection = new OracleConnection(sourceConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new OracleCommand(sqlQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            sqlRawData.Add(row);
+                        }
                     }
                 }
             }
         }
 
-        // שליפת הרשומות מ-Oracle
         var oracleRawData = new List<Dictionary<string, object>>();
-        if (oracleConnectionString == "MockConnectionString")
-        {
-            oracleRawData = CompareMockData.GetMockData(oracleTable, "Oracle");
-        }
-        else
-        {
-            using (var connection = new OracleConnection(oracleConnectionString))
-            {
-                await connection.OpenAsync();
-                using (var command = new OracleCommand(oracleQuery, connection))
-                using (var reader = await command.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        var row = new Dictionary<string, object>();
-                        for (int i = 0; i < reader.FieldCount; i++)
-                        {
-                            row[reader.GetName(i)] = reader.GetValue(i);
+        if (targetConnectionString == "MockConnectionString") {
+            oracleRawData = CompareMockData.GetMockData(targetTable, "Oracle");
+        } else {
+            if (targetProvider == "SQLServer") {
+                using (var connection = new SqlConnection(targetConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new SqlCommand(oracleQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            oracleRawData.Add(row);
                         }
-                        oracleRawData.Add(row);
+                    }
+                }
+            } else {
+                using (var connection = new OracleConnection(targetConnectionString)) {
+                    await connection.OpenAsync();
+                    using (var command = new OracleCommand(oracleQuery, connection))
+                    using (var reader = await command.ExecuteReaderAsync()) {
+                        while (await reader.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < reader.FieldCount; i++) row[reader.GetName(i)] = reader.GetValue(i);
+                            oracleRawData.Add(row);
+                        }
                     }
                 }
             }
         }
 
-        return CompareInMemoryDatasets(sqlRawData, oracleRawData, sqlTable, oracleTable, sourceFields, targetFields, fieldRoles);
-        // No-op placeholder comment to ensure this patch touches the file without changing behavior.
+        return CompareInMemoryDatasets(sqlRawData, oracleRawData, sourceTable, targetTable, sourceFields, targetFields, fieldRoles);
     }
 
     // QA Workflow comparison engine — executes sequential validation steps (A → B → C)
     public SmartComparisonResultViewModel CompareInMemoryDatasets(
         List<Dictionary<string, object>> sqlRawData,
         List<Dictionary<string, object>> oracleRawData,
-        string sqlTable,
-        string oracleTable,
+        string SourceTable,
+        string TargetTable,
         List<string> sourceFields,
         List<string> targetFields,
         List<string> fieldRoles)
@@ -1063,11 +883,11 @@ public class CompareService : ICompareService
         // Initialize result model with basic statistics
         var result = new SmartComparisonResultViewModel
         {
-            SqlTable = sqlTable,
-            OracleTable = oracleTable,
+            SourceTable = SourceTable,
+            TargetTable = TargetTable,
             PrimaryKeyColumn = string.Join(", ", keys.Select(k => k.SqlField)),
-            TotalRowsInSql = sqlRawData.Count,
-            TotalRowsInOracle = oracleRawData.Count
+            TotalRowsInSource = sqlRawData.Count,
+            TotalRowsInTarget = oracleRawData.Count
         };
 
         // Build key index for source
@@ -1243,7 +1063,7 @@ public class CompareService : ICompareService
             stepA.Status = "Warning";
             var summaryParts = new List<string>
             {
-                $"פער בספירת שורות: מקור ({sqlTable}) מכיל {sqlRawData.Count} שורות, יעד ({oracleTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות."
+                $"פער בספירת שורות: מקור ({SourceTable}) מכיל {sqlRawData.Count} שורות, יעד ({TargetTable}) מכיל {oracleRawData.Count} שורות. הפרש: {Math.Abs(sqlRawData.Count - oracleRawData.Count)} שורות."
             };
             if (hasMissing)
             {
@@ -1292,8 +1112,8 @@ public class CompareService : ICompareService
             result.Duplicates.Add(new DuplicateKeyRecord
             {
                 KeyValue = kvp.Key,
-                SqlCount = kvp.Value,
-                OracleCount = oracleKeyCounts.ContainsKey(kvp.Key) ? oracleKeyCounts[kvp.Key] : 0
+                SourceCount = kvp.Value,
+                TargetCount = oracleKeyCounts.ContainsKey(kvp.Key) ? oracleKeyCounts[kvp.Key] : 0
             });
         }
         
@@ -1309,13 +1129,13 @@ public class CompareService : ICompareService
                 result.Duplicates.Add(new DuplicateKeyRecord
                 {
                     KeyValue = kvp.Key,
-                    SqlCount = sqlKeyCounts.ContainsKey(kvp.Key) ? sqlKeyCounts[kvp.Key] : 0,
-                    OracleCount = kvp.Value
+                    SourceCount = sqlKeyCounts.ContainsKey(kvp.Key) ? sqlKeyCounts[kvp.Key] : 0,
+                    TargetCount = kvp.Value
                 });
             }
         }
 
-        result.TotalDuplicates = result.Duplicates.Sum(d => d.SqlCount + d.OracleCount);
+        result.TotalDuplicates = result.Duplicates.Sum(d => d.SourceCount + d.TargetCount);
 
         // Remove duplicate keys from the filtered dictionaries
         foreach (var dk in duplicateKeys)
@@ -1329,10 +1149,10 @@ public class CompareService : ICompareService
         {
             if (!oracleDataFiltered.ContainsKey(sqlKvp.Key))
             {
-                result.TotalMissingInOracle++;
-                if (result.MissingInOracle.Count < 50)
+                result.TotalMissingInTarget++;
+                if (result.MissingInTarget.Count < 50)
                 {
-                    result.MissingInOracle.Add(sqlKvp.Key);
+                    result.MissingInTarget.Add(sqlKvp.Key);
                 }
             }
         }
@@ -1342,16 +1162,16 @@ public class CompareService : ICompareService
         {
             if (!sqlDataFiltered.ContainsKey(oracleKvp.Key))
             {
-                result.TotalMissingInSql++;
-                if (result.MissingInSql.Count < 50)
+                result.TotalMissingInSource++;
+                if (result.MissingInSource.Count < 50)
                 {
-                    result.MissingInSql.Add(oracleKvp.Key);
+                    result.MissingInSource.Add(oracleKvp.Key);
                 }
             }
         }
 
         // Set Step B status based on findings
-        int totalMissing = result.TotalMissingInOracle + result.TotalMissingInSql;
+        int totalMissing = result.TotalMissingInTarget + result.TotalMissingInSource;
         if (totalMissing == 0 && result.TotalDuplicates == 0)
         {
             stepB.Status = "Pass";
@@ -1361,10 +1181,10 @@ public class CompareService : ICompareService
         {
             stepB.Status = totalMissing > 0 ? "Fail" : "Warning";
             var parts = new List<string>();
-            if (result.TotalMissingInOracle > 0)
-                parts.Add($"{result.TotalMissingInOracle} מפתחות חסרים ביעד ({oracleTable})");
-            if (result.TotalMissingInSql > 0)
-                parts.Add($"{result.TotalMissingInSql} מפתחות חסרים במקור ({sqlTable})");
+            if (result.TotalMissingInTarget > 0)
+                parts.Add($"{result.TotalMissingInTarget} מפתחות חסרים ביעד ({TargetTable})");
+            if (result.TotalMissingInSource > 0)
+                parts.Add($"{result.TotalMissingInSource} מפתחות חסרים במקור ({SourceTable})");
             if (result.TotalDuplicates > 0)
                 parts.Add($"{result.Duplicates.Count} מפתחות כפולים ({result.TotalDuplicates} שורות מושפעות)");
             stepB.Summary = string.Join(" | ", parts);
@@ -1407,8 +1227,8 @@ public class CompareService : ICompareService
                         differentFields.Add(new FieldComparisonDetail
                         {
                             FieldName = $"{c.SqlField} / {c.OracleField}",
-                            SqlValue = sqlVal?.ToString()?.Trim() ?? "NULL",
-                            OracleValue = oracleVal?.ToString()?.Trim() ?? "NULL",
+                            SourceValue = sqlVal?.ToString()?.Trim() ?? "NULL",
+                            TargetValue = oracleVal?.ToString()?.Trim() ?? "NULL",
                             IsMatch = false
                         });
                         diffFieldNames.Add(c.SqlField);

@@ -49,37 +49,64 @@
 <form id="compare-config-form" method="post" asp-controller="Compare" asp-action="Connect">
     @Html.AntiForgeryToken()
 
-    <div class="bento-grid mb-5" id="db-config-grid">
-
-        @* ===== Source Card - SQL Server ===== *@
-        <div class="glass-card" id="sql-server-card">
+        <div class="bento-grid mb-5" id="db-config-grid">
+        @* ===== Source Card ===== *@
+        <div class="glass-card" id="source-card">
             <h2 class="h4 text-gradient mb-1" id="sql-card-title">צד א׳ — מקור</h2>
-            <p class="text-secondary small mb-4" id="sql-card-subtitle">SQL Server</p>
+            
+            <!-- Provider Selection Tabs -->
+            <ul class="nav nav-pills mb-3 mt-3" id="source-provider-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active btn-sm" id="source-sql-tab" data-bs-toggle="pill" type="button" role="tab" onclick="setProvider('source', 'SQLServer')">SQL Server</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link btn-sm" id="source-oracle-tab" data-bs-toggle="pill" type="button" role="tab" onclick="setProvider('source', 'Oracle')">Oracle</button>
+                </li>
+            </ul>
+            <input type="hidden" id="source-provider" name="sourceProvider" value="SQLServer" />
 
-            <div class="mb-3">
-                <label for="source-server" class="form-label text-secondary fs-6">כתובת שרת / IP</label>
+            <div class="mb-3 provider-field source-all">
+                <label for="source-server" class="form-label text-secondary fs-6">כתובת שרת / Host</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="source-server" name="sourceServer"
-                       placeholder="למשל: localhost" required autocomplete="off" />
+                       placeholder="למשל: localhost" autocomplete="off" />
             </div>
-            <div class="mb-3">
+
+            <div class="mb-3 provider-field source-SQLServer">
                 <label for="source-database" class="form-label text-secondary fs-6">שם מסד הנתונים</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="source-database" name="sourceDatabase"
-                       placeholder="למשל: ProductionDB" required autocomplete="off" />
+                       placeholder="למשל: ProductionDB" autocomplete="off" />
             </div>
-            <div class="mb-3">
+
+            <div class="row provider-field source-Oracle" style="display:none;">
+                <div class="col-md-6 mb-3">
+                    <label for="source-port" class="form-label text-secondary fs-6">Port</label>
+                    <input type="text" class="form-control form-input-glass text-light w-100"
+                           id="source-port" name="sourcePort" 
+                           placeholder="" autocomplete="off" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="source-sid" class="form-label text-secondary fs-6">SID / Service</label>
+                    <input type="text" class="form-control form-input-glass text-light w-100"
+                           id="source-sid" name="sourceSid"
+                           placeholder="למשל: ORCL" autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="mb-3 provider-field source-all">
                 <label for="source-username" class="form-label text-secondary fs-6">שם משתמש</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="source-username" name="sourceUsername"
-                       placeholder="למשל: sa" required autocomplete="off" />
+                       placeholder="למשל: sa" autocomplete="off" />
             </div>
-            <div class="mb-3">
+
+            <div class="mb-3 provider-field source-all">
                 <label for="source-password" class="form-label text-secondary fs-6">סיסמה</label>
                 <div class="input-group">
                     <input type="password" class="form-control form-input-glass text-light"
                            id="source-password" name="sourcePassword"
-                           placeholder="הזינו סיסמה" required autocomplete="new-password" />
+                           placeholder="הזינו סיסמה" autocomplete="new-password" />
                     <button type="button" class="btn btn-outline-secondary btn-eye-toggle"
                             data-target="source-password" title="הצג/הסתר סיסמה"
                             style="border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);">
@@ -87,12 +114,27 @@
                     </button>
                 </div>
             </div>
+
+            <div class="mt-4">
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="testConnection('source')">בדיקת חיבור</button>
+                <span id="source-test-result" class="ms-2 small fw-bold"></span>
+            </div>
         </div>
 
-        @* ===== Target Card - Oracle ===== *@
-        <div class="glass-card" id="oracle-card">
+        @* ===== Target Card ===== *@
+        <div class="glass-card" id="target-card">
             <h2 class="h4 text-gradient mb-1" id="oracle-card-title">צד ב׳ — יעד</h2>
-            <p class="text-secondary small mb-2" id="oracle-card-subtitle">Oracle Database</p>
+            
+            <!-- Provider Selection Tabs -->
+            <ul class="nav nav-pills mb-3 mt-3" id="target-provider-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link btn-sm" id="target-sql-tab" data-bs-toggle="pill" type="button" role="tab" onclick="setProvider('target', 'SQLServer')">SQL Server</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active btn-sm" id="target-oracle-tab" data-bs-toggle="pill" type="button" role="tab" onclick="setProvider('target', 'Oracle')">Oracle</button>
+                </li>
+            </ul>
+            <input type="hidden" id="target-provider" name="targetProvider" value="Oracle" />
 
             @* "Use same credentials as Source" checkbox *@
             <div class="mb-4 p-3 rounded" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);" id="use-same-creds-box">
@@ -104,30 +146,48 @@
                 </div>
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3 provider-field target-all">
                 <label for="target-server" class="form-label text-secondary fs-6">כתובת שרת / Host</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="target-server" name="targetServer"
-                       placeholder="למשל: localhost" required autocomplete="off" />
+                       placeholder="למשל: localhost" autocomplete="off" />
             </div>
-            <div class="mb-3">
-                <label for="target-database" class="form-label text-secondary fs-6">Schema / Service Name</label>
+
+            <div class="mb-3 provider-field target-SQLServer" style="display:none;">
+                <label for="target-database" class="form-label text-secondary fs-6">שם מסד הנתונים</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="target-database" name="targetDatabase"
-                       placeholder="למשל: XE" required autocomplete="off" />
+                       placeholder="למשל: ProductionDB" autocomplete="off" />
             </div>
-            <div class="mb-3">
+
+            <div class="row provider-field target-Oracle">
+                <div class="col-md-6 mb-3">
+                    <label for="target-port" class="form-label text-secondary fs-6">Port</label>
+                    <input type="text" class="form-control form-input-glass text-light w-100"
+                           id="target-port" name="targetPort" 
+                           placeholder="" autocomplete="off" />
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label for="target-sid" class="form-label text-secondary fs-6">SID / Service</label>
+                    <input type="text" class="form-control form-input-glass text-light w-100"
+                           id="target-sid" name="targetSid"
+                           placeholder="למשל: ORCL" autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="mb-3 provider-field target-all">
                 <label for="target-username" class="form-label text-secondary fs-6">שם משתמש</label>
                 <input type="text" class="form-control form-input-glass text-light w-100"
                        id="target-username" name="targetUsername"
-                       placeholder="למשל: system" required autocomplete="off" />
+                       placeholder="למשל: system" autocomplete="off" />
             </div>
-            <div class="mb-3">
+
+            <div class="mb-3 provider-field target-all">
                 <label for="target-password" class="form-label text-secondary fs-6">סיסמה</label>
                 <div class="input-group">
                     <input type="password" class="form-control form-input-glass text-light"
                            id="target-password" name="targetPassword"
-                           placeholder="הזינו סיסמה" required autocomplete="new-password" />
+                           placeholder="הזינו סיסמה" autocomplete="new-password" />
                     <button type="button" class="btn btn-outline-secondary btn-eye-toggle"
                             data-target="target-password" title="הצג/הסתר סיסמה"
                             style="border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);">
@@ -135,9 +195,13 @@
                     </button>
                 </div>
             </div>
+
+            <div class="mt-4">
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="testConnection('target')">בדיקת חיבור</button>
+                <span id="target-test-result" class="ms-2 small fw-bold"></span>
+            </div>
         </div>
     </div>
-
     @* ===== Connect Button ===== *@
     <div class="text-center mb-5" id="action-button-container">
         <button type="submit" class="btn-glow btn-lg px-5 py-3 fs-5" id="btn-connect">
@@ -221,5 +285,111 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+
+window.showErrorToast = function(message) {
+    var errorBox = document.getElementById('error-message-box');
+    if (!errorBox) {
+        errorBox = document.createElement('div');
+        errorBox.className = "glass-card mb-5";
+        errorBox.style.cssText = "border-color: rgba(239, 68, 68, 0.3) !important;";
+        errorBox.id = "error-message-box";
+        errorBox.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center gap-3">
+                <span class="text-danger fw-bold fs-4" id="error-icon" style="user-select: none;">x</span>
+                <div class="text-start">
+                    <h2 class="h6 mb-1 text-danger fw-bold" id="error-title">שגיאה בהתחברות</h2>
+                    <p class="mb-0 text-secondary small" id="error-details"></p>
+                </div>
+            </div>
+        `;
+        var header = document.getElementById('home-welcome-header');
+        if (header) {
+            header.parentNode.insertBefore(errorBox, header.nextSibling);
+        } else {
+            var form = document.getElementById('compare-config-form');
+            form.parentNode.insertBefore(errorBox, form);
+        }
+    }
+    document.getElementById('error-details').innerText = message;
+    errorBox.style.display = 'block';
+};
+
+window.setProvider = function(side, provider) {
+    document.getElementById(side + '-provider').value = provider;
+    
+    // Update tabs UI
+    document.getElementById(side + '-sql-tab').classList.remove('active');
+    document.getElementById(side + '-oracle-tab').classList.remove('active');
+    if (provider === 'SQLServer') {
+        document.getElementById(side + '-sql-tab').classList.add('active');
+    } else {
+        document.getElementById(side + '-oracle-tab').classList.add('active');
+    }
+
+    // Toggle fields
+    var sqlFields = document.querySelectorAll('.provider-field.' + side + '-SQLServer');
+    var oracleFields = document.querySelectorAll('.provider-field.' + side + '-Oracle');
+    
+    if (provider === 'SQLServer') {
+        sqlFields.forEach(function(el) { el.style.display = 'block'; });
+        oracleFields.forEach(function(el) { el.style.display = 'none'; });
+    } else {
+        sqlFields.forEach(function(el) { el.style.display = 'none'; });
+        oracleFields.forEach(function(el) { el.style.display = 'flex'; }); // Use flex for row
+    }
+
+    // if sync is checked and side is source, we must also update target
+    if (side === 'source' && document.getElementById("use-same-credentials").checked) {
+        setProvider('target', provider);
+    }
+};
+
+window.testConnection = function(side) {
+    var resultSpan = document.getElementById(side + '-test-result');
+    resultSpan.className = "ms-2 small fw-bold text-warning";
+    resultSpan.innerText = "בודק...";
+    
+    var errorBox = document.getElementById('error-message-box');
+    if (errorBox) errorBox.style.display = 'none';
+
+    var formData = new FormData();
+    formData.append("provider", document.getElementById(side + '-provider').value);
+    formData.append("server", document.getElementById(side + '-server').value);
+    var dbField = document.getElementById(side + '-database');
+    formData.append("database", dbField ? dbField.value : "");
+    formData.append("host", document.getElementById(side + '-server').value); // use server as host for oracle
+    var portField = document.getElementById(side + '-port');
+    formData.append("port", portField ? portField.value : "");
+    var sidField = document.getElementById(side + '-sid');
+    formData.append("sid", sidField ? sidField.value : "");
+    formData.append("username", document.getElementById(side + '-username').value);
+    formData.append("password", document.getElementById(side + '-password').value);
+    
+    var tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+    if (tokenInput) {
+        formData.append("__RequestVerificationToken", tokenInput.value);
+    }
+
+    fetch('/Compare/TestConnection', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultSpan.className = "ms-2 small fw-bold text-success";
+            resultSpan.innerText = data.message;
+        } else {
+            resultSpan.className = "ms-2 small fw-bold text-danger";
+            resultSpan.innerText = "שגיאת תקשורת";
+            window.showErrorToast(data.message);
+        }
+    })
+    .catch(error => {
+        resultSpan.className = "ms-2 small fw-bold text-danger";
+        resultSpan.innerText = "שגיאת תקשורת";
+        window.showErrorToast("שגיאה בלתי צפויה. ודאו שהשרת מגיב.");
+    });
+};
 </script>
 }

@@ -1,4 +1,4 @@
-@model CompareD.Controllers.SchemaReviewViewModel
+﻿@model CompareD.Controllers.SchemaReviewViewModel
 
 @{
     ViewData["Title"] = "שלב 3 — סקירת סכמה ומיפוי שדות";
@@ -41,9 +41,9 @@
         <div class="d-flex flex-column gap-1">
             <h2 class="h5 text-light mb-1">השוואת מבנה הטבלאות</h2>
             <div class="d-flex gap-3 text-secondary small flex-wrap">
-                <span>מקור (SQL Server): <strong class="text-light">@Model.SqlTable</strong></span>
+                <span>מקור (SQL Server): <strong class="text-light">@Model.SourceTable</strong></span>
                 <span>/</span>
-                <span>יעד (Oracle): <strong class="text-light">@Model.OracleTable</strong></span>
+                <span>יעד (Oracle): <strong class="text-light">@Model.TargetTable</strong></span>
             </div>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -66,8 +66,8 @@
 @* ===== טופס הגשת תצורת המיפוי והרצת ההשוואה ===== *@
 <form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData" data-default-pk="@Model.PrimaryKeyColumn">
     @* שדות מוסתרים המכילים את שמות הטבלאות וסוג המיפוי לצורך שליחה בטופס *@
-    <input type="hidden" name="sqlTable" value="@Model.SqlTable" />
-    <input type="hidden" name="oracleTable" value="@Model.OracleTable" />
+    <input type="hidden" name="SourceTable" value="@Model.SourceTable" />
+    <input type="hidden" name="TargetTable" value="@Model.TargetTable" />
     <input type="hidden" name="mappingMode" value="Manual" /> @* תמיד נגיש כמיפוי ידני כי המערכת בונה אותו דינמית *@
 
     @* ===== בנטו גריד: טבלת סקירת סכמה (שלב 4) ===== *@
@@ -95,7 +95,7 @@
                     @foreach (var col in Model.Columns)
                     {
                         var isCommon = col.ExistsInBoth;
-                        var isTypeDiff = isCommon && !string.Equals(col.SqlDataType, col.OracleDataType, StringComparison.OrdinalIgnoreCase);
+                        var isTypeDiff = isCommon && !string.Equals(col.SourceDataType, col.TargetDataType, StringComparison.OrdinalIgnoreCase);
                         
                         <tr class="schema-row" data-column-name="@col.ColumnName" data-exists-both="@(isCommon ? "true" : "false")">
                             <td class="text-center">
@@ -129,13 +129,13 @@
                                 @(col.Source == "OracleOnly" ? "—" : col.ColumnName)
                             </td>
                             <td class="text-secondary small">
-                                @(col.Source == "OracleOnly" ? "—" : col.SqlDataType)
+                                @(col.Source == "OracleOnly" ? "—" : col.SourceDataType)
                             </td>
                             <td class="@(col.Source == "SqlOnly" ? "text-muted text-decoration-line-through" : "text-light fw-bold")">
                                 @(col.Source == "SqlOnly" ? "—" : (col.Source == "Both" ? col.ColumnName : col.ColumnName))
                             </td>
                             <td class="text-secondary small">
-                                @(col.Source == "SqlOnly" ? "—" : col.OracleDataType)
+                                @(col.Source == "SqlOnly" ? "—" : col.TargetDataType)
                             </td>
                         </tr>
                     }
@@ -236,9 +236,9 @@
             // הסריאליזטור המובנה של .NET מקודד ומאבטח תווים מיוחדים של HTML, ולכן השימוש ב-Html.Raw בטוח כאן.
             const allColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Columns));
             // עמודות SQL בלבד או משותפות
-            const sqlColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
+            const SourceColumns = allColumns.filter(c => c.Source !== "OracleOnly").map(c => c.ColumnName);
             // עמודות Oracle בלבד או משותפות
-            const oracleColumns = allColumns.filter(c => c.Source !== "SqlOnly").map(c => c.ColumnName);
+            const TargetColumns = allColumns.filter(c => c.Source !== "SqlOnly").map(c => c.ColumnName);
             // המפתח הראשוני שהוצע על ידי השרת כברירת מחדל
             const defaultPk = document.getElementById("schema-review-form").getAttribute("data-default-pk") || "";
 
@@ -299,7 +299,7 @@
 
                 // עמודה א: שדה מקור (SQL Server) - Dropdown של כל עמודות SQL
                 const tdSource = document.createElement("td");
-                let sqlOptionsHtml = sqlColumns.map(c => 
+                let sqlOptionsHtml = SourceColumns.map(c => 
                     `<option value="${escapeHtml(c)}" ${c === sqlColName ? "selected" : ""}>${escapeHtml(c)}</option>`
                 ).join("");
                 tdSource.innerHTML = `
@@ -311,7 +311,7 @@
 
                 // עמודה ב: שדה יעד (Oracle) - Dropdown של כל עמודות Oracle
                 const tdTarget = document.createElement("td");
-                let oracleOptionsHtml = oracleColumns.map(c => 
+                let oracleOptionsHtml = TargetColumns.map(c => 
                     `<option value="${escapeHtml(c)}" ${c === oracleColName ? "selected" : ""}>${escapeHtml(c)}</option>`
                 ).join("");
                 tdTarget.innerHTML = `
@@ -350,7 +350,7 @@
                     
                     // ניסיון התאמה אוטומטית לעמודת Oracle בעלת שם זהה
                     const targetSelect = tdTarget.querySelector("select");
-                    const matchingOracle = oracleColumns.find(c => c.toLowerCase() === selectedVal.toLowerCase());
+                    const matchingOracle = TargetColumns.find(c => c.toLowerCase() === selectedVal.toLowerCase());
                     if (matchingOracle) {
                         targetSelect.value = matchingOracle;
                     }
@@ -477,8 +477,8 @@
 
         // פונקציה לשמירת תצורת המיפוי לקובץ JSON חיצוני
         window.saveMappingConfig = function() {
-            const sqlTable = document.querySelector("input[name='sqlTable']").value;
-            const oracleTable = document.querySelector("input[name='oracleTable']").value;
+            const SourceTable = document.querySelector("input[name='SourceTable']").value;
+            const TargetTable = document.querySelector("input[name='TargetTable']").value;
             const maxRows = parseInt(document.getElementById("max-rows-input").value) || 1000;
             
             const sourceFields = Array.from(document.querySelectorAll("select[name='sourceFields']")).map(s => s.value);
@@ -491,8 +491,8 @@
             }
 
             const config = {
-                sqlTable: sqlTable,
-                oracleTable: oracleTable,
+                SourceTable: SourceTable,
+                TargetTable: TargetTable,
                 sourceFields: sourceFields,
                 targetFields: targetFields,
                 fieldRoles: fieldRoles,
@@ -502,7 +502,7 @@
             const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `${sqlTable}_vs_${oracleTable}_compare_config.json`;
+            link.download = `${SourceTable}_vs_${TargetTable}_compare_config.json`;
             link.click();
         };
     </script>

@@ -1,4 +1,4 @@
-@model CompareD.Controllers.FieldMappingViewModel
+﻿@model CompareD.Controllers.FieldMappingViewModel
 
 @{
     ViewData["Title"] = "מיפוי שדות";
@@ -12,16 +12,16 @@
     </p>
     @* תצוגה מקדימה קטנה של הטבלאות הנבחרות *@
     <div class="d-flex justify-content-center gap-3 mt-3" id="selected-tables-preview">
-        <span class="badge bg-primary px-3 py-2 fs-6" id="badge-sql">מקור: @Model.SqlTable</span>
-        <span class="badge bg-secondary px-3 py-2 fs-6" id="badge-oracle">יעד: @Model.OracleTable</span>
+        <span class="badge bg-primary px-3 py-2 fs-6" id="badge-sql">מקור: @Model.SourceTable</span>
+        <span class="badge bg-secondary px-3 py-2 fs-6" id="badge-oracle">יעד: @Model.TargetTable</span>
     </div>
 </div>
 
 @* טופס הגשת תצורת המיפוי והרצת ההשוואה *@
 <form id="fields-mapping-form" method="post" asp-controller="Compare" asp-action="CompareData">
     @* שדות מוסתרים המכילים את שמות הטבלאות לצורך שליחה בטופס *@
-    <input type="hidden" name="sqlTable" value="@Model.SqlTable" />
-    <input type="hidden" name="oracleTable" value="@Model.OracleTable" />
+    <input type="hidden" name="SourceTable" value="@Model.SourceTable" />
+    <input type="hidden" name="TargetTable" value="@Model.TargetTable" />
     @* שדה מוסתר לקביעת סוג המיפוי (Auto או Manual) *@
     <input type="hidden" id="mapping-mode-input" name="mappingMode" value="Auto" />
 
@@ -105,8 +105,8 @@
             }
 
             // קבלת העמודות של המקור והיעד כרשימות JavaScript מהשרת
-            const sqlColumns = @Json.Serialize(Model.SqlColumns);
-            const oracleColumns = @Json.Serialize(Model.OracleColumns);
+            const SourceColumns = @Json.Serialize(Model.SourceColumns);
+            const TargetColumns = @Json.Serialize(Model.TargetColumns);
 
             // משתני אלמנטים לממשק
             const optAutoCard = document.getElementById("option-auto-card");
@@ -160,7 +160,7 @@
                 tr.className = "mapping-row-item";
 
                 // יצירת עמודת שדה מקור (SQL Server)
-                let sqlSelectOptions = sqlColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+                let sqlSelectOptions = SourceColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
                 const tdSource = document.createElement("td");
                 tdSource.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100" name="sourceFields" required>
@@ -170,7 +170,7 @@
                 `;
 
                 // יצירת עמודת שדה יעד (Oracle)
-                let oracleSelectOptions = oracleColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+                let oracleSelectOptions = TargetColumns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
                 const tdTarget = document.createElement("td");
                 tdTarget.innerHTML = `
                     <select class="form-select form-input-glass text-light w-100" name="targetFields" required>
