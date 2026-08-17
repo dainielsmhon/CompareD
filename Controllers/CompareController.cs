@@ -83,8 +83,8 @@ public class CompareController : Controller
             };
             return builder.ConnectionString;
         } else if (provider == "Oracle") {
-            // הוסר ADDRESS_LIST לטובת תמיכה בגרסאות קודמות של הדרייבר, והוגדר SID
-            return $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={host})(PORT={port}))(CONNECT_DATA=(SID={sid})));User Id={username};Password={password};";
+            string actualHost = string.IsNullOrWhiteSpace(host) ? server : host;
+            return $"Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={actualHost})(PORT={port}))(CONNECT_DATA=(SID={sid})));User Id={username};Password={password};";
         }
         return string.Empty;
     }
@@ -148,46 +148,15 @@ public class CompareController : Controller
 
         var sourceObjects = new List<DatabaseObject>();
         var targetObjects = new List<DatabaseObject>();
-        string? errorMessage = null;
-
         try
         {
-            await Task.WhenAll(
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        sourceObjects = await _compareService.GetDatabaseObjectsAsync(sourceConnectionString, sourceProvider);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to connect to source");
-                        throw new Exception("שגיאה בחיבור למקור");
-                    }
-                }),
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        targetObjects = await _compareService.GetDatabaseObjectsAsync(targetConnectionString, targetProvider);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to connect to target");
-                        throw new Exception("שגיאה בחיבור ליעד");
-                    }
-                })
-            );
+            sourceObjects = await _compareService.GetDatabaseObjectsAsync(sourceConnectionString, sourceProvider);
+            targetObjects = await _compareService.GetDatabaseObjectsAsync(targetConnectionString, targetProvider);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Database connection error in Connect action");
-            errorMessage = "התרחשה שגיאה בעת התחברות למסדי הנתונים. אנא בדקו את פרטי החיבור שהזנתם ונסו שוב.";
-        }
-
-        if (errorMessage != null)
-        {
-            TempData["ErrorMessage"] = errorMessage;
+            TempData["ErrorMessage"] = "שגיאה בשליפת הטבלאות. ייתכן שהשרת איטי או עמוס. פרטים: " + ex.Message;
             return View("~/Views/Home/Index.cshtml");
         }
 

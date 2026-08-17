@@ -25,7 +25,7 @@ namespace CompareD.Models
         public string SystemAlertMessage { get; set; } = string.Empty;
 
         // שם מנהל המערכת לתצוגה בדף יצירת קשר
-        public string AdminContactName { get; set; } = "מנהל המערכת";
+        public string AdminContactName { get; set; } = "דניאל שמחון";
 
         // תאריך ושעת עדכון אחרון של ההגדרות
         public DateTime LastUpdated { get; set; } = DateTime.Now;
@@ -34,7 +34,7 @@ namespace CompareD.Models
         public string LastUpdatedBy { get; set; } = string.Empty;
 
         // גרסת המערכת הניתנת לעריכה ממסך הניהול (ללא צורך בקימפול מחדש)
-        public string AppVersion { get; set; } = "1.1.0";
+        public string AppVersion { get; set; } = "2.0.0";
     }
 
     // =====================================================================

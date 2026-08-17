@@ -51,7 +51,7 @@ public class CompareService : ICompareService
                 using (var command = new OracleCommand(query, connection))
                 {
                     // הגדרת פסק זמן לשאילתה על מנת למנוע תקיעות שרת מול אורקל ישן
-                    command.CommandTimeout = 30;
+                    command.CommandTimeout = 15;
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())

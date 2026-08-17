@@ -252,7 +252,9 @@ document.addEventListener("DOMContentLoaded", function () {
         { src: "source-server",   tgt: "target-server" },
         { src: "source-database", tgt: "target-database" },
         { src: "source-username", tgt: "target-username" },
-        { src: "source-password", tgt: "target-password" }
+        { src: "source-password", tgt: "target-password" },
+        { src: "source-port",     tgt: "target-port" },
+        { src: "source-sid",      tgt: "target-sid" }
     ];
 
     function syncTarget() {
@@ -272,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     useSameCheckbox.addEventListener("change", syncTarget);
 
-    ["source-server", "source-database", "source-username", "source-password"].forEach(function (id) {
+    ["source-server", "source-database", "source-username", "source-password", "source-port", "source-sid"].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener("input", function () { if (useSameCheckbox.checked) syncTarget(); });
     });
@@ -315,7 +317,19 @@ window.showErrorToast = function(message) {
 };
 
 window.setProvider = function(side, provider) {
-    document.getElementById(side + '-provider').value = provider;
+    var providerInput = document.getElementById(side + '-provider');
+    var isDifferent = providerInput.value !== provider;
+    
+    if (isDifferent) {
+        var card = document.getElementById(side + '-card');
+        if (card) {
+            card.querySelectorAll('input[type="text"], input[type="password"]').forEach(function(input) {
+                input.value = '';
+            });
+        }
+    }
+    
+    providerInput.value = provider;
     
     // Update tabs UI
     document.getElementById(side + '-sql-tab').classList.remove('active');
@@ -341,6 +355,9 @@ window.setProvider = function(side, provider) {
     // if sync is checked and side is source, we must also update target
     if (side === 'source' && document.getElementById("use-same-credentials").checked) {
         setProvider('target', provider);
+        if (isDifferent && typeof syncTarget === 'function') {
+            syncTarget();
+        }
     }
 };
 
