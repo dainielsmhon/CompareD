@@ -235,7 +235,11 @@ public class CompareController : Controller
         List<string> sourceFields, 
         List<string> targetFields, 
         List<string> fieldRoles,
-        int maxRows)
+        int maxRows,
+        string filterActive,
+        List<string> filterColumn,
+        List<string> filterOperator,
+        List<string> filterValue)
     {
         var protectedSource = HttpContext.Session.GetString("SourceConnectionString");
         var protectedTarget = HttpContext.Session.GetString("TargetConnectionString");
@@ -264,7 +268,11 @@ public class CompareController : Controller
                 sourceFields,
                 targetFields,
                 fieldRoles,
-                maxRows);
+                maxRows,
+                filterActive,
+                filterColumn,
+                filterOperator,
+                filterValue);
 
             stopwatch.Stop();
 

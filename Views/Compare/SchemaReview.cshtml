@@ -1,4 +1,4 @@
-﻿@model CompareD.Controllers.SchemaReviewViewModel
+@model CompareD.Controllers.SchemaReviewViewModel
 
 @{
     ViewData["Title"] = "שלב 3 — סקירת סכמה ומיפוי שדות";
@@ -184,6 +184,33 @@
         </div>
     </div>
 
+    @* ===== מערכת סינון נתונים חכמה מרובת תנאים (Query Builder) ===== *@
+    <div class="glass-card mb-5 p-4" id="data-filter-card">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 text-gradient mb-0">בונה שאילתות וסינון נתונים (אופציונלי)</h3>
+                <p class="text-secondary small mb-0 mt-1">
+                    הגדירו מספר תנאי סינון. התנאים יחוברו אוטומטית (וגם - AND) ויסוננו בשני מסדי הנתונים.
+                </p>
+            </div>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="enable-data-filter" style="width: 2.5rem; height: 1.25rem; cursor: pointer;">
+                <label class="form-check-label text-light ms-2" for="enable-data-filter">הפעל מערכת סינון</label>
+            </div>
+        </div>
+        
+        <input type="hidden" name="filterActive" value="false" />
+
+        <div id="data-filter-options" class="d-none">
+            <div id="filter-conditions-container" class="d-flex flex-column gap-3 mb-3">
+                <!-- שורות הסינון יתווספו לכאן דינמית ע"י JavaScript -->
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 transition-all" id="btn-add-filter-condition">
+                + הוסף תנאי סינון
+            </button>
+        </div>
+    </div>
+
     @* ===== קביעת הגדרות הרצה (Max Rows + PK) ===== *@
     <div class="row g-4 mb-5" id="run-config-section">
         <div class="col-md-6">
@@ -250,6 +277,77 @@
             const btnAddCustom = document.getElementById("btn-add-custom-mapping");
             const keysDisplay = document.getElementById("selected-keys-display");
             const mainForm = document.getElementById("schema-review-form");
+
+            // ===== הגדרות JS לסינון נתונים (מרובה תנאים) =====
+            const enableDataFilter = document.getElementById("enable-data-filter");
+            const dataFilterOptions = document.getElementById("data-filter-options");
+            const filterActiveInput = document.querySelector('input[name="filterActive"]');
+            const filterContainer = document.getElementById("filter-conditions-container");
+            const btnAddFilter = document.getElementById("btn-add-filter-condition");
+            
+            enableDataFilter.addEventListener("change", function() {
+                if (this.checked) {
+                    dataFilterOptions.classList.remove("d-none");
+                    filterActiveInput.value = "true";
+                    // נוסיף שורה ריקה באופן אוטומטי אם אין עדיין שורות
+                    if (filterContainer.children.length === 0) {
+                        addFilterConditionRow(); 
+                    }
+                } else {
+                    dataFilterOptions.classList.add("d-none");
+                    filterActiveInput.value = "false";
+                }
+            });
+            
+            btnAddFilter.addEventListener("click", function() {
+                addFilterConditionRow();
+            });
+
+            // פונקציה לבנייה של שורת סינון חדשה
+            function addFilterConditionRow() {
+                const row = document.createElement("div");
+                row.className = "row g-2 align-items-center p-2 rounded border border-white/5";
+                row.style.background = "rgba(15, 23, 42, 0.4)";
+                
+                let sqlOptionsHtml = SourceColumns.map(c => 
+                    `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`
+                ).join("");
+
+                row.innerHTML = `
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" name="filterColumn" required>
+                            <option value="">-- בחר שדה לסינון --</option>
+                            ${sqlOptionsHtml}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" name="filterOperator" required>
+                            <option value="Equals">שווה ל- (=)</option>
+                            <option value="Like">מכיל טקסט (LIKE)</option>
+                            <option value="GreaterThan">גדול מ- (>)</option>
+                            <option value="LessThan">קטן מ- (<)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" name="filterValue" placeholder="ערך לחיפוש..." required />
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-circle p-1 btn-remove-filter" style="width: 28px; height: 28px; line-height: 1;" title="מחק תנאי">✕</button>
+                    </div>
+                `;
+
+                row.querySelector(".btn-remove-filter").addEventListener("click", function() {
+                    row.remove();
+                    // אם מחקו את כל השורות, נבטל אוטומטית את תיבת ה"הפעל סינון"
+                    if (filterContainer.children.length === 0) {
+                        enableDataFilter.checked = false;
+                        enableDataFilter.dispatchEvent(new Event("change"));
+                    }
+                });
+
+                filterContainer.appendChild(row);
+            }
+            // ===================================
 
             // פונקציה לבדיקה ורענון של הודעת "אין שדות"
             function updateNoMappingsAlert() {

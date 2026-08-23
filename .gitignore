@@ -26,3 +26,6 @@ logs/
 *.log
 users.json
 appsettings.Production.json
+
+# Antigravity Rules
+GEMINI.md

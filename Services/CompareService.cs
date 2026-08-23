@@ -699,7 +699,11 @@ public class CompareService : ICompareService
         List<string> sourceFields,
         List<string> targetFields,
         List<string> fieldRoles,
-        int maxRows)
+        int maxRows,
+        string filterActive = "false",
+        List<string> filterColumn = null,
+        List<string> filterOperator = null,
+        List<string> filterValue = null)
     {
         if (!await IsTableValidAsync(sourceConnectionString, sourceProvider, sourceTable))
             throw new ArgumentException("שם טבלת המקור אינו תקין או שאינו קיים במערכת.");

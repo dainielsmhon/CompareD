@@ -53,7 +53,11 @@ public interface ICompareService
         List<string> sourceFields,
         List<string> targetFields,
         List<string> fieldRoles,
-        int maxRows);
+        int maxRows,
+        string filterActive = "false",
+        List<string> filterColumn = null,
+        List<string> filterOperator = null,
+        List<string> filterValue = null);
 
     // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי)
     SmartComparisonResultViewModel CompareInMemoryDatasets(
