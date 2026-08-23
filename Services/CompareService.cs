@@ -689,6 +689,131 @@ public class CompareService : ICompareService
         return str;
     }
 
+    public async Task<Dictionary<string, object>> GetPreviewDataAsync(
+        string sourceConnectionString, string sourceProvider,
+        string targetConnectionString, string targetProvider,
+        string sourceTable, string targetTable,
+        List<string> filterColumn, List<string> filterOperator, List<string> filterValue)
+    {
+        var validSqlCols = await GetColumnsAsync(sourceConnectionString, sourceProvider, sourceTable);
+        var validOracleCols = await GetColumnsAsync(targetConnectionString, targetProvider, targetTable);
+        
+        // Take top 5 columns for preview
+        var sqlFields = validSqlCols.Take(5).ToList();
+        var oracleFields = validOracleCols.Take(5).ToList();
+
+        string GetQuery(string provider, string table, IEnumerable<string> fields)
+        {
+            string whereClause = "";
+            if (filterColumn != null && filterColumn.Count > 0)
+            {
+                var conditions = new List<string>();
+                for (int i = 0; i < filterColumn.Count; i++)
+                {
+                    string fCol = filterColumn[i];
+                    string fOp = (filterOperator != null && filterOperator.Count > i) ? filterOperator[i] : "Equals";
+                    string fVal = (filterValue != null && filterValue.Count > i) ? filterValue[i] : "";
+                    if (string.IsNullOrEmpty(fCol) || string.IsNullOrEmpty(fVal)) continue;
+
+                    string safeValue = fVal.Replace("'", "''");
+                    string op = "=";
+                    if (fOp == "Equals") op = "=";
+                    else if (fOp == "GreaterThan") op = ">";
+                    else if (fOp == "LessThan") op = "<";
+                    else if (fOp == "Like") op = "LIKE";
+
+                    if (provider == "SQLServer") {
+                        if (op == "LIKE") conditions.Add($"[{fCol}] LIKE '%{safeValue}%'");
+                        else conditions.Add($"[{fCol}] {op} '{safeValue}'");
+                    } else {
+                        if (op == "LIKE") conditions.Add($"\"{fCol}\" LIKE '%{safeValue}%'");
+                        else conditions.Add($"\"{fCol}\" {op} '{safeValue}'");
+                    }
+                }
+                if (conditions.Count > 0) whereClause = " WHERE " + string.Join(" AND ", conditions);
+            }
+            if (provider == "SQLServer") {
+                string sel = string.Join(", ", fields.Select(c => $"[{c}]"));
+                return $"SELECT TOP (10) {sel} FROM [{table}]{whereClause}";
+            } else {
+                string sel = string.Join(", ", fields.Select(c => $"\"{c}\""));
+                return $"SELECT {sel} FROM \"{table}\"{whereClause} FETCH FIRST 10 ROWS ONLY";
+            }
+        }
+
+        string sqlQuery = GetQuery(sourceProvider, sourceTable, sqlFields);
+        string oracleQuery = GetQuery(targetProvider, targetTable, oracleFields);
+
+        var sqlData = new List<Dictionary<string, object>>();
+        if (sourceConnectionString == "MockConnectionString") {
+            sqlData = CompareMockData.GetMockData(sourceTable, "SQL").Take(10).ToList();
+        } else {
+            if (sourceProvider == "SQLServer") {
+                using (var conn = new Microsoft.Data.SqlClient.SqlConnection(sourceConnectionString)) {
+                    await conn.OpenAsync();
+                    using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(sqlQuery, conn))
+                    using (var r = await cmd.ExecuteReaderAsync()) {
+                        while (await r.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = r.GetValue(i)?.ToString();
+                            sqlData.Add(row);
+                        }
+                    }
+                }
+            } else {
+                using (var conn = new Oracle.ManagedDataAccess.Client.OracleConnection(sourceConnectionString)) {
+                    await conn.OpenAsync();
+                    using (var cmd = new Oracle.ManagedDataAccess.Client.OracleCommand(sqlQuery, conn))
+                    using (var r = await cmd.ExecuteReaderAsync()) {
+                        while (await r.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = r.GetValue(i)?.ToString();
+                            sqlData.Add(row);
+                        }
+                    }
+                }
+            }
+        }
+
+        var oracleData = new List<Dictionary<string, object>>();
+        if (targetConnectionString == "MockConnectionString") {
+            oracleData = CompareMockData.GetMockData(targetTable, "Oracle").Take(10).ToList();
+        } else {
+            if (targetProvider == "SQLServer") {
+                using (var conn = new Microsoft.Data.SqlClient.SqlConnection(targetConnectionString)) {
+                    await conn.OpenAsync();
+                    using (var cmd = new Microsoft.Data.SqlClient.SqlCommand(oracleQuery, conn))
+                    using (var r = await cmd.ExecuteReaderAsync()) {
+                        while (await r.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = r.GetValue(i)?.ToString();
+                            oracleData.Add(row);
+                        }
+                    }
+                }
+            } else {
+                using (var conn = new Oracle.ManagedDataAccess.Client.OracleConnection(targetConnectionString)) {
+                    await conn.OpenAsync();
+                    using (var cmd = new Oracle.ManagedDataAccess.Client.OracleCommand(oracleQuery, conn))
+                    using (var r = await cmd.ExecuteReaderAsync()) {
+                        while (await r.ReadAsync()) {
+                            var row = new Dictionary<string, object>();
+                            for (int i = 0; i < r.FieldCount; i++) row[r.GetName(i)] = r.GetValue(i)?.ToString();
+                            oracleData.Add(row);
+                        }
+                    }
+                }
+            }
+        }
+
+        return new Dictionary<string, object> {
+            { "sqlColumns", sqlFields },
+            { "oracleColumns", oracleFields },
+            { "sqlData", sqlData },
+            { "oracleData", oracleData }
+        };
+    }
+
     public async Task<SmartComparisonResultViewModel> SmartCompareAsync(
         string sourceConnectionString,
         string sourceProvider,

@@ -190,24 +190,47 @@
             <div>
                 <h3 class="h5 text-gradient mb-0">בונה שאילתות וסינון נתונים (אופציונלי)</h3>
                 <p class="text-secondary small mb-0 mt-1">
-                    הגדירו מספר תנאי סינון. התנאים יחוברו אוטומטית (וגם - AND) ויסוננו בשני מסדי הנתונים.
+                    הגדירו מספר תנאי סינון. התנאים יחוברו אוטומטית (וגם - AND) ויסוננו בשני מסדי הנתונים. (ללא בחירה - לא יסונן כלום)
                 </p>
-            </div>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="enable-data-filter" style="width: 2.5rem; height: 1.25rem; cursor: pointer;">
-                <label class="form-check-label text-light ms-2" for="enable-data-filter">הפעל מערכת סינון</label>
             </div>
         </div>
         
-        <input type="hidden" name="filterActive" value="false" />
+        <input type="hidden" name="filterActive" value="true" />
 
-        <div id="data-filter-options" class="d-none">
+        <div id="data-filter-options">
             <div id="filter-conditions-container" class="d-flex flex-column gap-3 mb-3">
                 <!-- שורות הסינון יתווספו לכאן דינמית ע"י JavaScript -->
             </div>
-            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 transition-all" id="btn-add-filter-condition">
-                + הוסף תנאי סינון
-            </button>
+            <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 transition-all" id="btn-add-filter-condition">
+                    + הוסף תנאי סינון
+                </button>
+                <button type="button" class="btn btn-outline-info btn-sm rounded-pill px-3 transition-all" id="btn-preview-data">
+                    👁 תצוגה מקדימה לנתונים
+                </button>
+            </div>
+            
+            <div id="preview-results-container" class="mt-4 d-none">
+                <h4 class="h6 text-light mb-3">תוצאות תצוגה מקדימה (עד 10 רשומות)</h4>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-header border-secondary text-info">מקור (SQL Server)</div>
+                            <div class="card-body p-0 table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-dark table-sm table-striped m-0" id="preview-sql-table"></table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-header border-secondary text-warning">יעד (Oracle)</div>
+                            <div class="card-body p-0 table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                <table class="table table-dark table-sm table-striped m-0" id="preview-oracle-table"></table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -279,28 +302,63 @@
             const mainForm = document.getElementById("schema-review-form");
 
             // ===== הגדרות JS לסינון נתונים (מרובה תנאים) =====
-            const enableDataFilter = document.getElementById("enable-data-filter");
-            const dataFilterOptions = document.getElementById("data-filter-options");
             const filterActiveInput = document.querySelector('input[name="filterActive"]');
             const filterContainer = document.getElementById("filter-conditions-container");
             const btnAddFilter = document.getElementById("btn-add-filter-condition");
+            const btnPreviewData = document.getElementById("btn-preview-data");
+            const previewContainer = document.getElementById("preview-results-container");
             
-            enableDataFilter.addEventListener("change", function() {
-                if (this.checked) {
-                    dataFilterOptions.classList.remove("d-none");
-                    filterActiveInput.value = "true";
-                    // נוסיף שורה ריקה באופן אוטומטי אם אין עדיין שורות
-                    if (filterContainer.children.length === 0) {
-                        addFilterConditionRow(); 
-                    }
-                } else {
-                    dataFilterOptions.classList.add("d-none");
-                    filterActiveInput.value = "false";
-                }
-            });
+            // תמיד הוסף שורה אחת בהתחלה
+            if (filterContainer.children.length === 0) {
+                addFilterConditionRow(); 
+            }
             
             btnAddFilter.addEventListener("click", function() {
                 addFilterConditionRow();
+            });
+
+            btnPreviewData.addEventListener("click", function() {
+                const formData = new FormData(mainForm);
+                btnPreviewData.innerHTML = "<span class='spinner-border spinner-border-sm'></span> טוען...";
+                btnPreviewData.disabled = true;
+
+                fetch('@Url.Action("PreviewFilterData", "Compare")', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    btnPreviewData.innerHTML = "👁 תצוגה מקדימה לנתונים";
+                    btnPreviewData.disabled = false;
+                    
+                    if (data.success) {
+                        previewContainer.classList.remove("d-none");
+                        
+                        function buildTableHtml(columns, rows) {
+                            if (!rows || rows.length === 0) return "<tr><td class='p-3 text-center'>לא נמצאו נתונים</td></tr>";
+                            let html = "<thead><tr>";
+                            columns.forEach(c => html += `<th>${escapeHtml(c)}</th>`);
+                            html += "</tr></thead><tbody>";
+                            rows.forEach(r => {
+                                html += "<tr>";
+                                columns.forEach(c => html += `<td>${escapeHtml((r[c] || '').toString())}</td>`);
+                                html += "</tr>";
+                            });
+                            html += "</tbody>";
+                            return html;
+                        }
+
+                        document.getElementById("preview-sql-table").innerHTML = buildTableHtml(data.data.sqlColumns, data.data.sqlData);
+                        document.getElementById("preview-oracle-table").innerHTML = buildTableHtml(data.data.oracleColumns, data.data.oracleData);
+                    } else {
+                        alert("שגיאה בטעינת נתונים: " + data.error);
+                    }
+                })
+                .catch(err => {
+                    btnPreviewData.innerHTML = "👁 תצוגה מקדימה לנתונים";
+                    btnPreviewData.disabled = false;
+                    alert("שגיאת תקשורת");
+                });
             });
 
             // פונקציה לבנייה של שורת סינון חדשה
@@ -338,11 +396,6 @@
 
                 row.querySelector(".btn-remove-filter").addEventListener("click", function() {
                     row.remove();
-                    // אם מחקו את כל השורות, נבטל אוטומטית את תיבת ה"הפעל סינון"
-                    if (filterContainer.children.length === 0) {
-                        enableDataFilter.checked = false;
-                        enableDataFilter.dispatchEvent(new Event("change"));
-                    }
                 });
 
                 filterContainer.appendChild(row);

@@ -43,6 +43,12 @@ public interface ICompareService
         int maxRows);
 
     // מנוע ההשוואה החכם - ביצוע השוואת הנתונים בפועל, זיהוי כפילויות, הבדלים וקיבוצם לתבניות
+    Task<Dictionary<string, object>> GetPreviewDataAsync(
+        string sourceConnectionString, string sourceProvider,
+        string targetConnectionString, string targetProvider,
+        string sourceTable, string targetTable,
+        List<string> filterColumn, List<string> filterOperator, List<string> filterValue);
+
     Task<SmartComparisonResultViewModel> SmartCompareAsync(
         string sourceConnectionString,
         string sourceProvider,

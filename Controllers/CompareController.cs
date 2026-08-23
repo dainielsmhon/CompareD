@@ -404,6 +404,41 @@ public class CompareController : Controller
 
     // פעולה (Action) המציגה את מסך סקירת הסכמה ומיפוי השדות עבור קבצים
     [HttpGet]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PreviewFilterData(
+        string sourceTable, 
+        string targetTable,
+        List<string> filterColumn,
+        List<string> filterOperator,
+        List<string> filterValue)
+    {
+        var protectedSource = HttpContext.Session.GetString("SourceConnectionString");
+        var protectedTarget = HttpContext.Session.GetString("TargetConnectionString");
+        var sourceConnectionString = UnprotectConnectionString(protectedSource);
+        var targetConnectionString = UnprotectConnectionString(protectedTarget);
+        var sourceProvider = HttpContext.Session.GetString("SourceProvider") ?? "SQLServer";
+        var targetProvider = HttpContext.Session.GetString("TargetProvider") ?? "Oracle";
+
+        if (string.IsNullOrEmpty(sourceConnectionString) || string.IsNullOrEmpty(targetConnectionString))
+            return Json(new { success = false, error = "פג תוקף החיבור המאובטח." });
+
+        try
+        {
+            var previewData = await _compareService.GetPreviewDataAsync(
+                sourceConnectionString, sourceProvider,
+                targetConnectionString, targetProvider,
+                sourceTable, targetTable,
+                filterColumn, filterOperator, filterValue);
+                
+            return Json(new { success = true, data = previewData });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, error = ex.Message });
+        }
+    }
+
     public IActionResult CompareFilesSchemaReview()
     {
         var path1 = HttpContext.Session.GetString("CsvSourceFilePath");
