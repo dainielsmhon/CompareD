@@ -19,4 +19,20 @@
     <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.10" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\version.txt').Trim())</Version>
+  </PropertyGroup>
+
+  <Target Name="IncrementVersion" BeforeTargets="BeforeCompile" Condition="'$(DeployOnBuild)' == 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$v = Get-Content version.txt; $parts = $v.Split('.'); $parts[-1] = [int]$parts[-1] + 1; $nv = $parts -join '.'; Set-Content version.txt $nv; Write-Host $nv&quot;" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="NewVersion" />
+    </Exec>
+    <PropertyGroup>
+      <Version>$(NewVersion)</Version>
+      <AssemblyVersion>$(NewVersion)</AssemblyVersion>
+      <FileVersion>$(NewVersion)</FileVersion>
+    </PropertyGroup>
+    <Message Importance="high" Text="Auto-Incremented Publish Version to $(NewVersion)" />
+  </Target>
+
 </Project>
