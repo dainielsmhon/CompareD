@@ -1,15 +1,54 @@
-@model CompareD.Controllers.SmartComparisonResultViewModel
+﻿@model CompareD.Controllers.SmartComparisonResultViewModel
 
 @{
     ViewData["Title"] = "דוח תוצאות השוואה חכם";
-    // חישוב אחוזי התאמה
-    int totalProcessedSql = Model.TotalRowsInSource;
-    double matchPercentage = totalProcessedSql > 0 
-        ? Math.Round((double)Model.TotalMatched / totalProcessedSql * 100, 2) 
-        : 100;
+    // אחוזי ההתאמה מחושבים בשרת ונקראים מהמודל, כדי שהמסך והייצוא לוורד
+    // יציגו בהכרח את אותו מספר. קודם כל אחד מהם חישב לחוד והם היו יכולים להיפרד.
+    double matchPercentage = Model.MatchPercentage;
+
+    // שמות הצדדים כפי שהמשתמש מכיר אותם: שם הקובץ בהשוואת קבצים, שם הטבלה
+    // בהשוואת מסדים. כל אמירה על חוסר או עודף נושאת את השם, כדי שלא יידרש
+    // לזכור תוך כדי קריאה מי "מקור" ומי "יעד".
+    string sourceName = string.IsNullOrWhiteSpace(Model.SourceTable) ? "מקור" : Model.SourceTable;
+    string targetName = string.IsNullOrWhiteSpace(Model.TargetTable) ? "יעד" : Model.TargetTable;
+
+    // בסרגלים צרים שם קובץ ארוך שובר את השורה, ולכן שם הוא מקוצר בלבד
+    Func<string, string> shortName = n => n.Length <= 24 ? n : n.Substring(0, 22) + "…";
+    string sourceShort = shortName(sourceName);
+    string targetShort = shortName(targetName);
 }
 
 
+
+@* =================================================================== *@
+@* ===== סרגל סיכום דביק ===== *@
+@* בדוח של אלפי שורות המספרים העיקריים נשארים בראש הדף, והקורא מאבד *@
+@* את ההקשר. הסרגל נצמד למעלה בגלילה ומופיע רק אחרי שהכרטיס המקורי *@
+@* יצא מהמסך, כך שאין כפילות על המסך.                                 *@
+@* =================================================================== *@
+<div class="ux-sticky-bar" id="ux-sticky-summary" aria-hidden="true">
+    <div class="ux-sticky-inner">
+        <span class="ux-sticky-item">
+            <i class="ux-sticky-dot" style="background: var(--color-success);"></i>
+            זהות <strong>@Model.TotalMatched</strong>
+        </span>
+        <span class="ux-sticky-item">
+            <i class="ux-sticky-dot" style="background: var(--color-warning);"></i>
+            הבדלי ערכים <strong>@Model.TotalDiscrepancyRows</strong>
+        </span>
+        <span class="ux-sticky-item">
+            <i class="ux-sticky-dot" style="background: var(--color-danger);"></i>
+            <span title="@sourceName">יש רק ב-@sourceShort</span> <strong>@Model.TotalMissingInTarget</strong>
+        </span>
+        <span class="ux-sticky-item">
+            <i class="ux-sticky-dot" style="background: var(--accent-secondary);"></i>
+            <span title="@targetName">יש רק ב-@targetShort</span> <strong>@Model.TotalMissingInSource</strong>
+        </span>
+        <span class="ux-sticky-item">
+            התאמה בזוגות <strong>@Model.MatchPercentage%</strong>
+        </span>
+    </div>
+</div>
 
 @* ===== מחוון שלבים (Step Indicator) — שלב 6 פעיל (דוח תוצאות) ===== *@
 <div class="glass-card mb-5 py-3 px-4" id="step-indicator-bar">
@@ -28,14 +67,747 @@
 <div class="text-center mb-5" id="results-header">
     <h1 class="display-4 text-gradient mb-3" id="results-title">דוח השוואת נתונים — QA Workflow</h1>
     <p class="lead text-secondary fs-5" id="results-description">
-        דוח בדיקות אוטומטי בנוי לפי 3 שלבי אימות סדרתיים: ספירת שורות ← מפתחות חסרים ← עקביות נתונים.
+        הדוח נפתח בבדיקה הראשונה — אילו שורות קיימות בצד אחד ולא בשני — וממשיך לספירות, לכפילויות ולהבדלי התוכן.
     </p>
     <div class="d-flex justify-content-center gap-3 mt-3 flex-wrap">
         <span class="badge bg-primary px-3 py-2 fs-6">מקור: @Model.SourceTable</span>
         <span class="badge px-3 py-2 fs-6" style="background-color: var(--accent-secondary) !important;">יעד: @Model.TargetTable</span>
-        <span class="badge bg-dark text-light border border-white/10 px-3 py-2 fs-6 font-monospace">מפתח: @Model.PrimaryKeyColumn</span>
+        <span class="badge bg-dark text-light border border-white/10 px-3 py-2 fs-6 font-monospace">מפתח התאמה: @Model.PrimaryKeyColumn</span>
     </div>
 </div>
+
+
+@* =================================================================== *@
+@* ===== מה מצאנו — התשובה בעברית פשוטה, לפני כל מספר אחר ===== *@
+@* קורא שאינו מכיר את המונחים "מקור" ו"יעד" צריך להבין מהמשפט עצמו מה *@
+@* חסר, איפה וכמה, ולהגיע לשורות עצמן בלחיצה אחת. עד כה הדוח פתח      *@
+@* בכרטיסי מדדים, והקורא נדרש לפענח אותם לפני שהבין מה נמצא בכלל.     *@
+@* =================================================================== *@
+<div class="row g-3 mb-5" id="findings-summary">
+    <div class="col-lg-4">
+        <div class="glass-card h-100 p-4 text-center"
+             style="border-color: @(Model.TotalMissingInTarget > 0 ? "rgba(239,68,68,0.45)" : "rgba(16,185,129,0.35)") !important;">
+            <div class="display-5 fw-bold mb-2 @(Model.TotalMissingInTarget > 0 ? "text-danger" : "text-success")">@Model.TotalMissingInTarget</div>
+            <div class="text-light mb-3">
+                שורות שנמצאות ב-<strong class="font-monospace">@sourceName</strong>
+                <br />ולא נמצאות ב-<strong class="font-monospace">@targetName</strong>
+            </div>
+            @if (Model.TotalMissingInTarget > 0)
+            {
+                <a href="#missing-in-target-table" class="btn btn-sm btn-outline-danger px-3">הצג את השורות עצמן ↓</a>
+            }
+            else
+            {
+                <span class="badge bg-success/10 text-success border border-success/20 px-3 py-2">לא חסרה אף שורה</span>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card h-100 p-4 text-center"
+             style="border-color: @(Model.TotalMissingInSource > 0 ? "rgba(59,130,246,0.45)" : "rgba(16,185,129,0.35)") !important;">
+            <div class="display-5 fw-bold mb-2 @(Model.TotalMissingInSource > 0 ? "text-primary" : "text-success")">@Model.TotalMissingInSource</div>
+            <div class="text-light mb-3">
+                שורות שנמצאות ב-<strong class="font-monospace">@targetName</strong>
+                <br />ולא נמצאות ב-<strong class="font-monospace">@sourceName</strong>
+            </div>
+            @if (Model.TotalMissingInSource > 0)
+            {
+                <a href="#missing-in-source-table" class="btn btn-sm btn-outline-primary px-3">הצג את השורות עצמן ↓</a>
+            }
+            else
+            {
+                <span class="badge bg-success/10 text-success border border-success/20 px-3 py-2">לא חסרה אף שורה</span>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card h-100 p-4 text-center"
+             style="border-color: @(Model.TotalDiscrepancyRows > 0 ? "rgba(245,158,11,0.45)" : "rgba(16,185,129,0.35)") !important;">
+            <div class="display-5 fw-bold mb-2 @(Model.TotalDiscrepancyRows > 0 ? "text-warning" : "text-success")">@Model.TotalDiscrepancyRows</div>
+            <div class="text-light mb-3">
+                שורות שקיימות בשני הצדדים
+                <br />אבל התוכן שלהן שונה
+            </div>
+            @if (Model.TotalDiscrepancyRows > 0)
+            {
+                @* שמות השדות האשמים, כדי שיהיה ברור מיד מה בדיוק שונה *@
+                <div class="text-secondary small mb-3">
+                    בשדות:
+                    <span class="font-monospace text-light">@string.Join(", ", Model.FieldGapProfiles.Take(3).Select(f => f.FieldName))</span>@(Model.FieldGapProfiles.Count > 3 ? " ועוד" : "")
+                </div>
+                <a href="#discrepancy-rows-table" class="btn btn-sm btn-outline-warning px-3">הצג את ההבדלים עצמם ↓</a>
+            }
+            else
+            {
+                <span class="badge bg-success/10 text-success border border-success/20 px-3 py-2">התוכן זהה בכולן</span>
+            }
+        </div>
+    </div>
+</div>
+
+@* =================================================================== *@
+@* ===== בדיקה ראשונה: אילו שורות קיימות בצד אחד ולא בשני ===== *@
+@* זו הבדיקה הראשונה שהמשתמש מחפש, ולכן היא יושבת לפני כל שאר הדוח. *@
+@* הניסוח מפורש: המפתח המלא בעמודות, ואחריו עמודה לכל קובץ שאומרת     *@
+@* "יש" או "אין" - בלי שהקורא יידרש להסיק זאת מהמונחים מקור ויעד.     *@
+@* =================================================================== *@
+<div class="glass-card mb-5 p-4" id="first-check-card">
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+        <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;">
+            בדיקה ראשונה
+        </span>
+        <h3 class="h4 text-gradient mb-0">אילו שורות קיימות בצד אחד ולא בשני</h3>
+    </div>
+
+    <p class="text-secondary small mb-4" id="first-check-explainer">
+        כל שורה מזוהה לפי המפתח שסימנת: <span class="font-monospace text-light">@Model.PrimaryKeyColumn</span>.
+        לכל קובץ יש עמודה משלו, ובה כתוב אם השורה נמצאת בו או לא.
+    </p>
+
+    @* ===== אזהרת שורות מוסתרות ===== *@
+    @* הסתרת שורות בגיליון אינה מוחקת אותן, והן נכללו בהשוואה. בלי האזהרה *@
+    @* הזו, קובץ שהוסתר בו יום שלם מייצר כאן עשרות חוסרים בלי שום הסבר.   *@
+    @if (Model.SourceHiddenRows > 0 || Model.TargetHiddenRows > 0)
+    {
+        <div class="p-3 mb-4 rounded-3" id="hidden-rows-warning"
+             style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3);">
+            <div class="d-flex align-items-start gap-3">
+                <span class="fs-3">⚠</span>
+                <div>
+                    <h4 class="h6 @(Model.HiddenRowsExcluded ? "text-info" : "text-warning") fw-bold mb-1">
+                        @(Model.HiddenRowsExcluded
+                            ? "יש שורות מוסתרות בגיליון — והן הוחרגו מההשוואה לפי בקשתך"
+                            : "יש שורות מוסתרות בגיליון — והן נכללו בהשוואה")
+                    </h4>
+                    <p class="text-secondary small mb-1">
+                        @if (Model.SourceHiddenRows > 0)
+                        {
+                            <span class="d-block">
+                                ב-<span class="font-monospace text-light">@sourceName</span>:
+                                <strong class="text-warning">@Model.SourceHiddenRows</strong> שורות מוסתרות.
+                            </span>
+                        }
+                        @if (Model.TargetHiddenRows > 0)
+                        {
+                            <span class="d-block">
+                                ב-<span class="font-monospace text-light">@targetName</span>:
+                                <strong class="text-warning">@Model.TargetHiddenRows</strong> שורות מוסתרות.
+                            </span>
+                        }
+                    </p>
+                    <p class="text-secondary small mb-0">
+                        @if (Model.HiddenRowsExcluded)
+                        {
+                            <text>
+                                סימנת במסך המיפוי להחריג שורות מוסתרות, ולכן הן לא נכללו בספירות ובממצאים שלהלן.
+                                אם שורה מהן אמורה להיבדק — בטלו את הסימון והריצו שוב.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>
+                                הסתרת שורות בגיליון, ידנית או בסינון אוטומטי, אינה מוחקת אותן — הן נשארות בקובץ
+                                וההשוואה קוראת אותן. אם הן אינן אמורות להיבדק, סמנו במסך המיפוי
+                                "אל תכלול בהשוואה שורות שהוסתרו בגיליון". ממצאי חוסר שמקורם בשורות האלה
+                                אינם פער נתונים אמיתי.
+                            </text>
+                        }
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ===== הערה חשובה: ערך מפתח שלם שקיים רק בצד אחד ===== *@
+    @* יום שלם שיוצא בקובץ אחד ולא בשני מופיע בטבלאות שמתחת כמאות שורות *@
+    @* חסרות, ושם הוא נראה כרשימה ארוכה ולא כחור אחד. כאן הוא מקבל כותרת. *@
+    @if (Model.KeyValueGaps.Count > 0)
+    {
+        <div class="p-4 mb-4 rounded-3" id="key-value-gaps-note"
+             style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35);">
+            <div class="d-flex align-items-start gap-3">
+                <span class="fs-2">❗</span>
+                <div class="flex-grow-1">
+                    <h4 class="h6 text-danger fw-bold mb-3">הערה חשובה — יש ערכים שלמים שקיימים רק בצד אחד</h4>
+
+                    <ul class="mb-3 ps-0" style="list-style: none;">
+                        @foreach (var gap in Model.KeyValueGaps)
+                        {
+                            string presentFile = gap.PresentIn == "Source" ? sourceName : targetName;
+                            string absentFile = gap.PresentIn == "Source" ? targetName : sourceName;
+                            <li class="text-light small mb-2 pb-2 border-bottom border-white/5">
+                                ב-<span class="font-monospace text-warning">@gap.FieldName</span>:
+                                @if (gap.ValueCount == 1)
+                                {
+                                    <text>
+                                        הערך <span class="font-monospace text-light">@gap.Values.FirstOrDefault()</span>
+                                        קיים ב-<span class="font-monospace text-light">@presentFile</span>
+                                        (<strong class="text-danger">@gap.RowCount</strong> שורות)
+                                        ואינו קיים כלל ב-<span class="font-monospace text-light">@absentFile</span>.
+                                    </text>
+                                }
+                                else
+                                {
+                                    <text>
+                                        @gap.ValueCount ערכים מתוך @gap.DistinctValuesInField —
+                                        <span class="font-monospace text-light">@string.Join(", ", gap.Values)</span>@(gap.ValueCount > gap.Values.Count ? $" ועוד {gap.ValueCount - gap.Values.Count}" : "")
+                                        — קיימים ב-<span class="font-monospace text-light">@presentFile</span>
+                                        (<strong class="text-danger">@gap.RowCount</strong> שורות)
+                                        ואינם קיימים כלל ב-<span class="font-monospace text-light">@absentFile</span>.
+                                    </text>
+                                }
+                            </li>
+                        }
+                    </ul>
+
+                    <p class="text-secondary small mb-0">
+                        הממצא הזה מופיע גם בטבלאות שמתחת, כשורות חסרות — אבל שם קל לפספס אותו.
+                        לרוב הוא נובע מטווח ייצוא שונה בין שני הצדדים, או משורות שהוסתרו או נמחקו באחד הקבצים.
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+
+@if (Model.TotalMissingInTarget == 0 && Model.TotalMissingInSource == 0)
+{
+    <div class="text-center py-4 text-success" id="first-check-clear">
+        <span class="fs-1 d-block mb-2">✓</span>
+        <h4 class="fw-bold mb-1">כל השורות קיימות בשני הקבצים</h4>
+        <p class="text-secondary mb-0">
+            אין אף שורה שנמצאת ב-<span class="font-monospace">@sourceName</span> ולא ב-<span class="font-monospace">@targetName</span>, ולהפך.
+        </p>
+    </div>
+}
+
+    @if (Model.MissingInTargetDetails.Count > 0)
+    {
+        <h5 class="h6 text-warning mb-2 mt-4">
+            Model.TotalMissingInTarget שורות שיש ב-<span class="font-monospace">@sourceName</span>
+            ואין ב-<span class="font-monospace">@targetName</span>
+        </h5>
+
+        @* פירוק הממצאים לפני הטבלה: מה קיים וחסר לו מופע, מה כמעט זהה, ומה זר לגמרי *@
+        int existsT = Model.MissingInTargetDetails.Count(r => r.MissingKind == "OccurrenceShortfall");
+        int nearT = Model.MissingInTargetDetails.Count(r => r.KeyPartsTotal > 0 && r.KeyPartsMatched == r.KeyPartsTotal - 1);
+        int noneT = Model.MissingInTargetDetails.Count(r => r.KeyPartsMatched == 0);
+
+        <p class="text-secondary small mb-2">
+            מתוך @Model.MissingInTargetDetails.Count השורות שמוצגות:
+            <strong class="text-warning">@existsT</strong> המפתח שלהן קיים ב-@targetName וחסר בו רק מופע,
+            <strong class="text-info">@nearT</strong> נמצאה להן שם שורה שנבדלת ברכיב מפתח אחד,
+            <strong class="text-danger">@noneT</strong> בלי שום שורה דומה.
+        </p>
+
+        <div class="table-responsive mb-2" style="max-height: 460px; overflow-y: auto;">
+            @* עמודה לכל רכיב מפתח, ואחריה עמודה לכל קובץ עם "יש" או "אין".
+               המיון, הסינון וההעתקה מסופקים על ידי ui-enhance.js לפי התכונות האלה. *@
+            <table class="table table-dark table-sm table-borderless align-middle" id="missing-in-target-table"
+                   data-ux-sort data-ux-copy-table
+                   data-ux-filter="סינון: הקלידו מספר דף, יום, או כל ערך מהשורה">
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/5">
+                        @foreach (var col in Model.KeyColumnNames)
+                        {
+                            <th class="font-monospace">@col</th>
+                        }
+                        <th class="text-center" style="width: 12%;">@sourceName</th>
+                        <th class="text-center" style="width: 12%;">@targetName</th>
+                        <th class="text-center" style="width: 9%;">התאמת מפתח</th>
+                        <th style="width: 25%;">הכי קרוב שנמצא ב-@targetName</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.MissingInTargetDetails)
+                    {
+                        <tr class="border-bottom border-white/5">
+                            @if (row.KeyParts.Count == 0)
+                            {
+                                <td class="font-monospace text-light small" colspan="@Math.Max(1, Model.KeyColumnNames.Count)">@row.KeyValue</td>
+                            }
+                            else
+                            {
+                                for (int i = 0; i < Model.KeyColumnNames.Count; i++)
+                                {
+                                    string cell = i < row.KeyParts.Count && !string.IsNullOrWhiteSpace(row.KeyParts[i])
+                                        ? row.KeyParts[i]
+                                        : "(ריק)";
+                                    <td class="font-monospace text-light small">@cell</td>
+                                }
+                            }
+
+                            @* הצד שבו השורה קיימת *@
+                            <td class="text-center">
+                                <span class="badge bg-success/10 text-success border border-success/20 px-2 py-1 small">
+                                    ✓ יש@(row.SourceOccurrences > 1 ? $" ({row.SourceOccurrences})" : "")
+                                </span>
+                            </td>
+
+                            @* הצד שבו היא חסרה - "אין" כשהמפתח כלל אינו שם,
+                               ומספר מופעים חסרים כשהמפתח כן שם *@
+                            <td class="text-center">
+                                @if (row.MissingKind == "OccurrenceShortfall")
+                                {
+                                    <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 small">
+                                        יש @row.TargetOccurrences מתוך @row.SourceOccurrences
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small">✗ אין</span>
+                                }
+                            </td>
+
+                            @* כמה מרכיבי המפתח תאמו לשורה הקרובה ביותר בצד השני *@
+                            <td class="text-center small">
+                                @if (row.KeyPartsTotal > 0)
+                                {
+                                    <span class="badge px-2 py-1 font-monospace @(row.KeyPartsMatched == row.KeyPartsTotal
+                                            ? "bg-warning/10 text-warning border border-warning/20"
+                                            : row.KeyPartsMatched > 0
+                                                ? "bg-info/10 text-info border border-info/20"
+                                                : "bg-danger/10 text-danger border border-danger/20")">
+                                        @row.KeyPartsMatched/@row.KeyPartsTotal
+                                    </span>
+                                }
+                            </td>
+
+                            <td class="small">
+                                @if (row.MissingKind == "OccurrenceShortfall")
+                                {
+                                    <span class="text-secondary">המפתח קיים שם, חסר בו מופע.</span>
+                                    @if (!string.IsNullOrEmpty(row.DistinguishingValues))
+                                    {
+                                        <span class="font-monospace text-light ms-1">@row.DistinguishingValues</span>
+                                    }
+                                }
+                                else if (!string.IsNullOrEmpty(row.DiffFieldName))
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small font-monospace">@row.DiffFieldName</span>
+                                    <span class="text-secondary ms-1">ב-@sourceName</span>
+                                    <span class="font-monospace text-primary">@row.SourceValue</span>
+                                    <span class="text-secondary">, ב-@targetName</span>
+                                    <span class="font-monospace text-info">@row.TargetValue</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">לא נמצאה שם שורה שחולקת ולו רכיב מפתח אחד.</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.TotalMissingInTarget > Model.MissingInTargetDetails.Count)
+        {
+            <span class="text-secondary small d-block mb-2">מציג @Model.MissingInTargetDetails.Count שורות מתוך Model.TotalMissingInTarget. הרשימה המלאה בייצוא לאקסל.</span>
+        }
+    }
+
+    @if (Model.MissingInSourceDetails.Count > 0)
+    {
+        <h5 class="h6 text-primary mb-2 mt-4">
+            Model.TotalMissingInSource שורות שיש ב-<span class="font-monospace">@targetName</span>
+            ואין ב-<span class="font-monospace">@sourceName</span>
+        </h5>
+
+        @* פירוק הממצאים לפני הטבלה: מה קיים וחסר לו מופע, מה כמעט זהה, ומה זר לגמרי *@
+        int existsS = Model.MissingInSourceDetails.Count(r => r.MissingKind == "OccurrenceShortfall");
+        int nearS = Model.MissingInSourceDetails.Count(r => r.KeyPartsTotal > 0 && r.KeyPartsMatched == r.KeyPartsTotal - 1);
+        int noneS = Model.MissingInSourceDetails.Count(r => r.KeyPartsMatched == 0);
+
+        <p class="text-secondary small mb-2">
+            מתוך @Model.MissingInSourceDetails.Count השורות שמוצגות:
+            <strong class="text-warning">@existsS</strong> המפתח שלהן קיים ב-@sourceName וחסר בו רק מופע,
+            <strong class="text-info">@nearS</strong> נמצאה להן שם שורה שנבדלת ברכיב מפתח אחד,
+            <strong class="text-danger">@noneS</strong> בלי שום שורה דומה.
+        </p>
+
+        <div class="table-responsive mb-2" style="max-height: 460px; overflow-y: auto;">
+            @* עמודה לכל רכיב מפתח, ואחריה עמודה לכל קובץ עם "יש" או "אין".
+               המיון, הסינון וההעתקה מסופקים על ידי ui-enhance.js לפי התכונות האלה. *@
+            <table class="table table-dark table-sm table-borderless align-middle" id="missing-in-source-table"
+                   data-ux-sort data-ux-copy-table
+                   data-ux-filter="סינון: הקלידו מספר דף, יום, או כל ערך מהשורה">
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/5">
+                        @foreach (var col in Model.KeyColumnNames)
+                        {
+                            <th class="font-monospace">@col</th>
+                        }
+                        <th class="text-center" style="width: 12%;">@targetName</th>
+                        <th class="text-center" style="width: 12%;">@sourceName</th>
+                        <th class="text-center" style="width: 9%;">התאמת מפתח</th>
+                        <th style="width: 25%;">הכי קרוב שנמצא ב-@sourceName</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.MissingInSourceDetails)
+                    {
+                        <tr class="border-bottom border-white/5">
+                            @if (row.KeyParts.Count == 0)
+                            {
+                                <td class="font-monospace text-light small" colspan="@Math.Max(1, Model.KeyColumnNames.Count)">@row.KeyValue</td>
+                            }
+                            else
+                            {
+                                for (int i = 0; i < Model.KeyColumnNames.Count; i++)
+                                {
+                                    string cell = i < row.KeyParts.Count && !string.IsNullOrWhiteSpace(row.KeyParts[i])
+                                        ? row.KeyParts[i]
+                                        : "(ריק)";
+                                    <td class="font-monospace text-light small">@cell</td>
+                                }
+                            }
+
+                            @* הצד שבו השורה קיימת *@
+                            <td class="text-center">
+                                <span class="badge bg-success/10 text-success border border-success/20 px-2 py-1 small">
+                                    ✓ יש@(row.TargetOccurrences > 1 ? $" ({row.TargetOccurrences})" : "")
+                                </span>
+                            </td>
+
+                            @* הצד שבו היא חסרה - "אין" כשהמפתח כלל אינו שם,
+                               ומספר מופעים חסרים כשהמפתח כן שם *@
+                            <td class="text-center">
+                                @if (row.MissingKind == "OccurrenceShortfall")
+                                {
+                                    <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 small">
+                                        יש @row.SourceOccurrences מתוך @row.TargetOccurrences
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small">✗ אין</span>
+                                }
+                            </td>
+
+                            @* כמה מרכיבי המפתח תאמו לשורה הקרובה ביותר בצד השני *@
+                            <td class="text-center small">
+                                @if (row.KeyPartsTotal > 0)
+                                {
+                                    <span class="badge px-2 py-1 font-monospace @(row.KeyPartsMatched == row.KeyPartsTotal
+                                            ? "bg-warning/10 text-warning border border-warning/20"
+                                            : row.KeyPartsMatched > 0
+                                                ? "bg-info/10 text-info border border-info/20"
+                                                : "bg-danger/10 text-danger border border-danger/20")">
+                                        @row.KeyPartsMatched/@row.KeyPartsTotal
+                                    </span>
+                                }
+                            </td>
+
+                            <td class="small">
+                                @if (row.MissingKind == "OccurrenceShortfall")
+                                {
+                                    <span class="text-secondary">המפתח קיים שם, חסר בו מופע.</span>
+                                    @if (!string.IsNullOrEmpty(row.DistinguishingValues))
+                                    {
+                                        <span class="font-monospace text-light ms-1">@row.DistinguishingValues</span>
+                                    }
+                                }
+                                else if (!string.IsNullOrEmpty(row.DiffFieldName))
+                                {
+                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-2 py-1 small font-monospace">@row.DiffFieldName</span>
+                                    <span class="text-secondary ms-1">ב-@sourceName</span>
+                                    <span class="font-monospace text-primary">@row.SourceValue</span>
+                                    <span class="text-secondary">, ב-@targetName</span>
+                                    <span class="font-monospace text-info">@row.TargetValue</span>
+                                }
+                                else
+                                {
+                                    <span class="text-secondary">לא נמצאה שם שורה שחולקת ולו רכיב מפתח אחד.</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.TotalMissingInSource > Model.MissingInSourceDetails.Count)
+        {
+            <span class="text-secondary small d-block mb-2">מציג @Model.MissingInSourceDetails.Count שורות מתוך Model.TotalMissingInSource. הרשימה המלאה בייצוא לאקסל.</span>
+        }
+    }
+</div>
+
+
+@* =================================================================== *@
+@* ===== שורה תחתונה — התשובה לפני הפירוט ===== *@
+@* בלי הסקציה הזו הדוח היה אלפי שורות של פירוט בלי מסקנה, והמשתמש נדרש *@
+@* לקרוא הכל כדי להבין אם המיגרציה תקינה ומה בדיוק דורש בדיקה ידנית. *@
+@* =================================================================== *@
+@if (!string.IsNullOrEmpty(Model.BottomLine))
+{
+    <div class="glass-card mb-5 p-4" id="bottom-line-card"
+         style="border-color: @(Model.TotalMissingInTarget == 0 && Model.TotalMissingInSource == 0 && Model.TotalDiscrepancyRows == 0 ? "rgba(16,185,129,0.4)" : "rgba(59,130,246,0.4)") !important;">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;">שורה תחתונה</span>
+            <h3 class="h5 text-gradient mb-0">מה הבדיקה מצאה</h3>
+        </div>
+
+        <p class="text-light mb-3" id="bottom-line-text">@Model.BottomLine</p>
+
+        @* ===== פס מוערם: כל ההשוואה במבט אחד ===== *@
+        @* המספרים בטבלאות שמתחת דורשים חישוב יחסים בראש. אורך נקרא מיד. *@
+        @{
+            int stackTotal = Model.TotalMatched + Model.TotalDiscrepancyRows
+                + Model.TotalMissingInTarget + Model.TotalMissingInSource;
+            double PctOf(int part) => stackTotal > 0 ? Math.Round((double)part / stackTotal * 100, 2) : 0;
+        }
+        @if (stackTotal > 0)
+        {
+            <div class="report-stack" id="report-stack-bar" role="img"
+                 aria-label="@Model.TotalMatched זהות, @Model.TotalDiscrepancyRows שונות, @(Model.TotalMissingInTarget + Model.TotalMissingInSource) ללא זוג">
+                @if (Model.TotalMatched > 0)
+                {
+                    <span style="width:@PctOf(Model.TotalMatched)%;background:var(--color-success)"
+                          title="@Model.TotalMatched שורות זהות"></span>
+                }
+                @if (Model.TotalDiscrepancyRows > 0)
+                {
+                    <span style="width:@PctOf(Model.TotalDiscrepancyRows)%;background:var(--color-warning)"
+                          title="@Model.TotalDiscrepancyRows שורות עם הבדלי ערכים"></span>
+                }
+                @if (Model.TotalMissingInTarget > 0)
+                {
+                    <span style="width:@PctOf(Model.TotalMissingInTarget)%;background:var(--color-danger)"
+                          title="@Model.TotalMissingInTarget שורות שיש רק ב-@sourceName"></span>
+                }
+                @if (Model.TotalMissingInSource > 0)
+                {
+                    <span style="width:@PctOf(Model.TotalMissingInSource)%;background:var(--accent-secondary)"
+                          title="@Model.TotalMissingInSource שורות שיש רק ב-@targetName"></span>
+                }
+            </div>
+            <div class="report-stack-legend" id="report-stack-legend">
+                <span><i style="background:var(--color-success)"></i>זהות <strong class="text-light ux-countup">@Model.TotalMatched</strong></span>
+                <span><i style="background:var(--color-warning)"></i>הבדלי ערכים <strong class="text-light ux-countup">@Model.TotalDiscrepancyRows</strong></span>
+                <span title="@sourceName"><i style="background:var(--color-danger)"></i>יש רק ב-@sourceShort <strong class="text-light ux-countup">@Model.TotalMissingInTarget</strong></span>
+                <span title="@targetName"><i style="background:var(--accent-secondary)"></i>יש רק ב-@targetShort <strong class="text-light ux-countup">@Model.TotalMissingInSource</strong></span>
+            </div>
+        }
+
+        @* ===== טבעת ההתאמה ופסי ההשוואה ===== *@
+        @* האיורים אינם מותנים יותר בקיומם של הבדלי ערכים. קודם הבלוק כולו ישב *@
+        @* בתוך תנאי על FieldGapProfiles, ולכן דוח שכל ממצאיו היו שורות חסרות *@
+        @* הוצג בלי שום איור - טבלאות בלבד. *@
+        <div class="row g-4 align-items-center mt-4 mb-2" id="report-visual-row">
+                @if (stackTotal > 0)
+                {
+                    <div class="col-md-4">
+                        @* היקף מעגל ברדיוס 54 הוא 339.29. כל פלח מקבל אורך קו
+                           לפי חלקו, וההיסט מצטבר - כך שהטבעת מצוירת לסקאלה. *@
+                        @{
+                            const double ringCircumference = 339.29;
+                            double matchedArc = ringCircumference * Model.TotalMatched / stackTotal;
+                            double diffArc = ringCircumference * Model.TotalDiscrepancyRows / stackTotal;
+                            double missingArc = ringCircumference
+                                * (Model.TotalMissingInTarget + Model.TotalMissingInSource) / stackTotal;
+
+                            // המספר במרכז הטבעת הוא בדיוק מה שהקשת הירוקה
+                            // מציירת - שורות זהות מתוך כל השורות בשני הצדדים.
+                            //
+                            // קודם הופיע כאן MatchPercentage, שהוא זהות מתוך
+                            // הזוגות שהותאמו בלבד. עם 80 זהות, 20 שונות ו-100
+                            // חסרות, המרכז אמר 80% בעוד שהקשת הירוקה כיסתה
+                            // 40% מהטבעת - שני מספרים שונים באותו איור, וקורא
+                            // מקריא מסך שמע דווקא את המספר שאינו של הטבעת.
+                            double ringPercent = Math.Round(100.0 * Model.TotalMatched / stackTotal, 1);
+
+                            // כל מספר שנכנס לתוך SVG או ל-CSS נכתב בנקודה
+                            // עשרונית. בתרבות שמשתמשת בפסיק, stroke-dasharray
+                            // היה נקרא כשתי מידות והטבעת הייתה נשברת.
+                            Func<double, string> num = v =>
+                                Math.Round(v, 2).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        <div class="report-ring">
+                            <svg viewBox="0 0 150 150" role="img"
+                                 aria-label="@num(ringPercent) אחוז מהשורות בשני הצדדים נמצאו זהות לחלוטין; @Model.TotalDiscrepancyRows עם הפרש ערכים ו-@(Model.TotalMissingInTarget + Model.TotalMissingInSource) חסרות">
+                                <circle cx="75" cy="75" r="54" fill="none" stroke="var(--border-color)" stroke-width="17"></circle>
+                                @if (matchedArc > 0)
+                                {
+                                    <circle cx="75" cy="75" r="54" fill="none" stroke="var(--color-success)" stroke-width="17"
+                                            stroke-dasharray="@num(matchedArc) @ringCircumference"
+                                            transform="rotate(-90 75 75)"></circle>
+                                }
+                                @if (diffArc > 0)
+                                {
+                                    <circle cx="75" cy="75" r="54" fill="none" stroke="var(--color-warning)" stroke-width="17"
+                                            stroke-dasharray="@num(diffArc) @ringCircumference"
+                                            stroke-dashoffset="-@num(matchedArc)"
+                                            transform="rotate(-90 75 75)"></circle>
+                                }
+                                @if (missingArc > 0)
+                                {
+                                    <circle cx="75" cy="75" r="54" fill="none" stroke="var(--color-danger)" stroke-width="17"
+                                            stroke-dasharray="@num(missingArc) @ringCircumference"
+                                            stroke-dashoffset="-@num(matchedArc + diffArc)"
+                                            transform="rotate(-90 75 75)"></circle>
+                                }
+                                <g class="report-ring-center">
+                                    <text class="report-ring-value" x="75" y="72">@num(ringPercent)%</text>
+                                    <text class="report-ring-label" x="75" y="88">זהות מלאה</text>
+                                </g>
+                            </svg>
+                        </div>
+                        <p class="text-secondary small text-center mb-0 mt-2">
+                            מתוך @stackTotal שורות בשני הצדדים
+                            <br />
+                            @* אחוז ההתאמה נשאר מוצג במפורש כמספר נפרד, כי הוא
+                               המדד שמופיע גם בייצוא - אבל הוא מדד אחר מהטבעת
+                               ולכן הוא כתוב עם הבסיס שלו לידו. *@
+                            <span class="font-monospace">@matchPercentage%</span>
+                            זהות בזוגות שהותאמו (@Model.TotalPairedOccurrences)
+                        </p>
+                    </div>
+                }
+
+                @* ===== פסי הספירות ===== *@
+                @* כל מספר מרכזי בדוח מקבל אורך. אורך נקרא במבט, מספר דורש השוואה בראש. *@
+                @{
+                    var countBars = new (string Label, int Value, string Color)[]
+                    {
+                        ("כל השורות ב-" + sourceName, Model.TotalRowsInSource, "var(--accent-primary)"),
+                        ("כל השורות ב-" + targetName, Model.TotalRowsInTarget, "var(--accent-secondary)"),
+                        ("זהות לחלוטין", Model.TotalMatched, "var(--color-success)"),
+                        ("הבדלי ערכים", Model.TotalDiscrepancyRows, "var(--color-warning)"),
+                        ("יש ב-" + sourceName + " וחסר ב-" + targetName, Model.TotalMissingInTarget, "var(--color-danger)"),
+                        ("יש ב-" + targetName + " וחסר ב-" + sourceName, Model.TotalMissingInSource, "var(--color-info, #38bdf8)")
+                    };
+                    int countPeak = countBars.Max(b => b.Value);
+                    if (countPeak < 1) { countPeak = 1; }
+
+                    // רוחב הפס נכתב תמיד בנקודה עשרונית ולא בפסיק, אחרת
+                    // בתרבות שמשתמשת בפסיק כל הפסים מתקפלים לאפס.
+                    Func<int, string> countPct = v =>
+                        Math.Round((double)v / countPeak * 100, 1)
+                            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                <div class="col-md-8" id="report-count-bars">
+                    <h4 class="h6 text-secondary mb-3">ספירות ההשוואה</h4>
+                    @foreach (var bar in countBars)
+                    {
+                        <div class="report-field">
+                            <div class="report-field-head">
+                                <span>@bar.Label</span>
+                                <span class="report-field-count font-monospace">@bar.Value</span>
+                            </div>
+                            <div class="report-field-track">
+                                <span class="report-field-fill"
+                                      style="width:@countPct(bar.Value)%;background:@bar.Color"></span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (Model.FieldGapProfiles.Count > 0)
+                {
+                        int fieldPeak = Model.FieldGapProfiles.Max(f => f.DiffCount);
+                        if (fieldPeak < 1) { fieldPeak = 1; }
+
+                        // רוחב הפס נכתב תמיד בנקודה עשרונית ולא בפסיק, אחרת
+                        // בתרבות שמשתמשת בפסיק כל הפסים מתקפלים לאפס.
+                        Func<int, string> fieldPct = v =>
+                            Math.Round((double)v / fieldPeak * 100, 1)
+                                .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        bool dividerShown = false;
+                    <div class="col-12 mt-2" id="report-field-bars">
+                        <h4 class="h6 text-secondary mb-3">אילו שדות שונים — מהשכיח לנדיר</h4>
+                        @foreach (var profile in Model.FieldGapProfiles.Take(10))
+                        {
+                            @* קו הפרדה בין ההבדלים השיטתיים לאלה שדורשים בדיקה בפועל.
+                               זו ההבחנה המעשית היחידה בדוח הזה. *@
+                            @if (!profile.IsSystematic && !dividerShown && Model.SystematicFieldCount > 0)
+                            {
+                                dividerShown = true;
+                                <div class="report-field-divider">מכאן — שדות שדורשים בדיקה בפועל</div>
+                            }
+                            @* data-ux-drill-field הופך את הפס ללחיצה שפותחת את
+                               התבניות שבהן השדה הזה נמצא שונה, כולל המפתחות
+                               לדוגמה. פס בלי פירוט אומר "יש בעיה" ולא "איפה". *@
+                            <div class="report-field ux-clickable"
+                                 data-ux-drill-field="@profile.FieldName"
+                                 title="לחיצה פותחת את ההבדלים בשדה @profile.FieldName">
+                                <div class="report-field-head">
+                                    <span>
+                                        @profile.FieldName
+                                        @if (profile.IsSystematic)
+                                        {
+                                            <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 ms-1" style="font-size: 0.68rem;">שיטתי</span>
+                                        }
+                                        <span class="ux-hint-click">לחצו לפירוט</span>
+                                    </span>
+                                    <span class="report-field-count font-monospace">@profile.DiffCount · @profile.DiffPercentage%</span>
+                                </div>
+                                <div class="report-field-track">
+                                    <span class="report-field-fill"
+                                          style="width:@fieldPct(profile.DiffCount)%;background:@(profile.IsSystematic ? "var(--color-warning)" : "var(--color-danger)")"></span>
+                                </div>
+                                @* הערכים לדוגמה מוצגים כ-diff: החלק הזהה מושתק
+                                   והחלק השונה מסומן, ולכן הפרש של יום אחד בתאריך
+                                   נראה כספרה אחת ולא כשני תאריכים שונים. *@
+                                <div class="report-field-note">
+                                    <span data-ux-diff="fld-@profile.FieldName" data-ux-diff-side="src"
+                                          data-ux-value="@profile.ExampleSourceValue">@profile.ExampleSourceValue</span>
+                                    <span class="text-secondary"> → </span>
+                                    <span data-ux-diff="fld-@profile.FieldName" data-ux-diff-side="tgt"
+                                          data-ux-value="@profile.ExampleTargetValue">@profile.ExampleTargetValue</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+        </div>
+
+        @if (Model.FieldGapProfiles.Count > 0)
+        {
+            <h4 class="h6 text-secondary mb-2">פירוק ההבדלים לפי שדה:</h4>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm table-borderless align-middle mb-0" id="field-gap-profile-table"
+                       data-ux-sort data-ux-copy-table>
+                    <thead>
+                        <tr class="text-secondary small border-bottom border-white/5">
+                            <th style="width: 26%;">שדה</th>
+                            <th style="width: 14%;" class="text-center">שורות שונות</th>
+                            <th style="width: 12%;" class="text-center">מהשורות</th>
+                            <th style="width: 24%;">דוגמה במקור</th>
+                            <th style="width: 24%;">דוגמה ביעד</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var profile in Model.FieldGapProfiles)
+                        {
+                            <tr class="border-bottom border-white/5">
+                                <td class="small fw-bold @(profile.IsSystematic ? "text-warning" : "text-light")">
+                                    @profile.FieldName
+                                    @if (profile.IsSystematic)
+                                    {
+                                        <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 ms-2" style="font-size: 0.7rem;">שיטתי</span>
+                                    }
+                                </td>
+                                <td class="text-center font-monospace @(profile.IsSystematic ? "text-warning" : "text-danger")">@profile.DiffCount</td>
+                                <td class="text-center text-secondary small">@profile.DiffPercentage%</td>
+                                <td class="font-monospace text-secondary small">@profile.ExampleSourceValue</td>
+                                <td class="font-monospace text-secondary small">@profile.ExampleTargetValue</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (Model.SystematicFieldCount > 0)
+            {
+                <p class="text-secondary small mb-0 mt-3" id="systematic-hint">
+                    שדה שמסומן <strong class="text-warning">שיטתי</strong> נמצא שונה ברוב מוחלט של השורות. הבדל כזה הוא כמעט תמיד
+                    עמודת שירות שנשמרת אחרת בין המסדים או הפרש פורמט, ולא פער נתונים אמיתי.
+                    ביטול הסימון שלו במסך המיפוי ינקה את הדוח ויותיר בו את הממצאים שדורשים בדיקה.
+                </p>
+            }
+        }
+    </div>
+}
 
 @* ===== דשבורד סיכום QA ===== *@
 <div class="row g-4 mb-5" id="qa-summary-grid">
@@ -90,10 +862,56 @@
         </div>
     }
 
+    @* ===== אזהרת חיתוך מספר שורות ===== *@
+    @* כשההשוואה נחתכה, ממצאי החוסר אינם חד-משמעיים - שורה יכולה להיראות חסרה *@
+    @* רק מפני שנפלה מחוץ לחלון. עד כה זה לא נאמר, והתוצאה הייתה מאות חוסרים מדומים. *@
+    @if (!string.IsNullOrEmpty(Model.TruncationWarning))
+    {
+        <div class="p-4 mb-4 rounded-3" id="truncation-warning-box"
+             style="background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.45);">
+            <div class="d-flex align-items-start gap-3">
+                <span class="fs-2">⚠</span>
+                <div>
+                    <h4 class="h6 text-danger fw-bold mb-1">ההשוואה נחתכה על ידי מגבלת מספר השורות</h4>
+                    <p class="text-secondary small mb-0">@Model.TruncationWarning</p>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ===== שורת מאזן: כל שורה מתפרקת לזהה / שונה / עודפת ===== *@
+    @* בלי השורה הזו הדוח היה יכול לסתור את עצמו בין שלב א לשלב ב בלי שזה יורגש. *@
+    <div class="p-3 mb-4 rounded-3" id="reconciliation-line-box"
+         style="background: var(--panel-sunken-strong); border: 1px solid @(Model.IsInternallyConsistent ? "rgba(16,185,129,0.35)" : "rgba(239,68,68,0.45)");">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="badge @(Model.IsInternallyConsistent ? "bg-success" : "bg-danger") px-3 py-2">מאזן שורות</span>
+            <span class="font-monospace small @(Model.IsInternallyConsistent ? "text-light" : "text-danger")">@Model.ReconciliationLine</span>
+        </div>
+        <div class="d-flex gap-3 mt-2 flex-wrap">
+            <span class="text-secondary small">זוגות שהותאמו: <strong class="text-light">@Model.TotalPairedOccurrences</strong></span>
+            <span class="text-secondary small">זהות מלאה בזוגות שהותאמו: <strong class="text-light">@Model.MatchPercentage%</strong></span>
+            <span class="text-secondary small">כיסוי השורות: <strong class="text-light">@Model.CoveragePercentage%</strong></span>
+            @if (Model.SourceEmptyKeyRows > 0 || Model.TargetEmptyKeyRows > 0)
+            {
+                <span class="text-warning small">
+                    שורות שכל המפתח שלהן ריק והוחרגו: מקור @Model.SourceEmptyKeyRows, יעד @Model.TargetEmptyKeyRows
+                </span>
+            }
+            @if (Model.PairingDegradedGroups > 0)
+            {
+                <span class="text-warning small">זיווג מוגבל ב-@Model.PairingDegradedGroups קבוצות מפתח בעלות ריבוי חריג</span>
+            }
+        </div>
+    </div>
+
+    @* הפירוט הטכני של ספירת המפתחות סגור כברירת מחדל. הוא נחוץ לבדיקה
+       עמוקה, אבל לקורא הרגיל הוא רעש שמסתיר את הממצאים עצמם. *@
+    <details class="report-details" id="step-a-details">
+        <summary>פירוט טכני של ספירת השורות והמפתחות</summary>
     <div class="row g-4">
         @* צד מקור *@
         <div class="col-md-6">
-            <div class="p-4 rounded-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+            <div class="p-4 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
                 <h4 class="h5 text-primary mb-3">מקור (@Model.SourceTable)</h4>
                 
                 <div class="list-group list-group-flush bg-transparent">
@@ -118,7 +936,7 @@
                 @if (Model.SourceDuplicateKeysList.Count > 0)
                 {
                     <div class="mt-3">
-                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים במקור:</span>
+                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים ב-@sourceName:</span>
                         <div class="d-flex flex-wrap gap-1">
                             @foreach (var k in Model.SourceDuplicateKeysList.Take(4))
                             {
@@ -135,7 +953,7 @@
                 @if (Model.SourceMissingKeysList.Count > 0)
                 {
                     <div class="mt-3">
-                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות חסרים במקור (קיימים רק ביעד):</span>
+                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות שחסרים ב-@sourceName (קיימים רק ב-@targetName):</span>
                         <div class="d-flex flex-wrap gap-1">
                             @foreach (var k in Model.SourceMissingKeysList.Take(4))
                             {
@@ -153,7 +971,7 @@
 
         @* צד יעד *@
         <div class="col-md-6">
-            <div class="p-4 rounded-3 h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+            <div class="p-4 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
                 <h4 class="h5 mb-3" style="color: var(--accent-secondary);">יעד (@Model.TargetTable)</h4>
                 
                 <div class="list-group list-group-flush bg-transparent">
@@ -178,7 +996,7 @@
                 @if (Model.TargetDuplicateKeysList.Count > 0)
                 {
                     <div class="mt-3">
-                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים ביעד:</span>
+                        <span class="text-danger small fw-bold d-block mb-1">דוגמאות למפתחות כפולים ב-@targetName:</span>
                         <div class="d-flex flex-wrap gap-1">
                             @foreach (var k in Model.TargetDuplicateKeysList.Take(4))
                             {
@@ -195,7 +1013,7 @@
                 @if (Model.TargetMissingKeysList.Count > 0)
                 {
                     <div class="mt-3">
-                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות חסרים ביעד (קיימים רק במקור):</span>
+                        <span class="text-warning small fw-bold d-block mb-1">דוגמאות למפתחות שחסרים ב-@targetName (קיימים רק ב-@sourceName):</span>
                         <div class="d-flex flex-wrap gap-1">
                             @foreach (var k in Model.TargetMissingKeysList.Take(4))
                             {
@@ -211,6 +1029,7 @@
             </div>
         </div>
     </div>
+    </details>
 </div>
 
 @* =================================================================== *@
@@ -230,90 +1049,92 @@
     <div class="row g-4 mb-4">
         @* כרטיס חסרים ביעד *@
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalMissingInTarget > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
-                <div class="text-secondary small mb-1">חסר ביעד (@Model.TargetTable)</div>
+            <div class="p-3 rounded-3 text-center h-100" style="background: var(--panel-sunken); border: 1px solid @(Model.TotalMissingInTarget > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">שורות שחסרות ב-@targetName</div>
                 <div class="display-6 fw-bold @(Model.TotalMissingInTarget > 0 ? "text-warning" : "text-success")">@Model.TotalMissingInTarget</div>
             </div>
         </div>
         @* כרטיס חסרים במקור *@
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalMissingInSource > 0 ? "rgba(59,130,246,0.3)" : "var(--border-color)");">
-                <div class="text-secondary small mb-1">חסר במקור (@Model.SourceTable)</div>
+            <div class="p-3 rounded-3 text-center h-100" style="background: var(--panel-sunken); border: 1px solid @(Model.TotalMissingInSource > 0 ? "rgba(59,130,246,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">שורות שחסרות ב-@sourceName</div>
                 <div class="display-6 fw-bold @(Model.TotalMissingInSource > 0 ? "text-primary" : "text-success")">@Model.TotalMissingInSource</div>
             </div>
         </div>
         @* כרטיס כפילויות *@
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center h-100" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalDuplicates > 0 ? "rgba(139,92,246,0.3)" : "var(--border-color)");">
-                <div class="text-secondary small mb-1">כפילויות מפתח (הוחרגו)</div>
+            <div class="p-3 rounded-3 text-center h-100" style="background: var(--panel-sunken); border: 1px solid @(Model.TotalDuplicates > 0 ? "rgba(139,92,246,0.3)" : "var(--border-color)");">
+                <div class="text-secondary small mb-1">כפילויות מפתח (מושוות, לא מוחרגות)</div>
                 <div class="display-6 fw-bold @(Model.TotalDuplicates > 0 ? "text-info" : "text-success")">@Model.TotalDuplicates</div>
             </div>
         </div>
     </div>
 
-    @* רשימות מפתחות חסרים *@
+    @* הפירוט המלא של השורות החסרות נמצא בכרטיס "בדיקה ראשונה" בראש הדוח, *@
+    @* ולכן כאן נשארות הספירות והכפילויות בלבד. *@
     @if (Model.TotalMissingInTarget > 0 || Model.TotalMissingInSource > 0)
     {
-        <div class="row g-4 mb-4">
-            @if (Model.TotalMissingInTarget > 0)
-            {
-                <div class="col-md-6">
-                    <h5 class="h6 text-warning mb-2">מפתחות חסרים ביעד (@Model.TargetTable):</h5>
-                    <div class="list-group list-group-flush border-white/5" style="max-height: 300px; overflow-y: auto;">
-                        @foreach (var key in Model.MissingInTarget)
-                        {
-                            <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2 small">
-                                @key
-                            </div>
-                        }
-                    </div>
-                    @if (Model.TotalMissingInTarget > 50)
-                    {
-                        <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInTarget.</span>
-                    }
-                </div>
-            }
-            @if (Model.TotalMissingInSource > 0)
-            {
-                <div class="col-md-6">
-                    <h5 class="h6 text-primary mb-2">מפתחות חסרים במקור (@Model.SourceTable):</h5>
-                    <div class="list-group list-group-flush border-white/5" style="max-height: 300px; overflow-y: auto;">
-                        @foreach (var key in Model.MissingInSource)
-                        {
-                            <div class="list-group-item bg-transparent text-light border-bottom border-white/5 font-monospace py-2 small">
-                                @key
-                            </div>
-                        }
-                    </div>
-                    @if (Model.TotalMissingInSource > 50)
-                    {
-                        <span class="text-secondary small d-block mt-2">מציג 50 רשומות ראשונות מתוך @Model.TotalMissingInSource.</span>
-                    }
-                </div>
-            }
-        </div>
+        <p class="text-secondary small mb-3">
+            הפירוט שורה אחר שורה — אילו שורות חסרות ובאיזה קובץ — נמצא למעלה, ב<a href="#first-check-card" class="text-info">בדיקה ראשונה</a>.
+        </p>
     }
 
     @* טבלת כפילויות מפתח *@
     @if (Model.Duplicates.Count > 0)
     {
-        <h5 class="h6 text-info mb-2">כפילויות מפתח שהוחרגו (@Model.Duplicates.Count):</h5>
+        @* המפתחות החוזרים אינם מוחרגים יותר מההשוואה - הם מושווים מופע מול מופע *@
+        @* ובנוסף מדווחים כאן כממצא בפני עצמו. *@
+        <h5 class="h6 text-info mb-2">מפתחות חוזרים (@Model.TotalDuplicateFindings ממצאים, @Model.TotalDuplicateRows שורות מושפעות):</h5>
+        <p class="text-secondary small mb-2" id="duplicates-explainer">
+            מפתח שמופיע יותר מפעם אחת. השורות האלה כן נכללות בהשוואה — כל מופע מותאם למופע המתאים לו בצד השני.
+        </p>
         <div class="table-responsive">
             <table class="table table-dark table-sm table-borderless align-middle">
                 <thead>
                     <tr class="text-secondary small border-bottom border-white/5">
-                        <th style="width: 50%;">ערך מפתח כפול</th>
-                        <th style="width: 25%;" class="text-center">מופעים במקור</th>
-                        <th style="width: 25%;" class="text-center">מופעים ביעד</th>
+                            @foreach (var col in Model.KeyColumnNames)
+                            {
+                                <th class="font-monospace">@col</th>
+                            }
+                        <th style="width: 25%;" class="text-center">מופעים ב-@sourceName</th>
+                        <th style="width: 25%;" class="text-center">מופעים ב-@targetName</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var dup in Model.Duplicates)
                     {
                         <tr class="border-bottom border-white/5">
-                            <td class="font-monospace text-light small">@dup.KeyValue</td>
+                            @if (dup.KeyParts.Count == 0)
+                            {
+                                <td class="font-monospace text-light small" colspan="@Math.Max(1, Model.KeyColumnNames.Count)">@dup.KeyValue</td>
+                            }
+                            else
+                            {
+                                for (int i = 0; i < Model.KeyColumnNames.Count; i++)
+                                {
+                                    string cell = i < dup.KeyParts.Count && !string.IsNullOrWhiteSpace(dup.KeyParts[i])
+                                        ? dup.KeyParts[i]
+                                        : "(ריק)";
+                                    <td class="font-monospace text-light small">@cell</td>
+                                }
+                            }
                             <td class="text-center @(dup.SourceCount > 1 ? "text-warning fw-bold" : "")">@dup.SourceCount</td>
                             <td class="text-center @(dup.TargetCount > 1 ? "text-warning fw-bold" : "")">@dup.TargetCount</td>
+                        </tr>
+                        @* שורת המשך: סוג הכפילות והשדות שמבדילים בין המופעים. *@
+                        @* "שורה זהה חוזרת" ו"אותו מפתח עם נתונים שונים" הן שתי בעיות שונות. *@
+                        <tr class="border-bottom border-white/5">
+                            <td colspan="3" class="pt-0 pb-2">
+                                <span class="badge @(dup.Severity == "Fail" ? "bg-danger/10 text-danger border border-danger/20" : "bg-warning/10 text-warning border border-warning/20") px-2 py-1 small">
+                                    @dup.KindTitle
+                                </span>
+                                @if (!string.IsNullOrEmpty(dup.DistinguishingFields))
+                                {
+                                    <span class="text-secondary small ms-2">| שדות מבדילים:</span>
+                                    <span class="font-monospace text-light small">@dup.DistinguishingFields</span>
+                                }
+                                <span class="text-secondary small ms-2">| שורות שונות בפועל: מקור @dup.SourceDistinctRows, יעד @dup.TargetDistinctRows</span>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -347,95 +1168,128 @@
     @* סיכום שורות תואמות *@
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(16, 185, 129, 0.3);">
+            <div class="p-3 rounded-3 text-center" style="background: var(--panel-sunken); border: 1px solid rgba(16, 185, 129, 0.3);">
                 <div class="text-secondary small mb-1">רשומות זהות</div>
                 <div class="display-6 fw-bold text-success">@Model.TotalMatched</div>
                 <span class="badge bg-success/10 text-success mt-1">@matchPercentage% תאימות</span>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.TotalDiscrepancyRows > 0 ? "rgba(239,68,68,0.3)" : "var(--border-color)");">
+            <div class="p-3 rounded-3 text-center" style="background: var(--panel-sunken); border: 1px solid @(Model.TotalDiscrepancyRows > 0 ? "rgba(239,68,68,0.3)" : "var(--border-color)");">
                 <div class="text-secondary small mb-1">שורות עם הפרשי ערכים</div>
                 <div class="display-6 fw-bold @(Model.TotalDiscrepancyRows > 0 ? "text-danger" : "text-success")">@Model.TotalDiscrepancyRows</div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="p-3 rounded-3 text-center" style="background: rgba(15, 23, 42, 0.4); border: 1px solid @(Model.DataIntegrityGaps.Count > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
+            <div class="p-3 rounded-3 text-center" style="background: var(--panel-sunken); border: 1px solid @(Model.DataIntegrityGaps.Count > 0 ? "rgba(245,158,11,0.3)" : "var(--border-color)");">
                 <div class="text-secondary small mb-1">פערי שלמות (ערך מול ריק/אפס)</div>
                 <div class="display-6 fw-bold @(Model.DataIntegrityGaps.Count > 0 ? "text-warning" : "text-success")">@Model.DataIntegrityGaps.Count</div>
             </div>
         </div>
     </div>
 
-    @* תבניות הבדלי נתונים *@
+    @* ===== ההבדלים עצמם, שורה אחר שורה ===== *@
+    @* התבניות אומרות כמה שורות ובאילו שדות; רק הרשימה הזו אומרת באיזו שורה *@
+    @* בדיוק ומה הערך בכל צד. קודם היא לא הייתה קיימת - היו רק ארבע דוגמאות *@
+    @* לכל תבנית, וכל שאר הממצאים חייבו חיפוש ידני בקובץ המקורי. *@
+    @if (Model.DiscrepancyRows.Count > 0)
+    {
+        <h5 class="h6 text-gradient mb-2">
+            ההבדלים עצמם — @Model.TotalDiscrepancyFindings ממצאים ב-@Model.TotalDiscrepancyRows שורות:
+        </h5>
+        <p class="text-secondary small mb-3">
+            כל שורה כאן היא שדה אחד שנמצא שונה: עמודות המפתח מזהות את השורה, ואחריהן שם השדה והערך בכל צד.
+        </p>
+        <div class="table-responsive mb-4" style="max-height: 520px; overflow-y: auto;">
+            <table class="table table-dark table-sm table-borderless align-middle" id="discrepancy-rows-table"
+                   data-ux-sort data-ux-copy-table
+                   data-ux-filter="סינון: הקלידו שם שדה, יום, דף או כל ערך מהשורה">
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/5">
+                        @foreach (var col in Model.KeyColumnNames)
+                        {
+                            <th class="font-monospace">@col</th>
+                        }
+                        <th style="width: 18%;">שדה</th>
+                        <th style="width: 20%;">הערך ב-@sourceName</th>
+                        <th style="width: 20%;">הערך ב-@targetName</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int diffIdx = 0; }
+                    @foreach (var finding in Model.DiscrepancyRows)
+                    {
+                        diffIdx++;
+                        <tr class="border-bottom border-white/5">
+                            @if (finding.KeyParts.Count == 0)
+                            {
+                                <td class="font-monospace text-light small" colspan="@Math.Max(1, Model.KeyColumnNames.Count)">@finding.KeyValue</td>
+                            }
+                            else
+                            {
+                                for (int i = 0; i < Model.KeyColumnNames.Count; i++)
+                                {
+                                    string cell = i < finding.KeyParts.Count && !string.IsNullOrWhiteSpace(finding.KeyParts[i])
+                                        ? finding.KeyParts[i]
+                                        : "(ריק)";
+                                    <td class="font-monospace text-light small">@cell</td>
+                                }
+                            }
+                            <td class="small fw-bold @(finding.IsSystematicField ? "text-warning" : "text-light")">
+                                @finding.FieldName
+                                @if (finding.IsSystematicField)
+                                {
+                                    <span class="badge bg-warning/10 text-warning border border-warning/20 px-2 py-1 ms-1" style="font-size: 0.68rem;">שיטתי</span>
+                                }
+                            </td>
+                            @* הערכים מוצגים כ-diff: החלק הזהה מושתק והשונה מסומן,
+                               ולכן הפרש של ספרה אחת נראה כספרה אחת ולא כשני ערכים. *@
+                            <td class="small text-primary" data-ux-value="@finding.SourceValue"
+                                data-ux-diff="dr-@diffIdx" data-ux-diff-side="src">@finding.SourceValue</td>
+                            <td class="small text-info" data-ux-value="@finding.TargetValue"
+                                data-ux-diff="dr-@diffIdx" data-ux-diff-side="tgt">@finding.TargetValue</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.TotalDiscrepancyFindings > Model.DiscrepancyRows.Count)
+        {
+            <span class="text-secondary small d-block mb-4">
+                מציג @Model.DiscrepancyRows.Count ממצאים מתוך @Model.TotalDiscrepancyFindings. הרשימה המלאה בייצוא לאקסל.
+            </span>
+        }
+    }
+
+    @* סיכום הצירופים: כמה שורות נופלות בכל צירוף שדות. הפירוט עצמו בטבלה שמעל, *@
+    @* ולכן כאן נשאר סיכום של שלוש עמודות במקום אקורדיון עם טבלאות כפולות. *@
     @if (Model.DiscrepancyPatterns.Count > 0)
     {
-        <h5 class="h6 text-gradient mb-3">תבניות הבדלי נתונים (@Model.DiscrepancyPatterns.Count תבניות):</h5>
-        <div class="accordion accordion-flush mb-4" id="patternsAccordion">
-            @for (int i = 0; i < Model.DiscrepancyPatterns.Count; i++)
-            {
-                var pattern = Model.DiscrepancyPatterns[i];
-                double percentage = Model.TotalDiscrepancyRows > 0 
-                    ? Math.Round((double)pattern.Count / Model.TotalDiscrepancyRows * 100, 1) 
-                    : 0;
-
-                <div class="accordion-item bg-transparent border-bottom border-white/5 mb-3" style="border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; background: rgba(255,255,255,0.01);">
-                    <h2 class="accordion-header" id="heading-@i">
-                        <button class="accordion-button collapsed bg-transparent text-light py-3 px-4 d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@i" aria-expanded="false" aria-controls="collapse-@i" style="box-shadow: none;">
-                            <div class="d-flex align-items-center gap-3 w-100 justify-content-between pe-3">
-                                <span class="fw-bold text-light">@pattern.PatternDescription</span>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-danger/10 text-danger border border-danger/20 px-3 py-2 fs-7">
-                                        @pattern.Count שורות
-                                    </span>
-                                    <span class="badge bg-secondary/20 text-secondary border border-white/10 px-2 py-2 small">
-                                        שכיחות: @percentage%
-                                    </span>
-                                </div>
-                            </div>
-                        </button>
-                    </h2>
-                    <div id="collapse-@i" class="accordion-collapse collapse" aria-labelledby="heading-@i" data-bs-parent="#patternsAccordion">
-                        <div class="accordion-body p-4 border-top border-white/5" style="background: rgba(0,0,0,0.2);">
-                            
-                            @* טבלת הערכים והשוואת השדות בתבנית *@
-                            <h5 class="h6 text-gradient mb-3">ערכים לדוגמה ושדות שונים:</h5>
-                            <div class="table-responsive mb-4">
-                                <table class="table table-dark table-sm table-borderless align-middle">
-                                    <thead>
-                                        <tr class="text-secondary border-bottom border-white/5 small">
-                                            <th style="width: 30%;">שם שדה</th>
-                                            <th style="width: 35%;">ערך במקור (@Model.SourceTable)</th>
-                                            <th style="width: 35%;">ערך ביעד (@Model.TargetTable)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var field in pattern.Fields)
-                                        {
-                                            <tr class="border-bottom border-white/5">
-                                                <td class="text-secondary small fw-bold">@field.FieldName</td>
-                                                <td class="text-danger font-monospace">@field.SourceValue</td>
-                                                <td class="text-danger font-monospace">@field.TargetValue</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            @* הצגת מפתחות לדוגמה *@
-                            <h5 class="h6 text-gradient mb-2">מפתחות שורה לדוגמה (עד 4 מפתחות):</h5>
-                            <div class="d-flex gap-2 flex-wrap">
-                                @foreach (var key in pattern.ExampleKeys)
-                                {
-                                    <span class="badge bg-dark text-light border border-white/10 px-3 py-2 font-monospace">
-                                        @key
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
+        <h5 class="h6 text-gradient mb-3">צירופי השדות השונים (@Model.DiscrepancyPatterns.Count תבניות):</h5>
+        <div class="table-responsive mb-4">
+            <table class="table table-dark table-sm table-borderless align-middle" id="discrepancy-patterns-table"
+                   data-ux-sort data-ux-copy-table>
+                <thead>
+                    <tr class="text-secondary small border-bottom border-white/5">
+                        <th style="width: 60%;">השדות שנמצאו שונים יחד</th>
+                        <th class="text-center" style="width: 20%;">שורות</th>
+                        <th class="text-center" style="width: 20%;">שכיחות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pattern in Model.DiscrepancyPatterns)
+                    {
+                        double patternPct = Model.TotalDiscrepancyRows > 0
+                            ? Math.Round((double)pattern.Count / Model.TotalDiscrepancyRows * 100, 1)
+                            : 0;
+                        <tr class="border-bottom border-white/5">
+                            <td class="small text-light">@pattern.PatternDescription</td>
+                            <td class="text-center font-monospace text-danger">@pattern.Count</td>
+                            <td class="text-center text-secondary small">@patternPct%</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
     else if (Model.TotalDiscrepancyRows == 0)
@@ -458,7 +1312,10 @@
             <table class="table table-dark table-sm table-borderless align-middle">
                 <thead>
                     <tr class="text-secondary border-bottom border-white/5 small">
-                        <th style="width: 25%;">ערך מפתח</th>
+                            @foreach (var col in Model.KeyColumnNames)
+                            {
+                                <th class="font-monospace">@col</th>
+                            }
                         <th style="width: 30%;">שם שדה</th>
                         <th style="width: 20%;">צד עם ערך</th>
                         <th style="width: 25%;">הערך שנמצא</th>
@@ -468,7 +1325,20 @@
                     @foreach (var gap in Model.DataIntegrityGaps.Take(100))
                     {
                         <tr class="border-bottom border-white/5">
-                            <td class="font-monospace text-light small">@gap.KeyValue</td>
+                            @if (gap.KeyParts.Count == 0)
+                            {
+                                <td class="font-monospace text-light small" colspan="@Math.Max(1, Model.KeyColumnNames.Count)">@gap.KeyValue</td>
+                            }
+                            else
+                            {
+                                for (int i = 0; i < Model.KeyColumnNames.Count; i++)
+                                {
+                                    string cell = i < gap.KeyParts.Count && !string.IsNullOrWhiteSpace(gap.KeyParts[i])
+                                        ? gap.KeyParts[i]
+                                        : "(ריק)";
+                                    <td class="font-monospace text-light small">@cell</td>
+                                }
+                            }
                             <td class="text-secondary small fw-bold">@gap.FieldName</td>
                             <td>
                                 @if (gap.PresentSide == "Source")
@@ -493,23 +1363,98 @@
     }
 </div>
 
-@* ===== כפתורי פעולה — ייצוא וחזרה ===== *@
-<div class="text-center mb-5 d-flex justify-content-center align-items-center gap-3 flex-wrap" id="restart-action-container">
-    <button type="button" onclick="exportToExcel()" class="btn btn-outline-success btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-excel" style="border-radius: 0.75rem;">
-        📊 ייצוא לאקסל (Excel)
-    </button>
-    <button type="button" onclick="exportToWord()" class="btn btn-outline-info btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-word" style="border-radius: 0.75rem;">
-        📝 ייצוא לוורד (Word)
-    </button>
-    <a asp-controller="Home" asp-action="Index" class="btn-glow btn-lg text-decoration-none px-5 py-3 fs-5" id="btn-restart-compare">
-        התחל השוואה חדשה
-    </a>
+@* ===== טוקן הגנה מפני CSRF — נדרש לטופס ההורדה הדינמי ב-results-export.js ===== *@
+@Html.AntiForgeryToken()
+
+@* =================================================================== *@
+@* ===== סיום הבדיקה ===== *@
+@* הדוח נגמר בתשובה ולא בטבלה. הקורא שגלל אלפי שורות מגיע לשורה תחתונה *@
+@* חוזרת, לארבעה מספרים ולפעולה הבאה - בלי לגלול חזרה לראש הדף.        *@
+@* =================================================================== *@
+@{
+    int totalFindings = Model.TotalMissingInTarget + Model.TotalMissingInSource + Model.TotalDiscrepancyRows;
+    bool allClear = totalFindings == 0;
+}
+<div class="glass-card mb-5 p-4 text-center" id="final-summary-card"
+     style="border-color: @(allClear ? "rgba(16,185,129,0.45)" : "rgba(245,158,11,0.4)") !important;">
+
+    <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;">
+        סיום הבדיקה
+    </span>
+
+    <h3 class="h3 mt-3 mb-2 @(allClear ? "text-success" : "text-light")">
+        @(allClear
+            ? "שני הצדדים זהים לחלוטין"
+            : $"{totalFindings} ממצאים דורשים בדיקה")
+    </h3>
+
+    <p class="text-secondary mb-4 mx-auto" style="max-width: 900px;" id="final-bottom-line">@Model.BottomLine</p>
+
+    @* ארבעת המספרים, עם שמות הקבצים בתוך הכיתוב *@
+    <div class="row g-3 mb-4 justify-content-center" id="final-summary-stats">
+        <div class="col-6 col-lg-3">
+            <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
+                <div class="h3 fw-bold text-success mb-1">@Model.TotalMatched</div>
+                <div class="text-secondary small">שורות זהות לחלוטין</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
+                <div class="h3 fw-bold @(Model.TotalDiscrepancyRows > 0 ? "text-warning" : "text-success") mb-1">@Model.TotalDiscrepancyRows</div>
+                <div class="text-secondary small">שורות עם תוכן שונה</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
+                <div class="h3 fw-bold @(Model.TotalMissingInTarget > 0 ? "text-danger" : "text-success") mb-1">@Model.TotalMissingInTarget</div>
+                <div class="text-secondary small">יש רק ב-<span class="font-monospace">@sourceShort</span></div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
+                <div class="h3 fw-bold @(Model.TotalMissingInSource > 0 ? "text-primary" : "text-success") mb-1">@Model.TotalMissingInSource</div>
+                <div class="text-secondary small">יש רק ב-<span class="font-monospace">@targetShort</span></div>
+            </div>
+        </div>
+    </div>
+
+    @* ===== כפתורי פעולה — ייצוא וחזרה ===== *@
+    <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap" id="restart-action-container">
+        <button type="button" onclick="exportToExcel()" class="btn btn-outline-success btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-excel" style="border-radius: 0.75rem;">
+            📊 ייצוא לאקסל (Excel)
+        </button>
+        <button type="button" onclick="exportToWord()" class="btn btn-outline-info btn-lg px-4 py-3 fs-5 d-flex align-items-center gap-2" id="btn-export-word" style="border-radius: 0.75rem;">
+            📝 ייצוא לוורד (Word)
+        </button>
+        <a asp-controller="Home" asp-action="Index" class="btn-glow btn-lg text-decoration-none px-5 py-3 fs-5" id="btn-restart-compare">
+            התחל השוואה חדשה
+        </a>
+    </div>
 </div>
 
 @section Scripts {
     <script src="~/js/results-export.js" asp-append-version="true"></script>
     <script>
         window._reportModel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+        // תוויות עבריות לייצוא. הן נמצאות כאן ולא בקובץ ה-JS מפני שקובץ הייצוא
+        // שומר על ASCII בלבד, ובעברית הן היו נכתבות שם כרצף escapes בלתי קריא.
+        window._exportLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            missingKind = "סוג החוסר",
+            rowNumber = "מספר שורה",
+            distinguishing = "ערכים מבדילים",
+            reconciliation = "מאזן שורות",
+            duplicateKind = "סוג הכפילות",
+            distinguishingFields = "שדות מבדילים",
+            coverage = "כיסוי השורות",
+            matchInPaired = "זהות מלאה בזוגות שהותאמו",
+            pairedOccurrences = "זוגות שהותאמו",
+            emptyKeyRows = "שורות שכל המפתח שלהן ריק והוחרגו",
+            duplicatesTitle = "מפתחות חוזרים",
+            sourceCount = "מופעים במקור",
+            targetCount = "מופעים ביעד"
+        }));
         window.initResultsExport('@Url.Action("DownloadReport", "Compare")');
     </script>
 }

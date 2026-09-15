@@ -120,6 +120,35 @@ namespace CompareD.Models
         // רשימת המשתמשים הרשומים
         public System.Collections.Generic.List<UserInfo> Users { get; set; } = new();
 
+        // סטטיסטיקה לכל משתמש בנפרד: כמה הריץ, אחוז הצלחה, מתי היה פעיל,
+        // ובאיזה שלב הוא נתקע הכי הרבה
+        public System.Collections.Generic.List<UserActivityStats> PerUserStats { get; set; } = new();
+
+        // פירוט הכשלים לפי שלב, כדי לראות איפה עובדים נופלים
+        public System.Collections.Generic.List<FailureBreakdown> FailureBreakdown { get; set; } = new();
+
+        // פסק הדין: שורה אחת בראש הלוח שאומרת מה דורש תשומת לב
+        public DashboardVerdict Verdict { get; set; } = new();
+
+        // פעילות 14 הימים האחרונים, לגרף העמודות
+        public System.Collections.Generic.List<DailyActivity> DailyActivity { get; set; } = new();
+
+        // השינוי מול השבוע שעבר, כדי שלכל מדד יהיה כיוון ולא רק ערך
+        public WeeklyTrend Trend { get; set; } = new();
+
+        // מפת חום שנתית: ריבוע ליום. עונה על "האם השימוש נמשך" ולא רק
+        // על "מה קרה השבועיים האחרונים", ובלי 182 עמודות על המסך.
+        public System.Collections.Generic.List<DailyActivity> YearActivity { get; set; } = new();
+
+        // משפך השלבים: כמה עובדים הגיעו לכל שלב, ואיפה הם נושרים.
+        // עובד שנטש לפני ההשוואה אינו נספר כאף כשל, ולכן אחוז ההצלחה
+        // לבדו אינו מראה אותו.
+        public System.Collections.Generic.List<FunnelStage> Funnel { get; set; } = new();
+
+        // רשומות הביקורת שנשלחות לדפדפן לצורך חלונות הפירוט בלחיצה
+        // (לחיצה על יום, על עובד או על שלב כשל פותחת את הרשומות עצמן).
+        public System.Collections.Generic.List<AuditLogEntry> DrillEntries { get; set; } = new();
+
         // הגדרות מערכת נוכחיות
         public SystemSettings Settings { get; set; } = new();
 

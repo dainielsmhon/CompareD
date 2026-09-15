@@ -39,7 +39,7 @@
 
 
 @* ===== טופס הגשת הבחירה — שולח לפעולת SelectFields בבקר Compare ===== *@
-<form id="select-tables-form" method="post" asp-controller="Compare" asp-action="SchemaReview">
+<form id="select-tables-form" method="post" asp-controller="Compare" asp-action="SchemaReview" data-ux-busy="טוען את מבנה הטבלאות">
     @* פריסת בנטו גריד — כרטיס לכל צד *@
     <div class="bento-grid mb-5" id="tables-selection-grid">
         
@@ -190,10 +190,16 @@
                         return;
                     }
 
-                    // יצירת טופס מוסתר דינמי לצורך שליחה ישירה לתוצאות ההשוואה
+                    // יצירת טופס מוסתר דינמי לצורך שליחה ישירה לתוצאות ההשוואה.
+                    //
+                    // הכתובת נוצרת ב-Url.Action ולא ככתובת מוחלטת מקובעת.
+                    // נתיב שמתחיל ב-"/" מפנה לשורש האתר, ולכן כשהאפליקציה מותקנת
+                    // כאפליקציה וירטואלית תחת IIS (למשל /CompareD) הבקשה נשלחת
+                    // לשורש השרת במקום לתיקיית האפליקציה ומתקבל 404.
+                    // Url.Action מוסיף את קידומת הנתיב של האפליקציה בכל התקנה.
                     const form = document.createElement("form");
                     form.method = "POST";
-                    form.action = "/Compare/CompareData";
+                    form.action = "@Url.Action("CompareData", "Compare")";
 
                     // העתקת האסימון למניעת מתקפות CSRF מהטופס הקיים בעמוד
                     const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -222,6 +228,11 @@
                     config.fieldRoles.forEach(r => addInput("fieldRoles", r));
 
                     document.body.appendChild(form);
+                    // שכבת המתנה: ההשוואה היא בקשה סינכרונית שיכולה לקחת
+                    // עד דקה, ובלי חיווי המסך נראה תקוע.
+                    if (window.uxEnhance && window.uxEnhance.showOverlay) {
+                        window.uxEnhance.showOverlay("מריץ השוואה מול מסד הנתונים");
+                    }
                     form.submit();
                 } catch (err) {
                     alert("נכשלה קריאת קובץ ה-JSON. ודאו שהקובץ תקין ובפורמט JSON.");

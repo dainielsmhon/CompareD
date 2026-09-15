@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 
 namespace CompareD.Controllers;
@@ -8,13 +8,19 @@ namespace CompareD.Controllers;
 public class HomeController : Controller
 {
     // מציג את דף הבית עם טופס החיבור הדינמי
+    [HttpGet]
     public IActionResult Index()
     {
-        // Clear stale DB credentials when the user starts a new workflow from home
-        HttpContext.Session.Remove("SqlConnectionString");
-        HttpContext.Session.Remove("OracleConnectionString");
-        HttpContext.Session.Remove("SelectedSqlTable");
-        HttpContext.Session.Remove("SelectedOracleTable");
+        // ניקוי פרטי חיבור שנותרו מזרימת עבודה קודמת, כשהמשתמש מתחיל מחדש מדף הבית.
+        // שמות המפתחות כאן היו שמות legacy שאף קוד לא כתב אליהם יותר
+        // (SqlConnectionString / OracleConnectionString), ולכן הניקוי לא ניקה דבר
+        // ופרטי החיבור המוצפנים נשארו בסשן עד לתפוגת חצי השעה.
+        HttpContext.Session.Remove("SourceConnectionString");
+        HttpContext.Session.Remove("TargetConnectionString");
+        HttpContext.Session.Remove("SourceProvider");
+        HttpContext.Session.Remove("TargetProvider");
+        HttpContext.Session.Remove("SelectedSourceTable");
+        HttpContext.Session.Remove("SelectedTargetTable");
         return View();
     }
 

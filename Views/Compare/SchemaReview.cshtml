@@ -1,4 +1,4 @@
-@model CompareD.Controllers.SchemaReviewViewModel
+﻿@model CompareD.Controllers.SchemaReviewViewModel
 
 @{
     ViewData["Title"] = "שלב 3 — סקירת סכמה ומיפוי שדות";
@@ -64,7 +64,8 @@
 </div>
 
 @* ===== טופס הגשת תצורת המיפוי והרצת ההשוואה ===== *@
-<form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData" data-default-pk="@Model.PrimaryKeyColumn">
+<form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData" data-default-pk="@Model.PrimaryKeyColumn"
+      data-ux-busy="מריץ השוואה מול מסד הנתונים">
     @* שדות מוסתרים המכילים את שמות הטבלאות וסוג המיפוי לצורך שליחה בטופס *@
     <input type="hidden" name="SourceTable" value="@Model.SourceTable" />
     <input type="hidden" name="TargetTable" value="@Model.TargetTable" />
@@ -167,9 +168,10 @@
             <table class="table table-dark table-borderless align-middle" id="active-mapping-table">
                 <thead>
                     <tr class="text-secondary small border-bottom border-white/10">
-                        <th style="width: 35%;">שדה מקור (SQL Server)</th>
-                        <th style="width: 35%;">שדה יעד (Oracle)</th>
-                        <th style="width: 20%;">תפקיד השדה</th>
+                        <th style="width: 28%;">שדה מקור (SQL Server)</th>
+                        <th style="width: 28%;">שדה יעד (Oracle)</th>
+                        <th style="width: 17%;">תפקיד השדה</th>
+                        <th style="width: 17%;">טיפוס השוואה</th>
                         <th style="width: 10%;" class="text-center">פעולות</th>
                     </tr>
                 </thead>
@@ -181,6 +183,28 @@
 
         <div class="text-center py-4 text-secondary d-none" id="no-mappings-alert">
             לא נבחרו שדות להשוואה. בחרו שדות מטבלת הסכמה למעלה או לחצו על הוספת שדה.
+        </div>
+    </div>
+
+    @* ===== שדות מחושבים: מאחדים מספר עמודות לערך אחד בר-השוואה ===== *@
+    <div class="glass-card mb-5 p-4" id="composite-fields-card">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 text-gradient mb-1">שדות מחושבים (אופציונלי)</h3>
+                <p class="text-secondary small mb-0 mt-1">
+                    כאשר המבנה אינו סימטרי — למשל שנה, חודש ויום בשלושה שדות בצד אחד מול שדה תאריך אחד בצד השני —
+                    כאן מגדירים שדה לוגי אחד שמאחד אותם. בלי זה כל השורות ידווחו כחסרות.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline-info transition-all rounded-pill px-4" id="btn-add-composite-field">
+                + הוסף שדה מחושב
+            </button>
+        </div>
+
+        <div id="composite-fields-container" class="d-flex flex-column gap-3"></div>
+
+        <div class="text-center py-3 text-secondary small" id="no-composite-alert">
+            לא הוגדרו שדות מחושבים. אם מבנה השדות זהה בשני הצדדים, אין צורך בכלום כאן.
         </div>
     </div>
 
@@ -227,6 +251,38 @@
                             <div class="card-body p-0 table-responsive" style="max-height: 250px; overflow-y: auto;">
                                 <table class="table table-dark table-sm table-striped m-0" id="preview-oracle-table"></table>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* ===== פאנל אבחון תצוגה מקדימה — מוצג רק לאחר הרצה ===== *@
+                <div id="preview-diagnostics-panel" class="mt-4 d-none">
+                    <h4 class="h6 text-light mb-3">🔍 נתוני אבחון</h4>
+
+                    @* שורת מסקנה מרכזית — קובעת האם מדובר בבעיית סינון או בבעיית גישה לנתונים *@
+                    <div id="diag-verdict-box" class="p-3 rounded-3 mb-3" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border-color);">
+                        <div id="diag-verdict-source" class="small mb-2"></div>
+                        <div id="diag-verdict-target" class="small mb-0"></div>
+                    </div>
+
+                    @* טבלת טיפוסי הנתונים של עמודות הסינון בשני הצדדים *@
+                    <div id="diag-filter-types-wrapper" class="mb-3 d-none">
+                        <span class="text-secondary small fw-bold d-block mb-2">טיפוסי הנתונים של עמודות הסינון</span>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-sm table-borderless m-0" id="diag-filter-types-table"></table>
+                        </div>
+                    </div>
+
+                    @* השאילתות שנבנו בפועל — מוחזרות מהשרת למנהלי מערכת בלבד *@
+                    <div id="diag-queries-wrapper" class="d-none">
+                        <span class="text-secondary small fw-bold d-block mb-2">השאילתות שנשלחו למסדי הנתונים</span>
+                        <div class="mb-2">
+                            <span class="text-info small d-block mb-1">מקור (SQL Server)</span>
+                            <pre class="text-light small p-3 rounded m-0" id="diag-sql-query" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); overflow-x: auto; white-space: pre-wrap; word-break: break-all;"></pre>
+                        </div>
+                        <div>
+                            <span class="text-warning small d-block mb-1">יעד (Oracle)</span>
+                            <pre class="text-light small p-3 rounded m-0" id="diag-oracle-query" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); overflow-x: auto; white-space: pre-wrap; word-break: break-all;"></pre>
                         </div>
                     </div>
                 </div>
@@ -348,8 +404,66 @@
                             return html;
                         }
 
+                        // בניית שורת מסקנה לצד בודד על סמך נתוני האבחון שהוחזרו מהשרת
+                        function buildSideVerdict(label, hasAnyRows, rowCount) {
+                            if (!hasAnyRows) {
+                                return `<span class="text-danger fw-bold">✕ ${escapeHtml(label)}:</span> <span class="text-secondary">הטבלה לא החזירה אף שורה, גם ללא תנאי סינון. יש לבדוק את הסכמה או את הרשאות המשתמש. <strong>זו אינה בעיית סינון.</strong></span>`;
+                            }
+                            if (rowCount === 0) {
+                                return `<span class="text-warning fw-bold">⚠ ${escapeHtml(label)}:</span> <span class="text-secondary">בטבלה קיימים נתונים, אך תנאי הסינון סיננו את <strong>כל</strong> השורות. <strong>זו בעיית סינון.</strong></span>`;
+                            }
+                            return `<span class="text-success fw-bold">✓ ${escapeHtml(label)}:</span> <span class="text-secondary">הוחזרו ${rowCount} שורות.</span>`;
+                        }
+
+                        // אכלוס פאנל האבחון: מסקנות, טיפוסי עמודות הסינון והשאילתות שנבנו
+                        function renderPreviewDiagnostics(d) {
+                            const panel = document.getElementById("preview-diagnostics-panel");
+                            panel.classList.remove("d-none");
+
+                            document.getElementById("diag-verdict-source").innerHTML =
+                                buildSideVerdict("מקור (SQL Server)", d.sqlHasAnyRows, d.sqlRowCount);
+                            document.getElementById("diag-verdict-target").innerHTML =
+                                buildSideVerdict("יעד (Oracle)", d.oracleHasAnyRows, d.oracleRowCount);
+
+                            // טבלת טיפוסי הנתונים - מוצגת רק כאשר הוגדרו תנאי סינון בפועל
+                            const typesWrapper = document.getElementById("diag-filter-types-wrapper");
+                            const diags = d.filterDiagnostics || [];
+                            if (diags.length > 0) {
+                                let html = "<thead><tr class='text-secondary small border-bottom border-white/10'>";
+                                html += "<th>עמודה</th><th>טיפוס במקור</th><th>טיפוס ביעד</th><th>אופרטור</th><th>ערך</th>";
+                                html += "</tr></thead><tbody>";
+                                diags.forEach(function (f) {
+                                    const isTypeDiff = f.sourceDataType !== f.targetDataType;
+                                    const rowClass = isTypeDiff ? "text-warning" : "text-light";
+                                    html += "<tr class='small'>";
+                                    html += `<td class="font-monospace text-light">${escapeHtml(f.columnName)}</td>`;
+                                    html += `<td class="font-monospace ${rowClass}">${escapeHtml(f.sourceDataType)}</td>`;
+                                    html += `<td class="font-monospace ${rowClass}">${escapeHtml(f.targetDataType)}</td>`;
+                                    html += `<td class="text-secondary">${escapeHtml(f.filterOperator)}</td>`;
+                                    html += `<td class="font-monospace text-secondary">${escapeHtml(f.filterValue)}</td>`;
+                                    html += "</tr>";
+                                });
+                                html += "</tbody>";
+                                document.getElementById("diag-filter-types-table").innerHTML = html;
+                                typesWrapper.classList.remove("d-none");
+                            } else {
+                                typesWrapper.classList.add("d-none");
+                            }
+
+                            // השאילתות מוחזרות למנהלי מערכת בלבד - אם אינן קיימות, האזור נשאר מוסתר
+                            const queriesWrapper = document.getElementById("diag-queries-wrapper");
+                            if (d.sqlQuery || d.oracleQuery) {
+                                document.getElementById("diag-sql-query").textContent = d.sqlQuery || "";
+                                document.getElementById("diag-oracle-query").textContent = d.oracleQuery || "";
+                                queriesWrapper.classList.remove("d-none");
+                            } else {
+                                queriesWrapper.classList.add("d-none");
+                            }
+                        }
+
                         document.getElementById("preview-sql-table").innerHTML = buildTableHtml(data.data.sqlColumns, data.data.sqlData);
                         document.getElementById("preview-oracle-table").innerHTML = buildTableHtml(data.data.oracleColumns, data.data.oracleData);
+                        renderPreviewDiagnostics(data.data);
                     } else {
                         alert("שגיאה בטעינת נתונים: " + data.error);
                     }
@@ -401,6 +515,133 @@
                 filterContainer.appendChild(row);
             }
             // ===================================
+
+            // =====================================================================
+            // שדות מחושבים - איחוד מספר עמודות לערך לוגי אחד בר-השוואה
+            // =====================================================================
+            const compositeContainer = document.getElementById("composite-fields-container");
+            const noCompositeAlert = document.getElementById("no-composite-alert");
+            const btnAddComposite = document.getElementById("btn-add-composite-field");
+
+            // בניית רשימת אפשרויות עמודות עבור תיבת בחירה
+            function buildColumnOptions(columns) {
+                return columns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+            }
+
+            // עדכון הודעת "אין שדות מחושבים"
+            function updateNoCompositeAlert() {
+                if (compositeContainer.children.length === 0) {
+                    noCompositeAlert.classList.remove("d-none");
+                } else {
+                    noCompositeAlert.classList.add("d-none");
+                }
+            }
+
+            // בניית בלוק בחירת עמודות לצד אחד (מקור או יעד) של שדה מחושב
+            function buildCompositeSide(sideLabel, sideKey, columns) {
+                return `
+                    <div class="col-md-5">
+                        <label class="form-label text-secondary small fw-bold">${escapeHtml(sideLabel)}</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2 composite-kind" data-side="${sideKey}">
+                            <option value="DateParts" selected>שנה / חודש / יום (3 שדות)</option>
+                            <option value="Date">שדה תאריך אחד</option>
+                        </select>
+                        <div class="d-flex gap-1 composite-parts" data-side="${sideKey}">
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="0" title="שנה">
+                                <option value="">-- שנה --</option>${buildColumnOptions(columns)}
+                            </select>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="1" title="חודש">
+                                <option value="">-- חודש --</option>${buildColumnOptions(columns)}
+                            </select>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="2" title="יום">
+                                <option value="">-- יום --</option>${buildColumnOptions(columns)}
+                            </select>
+                        </div>
+                        <input type="hidden" name="composite${sideKey}Columns" value="" />
+                        <input type="hidden" name="composite${sideKey}Kind" value="DateParts" />
+                    </div>
+                `;
+            }
+
+            // הוספת שורת שדה מחושב חדשה
+            function addCompositeRow() {
+                const row = document.createElement("div");
+                row.className = "row g-3 align-items-start p-3 rounded border border-white/5 composite-row";
+                row.style.background = "rgba(15, 23, 42, 0.4)";
+
+                row.innerHTML = `
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small fw-bold">שם השדה</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                               name="compositeName" value="תאריך" required />
+                    </div>
+                    ${buildCompositeSide("צד מקור (SQL Server)", "Source", SourceColumns)}
+                    ${buildCompositeSide("צד יעד (Oracle)", "Target", TargetColumns)}
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small fw-bold">תפקיד</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" name="compositeRole">
+                            <option value="Key" selected>מפתח התאמה</option>
+                            <option value="Compare">שדה להשוואה</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-remove-composite" title="מחק שדה מחושב">
+                            ✕ הסר
+                        </button>
+                    </div>
+                `;
+
+                // מאזין לשינוי סוג ההרכבה: "שדה תאריך אחד" מציג תיבת בחירה אחת בלבד
+                row.querySelectorAll(".composite-kind").forEach(kindSelect => {
+                    kindSelect.addEventListener("change", function() {
+                        const side = this.dataset.side;
+                        const parts = row.querySelector(`.composite-parts[data-side='${side}']`);
+                        const cols = parts.querySelectorAll(".composite-col");
+                        const isSingleDate = this.value === "Date";
+
+                        // בהרכבת תאריך שלם נשארת תיבה אחת ושתי האחרות מוסתרות ומנוקות
+                        cols.forEach((col, index) => {
+                            if (isSingleDate && index > 0) {
+                                col.value = "";
+                                col.classList.add("d-none");
+                            } else {
+                                col.classList.remove("d-none");
+                            }
+                        });
+                        cols[0].title = isSingleDate ? "שדה התאריך" : "שנה";
+
+                        row.querySelector(`input[name='composite${side}Kind']`).value = this.value;
+                        syncCompositeRow(row);
+                    });
+                });
+
+                // כל שינוי בבחירת עמודה מתעדכן בשדה המוסתר שנשלח לשרת
+                row.querySelectorAll(".composite-col").forEach(col => {
+                    col.addEventListener("change", function() { syncCompositeRow(row); });
+                });
+
+                row.querySelector(".btn-remove-composite").addEventListener("click", function() {
+                    row.remove();
+                    updateNoCompositeAlert();
+                });
+
+                compositeContainer.appendChild(row);
+                updateNoCompositeAlert();
+            }
+
+            // סנכרון בחירות העמודות אל השדות המוסתרים.
+            // העמודות נשלחות כמחרוזת מופרדת בפסיקים כדי לשמר התאמה בין המערכים בשרת.
+            function syncCompositeRow(row) {
+                ["Source", "Target"].forEach(side => {
+                    const parts = row.querySelector(`.composite-parts[data-side='${side}']`);
+                    const values = Array.from(parts.querySelectorAll(".composite-col"))
+                        .filter(c => !c.classList.contains("d-none"))
+                        .map(c => c.value)
+                        .filter(v => v !== "");
+                    row.querySelector(`input[name='composite${side}Columns']`).value = values.join(",");
+                });
+            }
+
+            btnAddComposite.addEventListener("click", addCompositeRow);
+            updateNoCompositeAlert();
 
             // פונקציה לבדיקה ורענון של הודעת "אין שדות"
             function updateNoMappingsAlert() {
@@ -486,11 +727,32 @@
                     </select>
                 `;
 
-                // עמודה ד: כפתור מחיקה
+                // עמודה ד: טיפוס ההשוואה - קובע כיצד הערך מנורמל לפני ההשוואה.
+                // ברירת המחדל נגזרת מטיפוס הנתונים של העמודה בקטלוג המסד
+                // (SuggestedKind שחושב בשרת), ולא קבועה ל"טקסט".
+                // בלי זה עמודה מספרית דיווחה 160 מול 160.0 כפער, עד שהמשתמש
+                // שינה ידנית את הבורר - בחירה אחת לכל עמודה בכל השוואה.
+                const tdKind = document.createElement("td");
+                const kindSource = allColumns.find(c => c.ColumnName === sqlColName)
+                    || allColumns.find(c => c.ColumnName === oracleColName);
+                const suggestedKind = (kindSource && kindSource.SuggestedKind) || "Text";
+                const kindHint = kindSource
+                    ? `זוהה אוטומטית לפי טיפוס העמודה: ${kindSource.SourceDataType} / ${kindSource.TargetDataType}`
+                    : "ברירת מחדל";
+                tdKind.innerHTML = `
+                    <select class="form-select form-input-glass text-light w-100 kind-field-select" name="valueKinds" required
+                            title="${escapeHtml(kindHint)}">
+                        <option value="Text" ${suggestedKind === "Text" ? "selected" : ""}>טקסט (רגיל)</option>
+                        <option value="Number" ${suggestedKind === "Number" ? "selected" : ""}>מספר</option>
+                        <option value="Date" ${suggestedKind === "Date" ? "selected" : ""}>תאריך</option>
+                    </select>
+                `;
+
+                // עמודה ה: כפתור מחיקה
                 const tdDelete = document.createElement("td");
                 tdDelete.className = "text-center";
                 tdDelete.innerHTML = `
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-circle p-2 transition-all" 
+                    <button type="button" class="btn btn-outline-danger btn-sm rounded-circle p-2 transition-all"
                             style="width: 36px; height: 36px; line-height: 1;" title="מחק שורה">✕</button>
                 `;
 
@@ -532,6 +794,7 @@
                 tr.appendChild(tdSource);
                 tr.appendChild(tdTarget);
                 tr.appendChild(tdRole);
+                tr.appendChild(tdKind);
                 tr.appendChild(tdDelete);
                 mappingRows.appendChild(tr);
 

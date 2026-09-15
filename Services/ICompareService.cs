@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using CompareD.Controllers;
 
@@ -21,34 +21,22 @@ public interface ICompareService
 
     // ביצוע השוואת סכמה בין שתי הטבלאות ובניית מודל סקירת הסכמה למסך
     Task<SchemaReviewViewModel> CompareSchemaAsync(
-        string sourceConnectionString, 
-        string sourceProvider,
-        string targetConnectionString, 
-        string targetProvider,
-        string sourceTable, 
-        string targetTable);
-
-    // ביצוע השוואת הנתונים בפועל והחזרת מודל התוצאות המלא
-    Task<ComparisonResultViewModel> CompareDataAsync(
         string sourceConnectionString,
         string sourceProvider,
         string targetConnectionString,
         string targetProvider,
         string sourceTable,
-        string targetTable,
-        string mappingMode,
-        List<string> sourceFields,
-        List<string> targetFields,
-        List<string> fieldRoles,
-        int maxRows);
+        string targetTable);
 
-    // מנוע ההשוואה החכם - ביצוע השוואת הנתונים בפועל, זיהוי כפילויות, הבדלים וקיבוצם לתבניות
+    // שליפת נתוני תצוגה מקדימה מסוננת משני המסדים, כולל נתוני אבחון לאיתור פערי סינון
     Task<Dictionary<string, object>> GetPreviewDataAsync(
         string sourceConnectionString, string sourceProvider,
         string targetConnectionString, string targetProvider,
         string sourceTable, string targetTable,
-        List<string> filterColumn, List<string> filterOperator, List<string> filterValue);
+        List<string>? sourceFields, List<string>? targetFields, List<string>? fieldRoles,
+        List<string>? filterColumn, List<string>? filterOperator, List<string>? filterValue);
 
+    // מנוע ההשוואה החכם - ביצוע השוואת הנתונים בפועל, זיהוי כפילויות, הבדלים וקיבוצם לתבניות
     Task<SmartComparisonResultViewModel> SmartCompareAsync(
         string sourceConnectionString,
         string sourceProvider,
@@ -61,11 +49,15 @@ public interface ICompareService
         List<string> fieldRoles,
         int maxRows,
         string filterActive = "false",
-        List<string> filterColumn = null,
-        List<string> filterOperator = null,
-        List<string> filterValue = null);
+        List<string>? filterColumn = null,
+        List<string>? filterOperator = null,
+        List<string>? filterValue = null,
+        List<string>? valueKinds = null,
+        List<CompositeFieldDefinition>? compositeFields = null);
 
-    // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי)
+    // ביצוע השוואה בזיכרון של שני סטים של נתונים (תמיכה בהשוואת קבצים ובדיקות דמי).
+    // valueKinds ו-compositeFields אופציונליים ומאפשרים נרמול לפי טיפוס
+    // והרכבת שדות מחושבים כאשר מבנה הנתונים אינו סימטרי בין שני הצדדים.
     SmartComparisonResultViewModel CompareInMemoryDatasets(
         List<Dictionary<string, object>> sourceRawData,
         List<Dictionary<string, object>> targetRawData,
@@ -73,5 +65,17 @@ public interface ICompareService
         string targetTable,
         List<string> sourceFields,
         List<string> targetFields,
-        List<string> fieldRoles);
+        List<string> fieldRoles,
+        List<string>? valueKinds = null,
+        List<CompositeFieldDefinition>? compositeFields = null,
+        // תקרת השורות שהתבקשה וסך השורות שהיו לפני החיתוך.
+        // נדרשים כדי לדווח במפורש שההשוואה נחתכה, מפני שבמצב כזה ממצאי
+        // החוסר והעודף אינם חד-משמעיים.
+        int maxRowsRequested = 0,
+        int sourceTotalRows = 0,
+        int targetTotalRows = 0,
+        // ידיעה ודאית על חיתוך, כשהקורא יודע שנחתך אך לא כמה שורות יש בסך הכול
+        // (מסלול המסד שולף שורת גישוש אחת מעבר לתקרה). null = אין ידיעה כזו.
+        bool? sourceTruncatedKnown = null,
+        bool? targetTruncatedKnown = null);
 }

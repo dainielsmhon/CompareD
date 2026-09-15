@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System;
 using CompareD.Models;
@@ -39,21 +39,16 @@ namespace CompareD.Filters
             // בדיקת סטטוס חסימה - למעט מנהלי מערכת הרשומים בקובץ התצורה
             var user = UserStore.GetOrCreateUser(username);
             
-            bool isAdmin = false;
+            // בדיקת מנהל דרך מקור האמת היחיד, כדי שהגדרת "מנהל" תהיה זהה
+            // לזו שנאכפת ב-AdminOnlyAttribute ולא תסטה ממנה בעתיד
             var configuration = httpContext.RequestServices.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)) as Microsoft.Extensions.Configuration.IConfiguration;
-            if (configuration != null)
+            bool isAdmin = AdminAuthorization.IsAdmin(configuration, username);
+
+            if (isAdmin && user.IsBlocked)
             {
-                var authorizedUsers = configuration.GetSection("AdminSettings:AuthorizedUsers").Get<System.Collections.Generic.List<string>>();
-                if (authorizedUsers != null && authorizedUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase)))
-                {
-                    isAdmin = true;
-                    // אם המנהל חסום בטעות (למשל בכניסה ראשונה), נשחרר אותו אוטומטית
-                    if (user.IsBlocked)
-                    {
-                        UserStore.ToggleBlockedStatus(username, false);
-                        user.IsBlocked = false;
-                    }
-                }
+                // אם המנהל חסום בטעות (למשל בכניסה ראשונה), נשחרר אותו אוטומטית
+                UserStore.ToggleBlockedStatus(username, false);
+                user.IsBlocked = false;
             }
 
             if (user.IsBlocked && !isAdmin)

@@ -1,4 +1,4 @@
-/* הגדרת משתני עיצוב גלובליים לערכת הצבעים הכהה והמודרנית */
+﻿/* הגדרת משתני עיצוב גלובליים לערכת הצבעים הכהה והמודרנית */
 :root {
     /* צבע הרקע הראשי הכהה - Slate עמוק */
     --bg-primary: #0a0f1d;
@@ -1258,3 +1258,323 @@ body.light-mode .auth-type-icon {
 body.light-mode .ad-result-item:hover {
     background: rgba(0, 0, 0, 0.03) !important;
 }
+
+/* =====================================================================
+   File Dropzone - אזורי גרירה להעלאת קבצים בהשוואת קובץ מול קובץ
+   ===================================================================== */
+
+/* כרטיס המשמש כאזור גרירה - מסמן למשתמש שניתן לשחרר קובץ לתוכו */
+.file-dropzone {
+    /* גבול מקווקו שמרמז חזותית על אזור שחרור קובץ */
+    border-style: dashed !important;
+    /* סמן יד כדי להבהיר שהכרטיס כולו לחיץ */
+    cursor: pointer;
+    /* מיקום יחסי עבור שכבת ההדגשה בזמן גרירה */
+    position: relative;
+}
+
+/* מצב שבו כבר נבחר קובץ - גבול ירוק רציף לאישור חזותי */
+.file-dropzone.has-file {
+    border-style: solid !important;
+    border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+/* מצב גרירה מעל הכרטיס - הדגשה מלאה בצבע הדגש */
+.file-dropzone.is-dragover {
+    /* גבול רציף וזוהר בצבע הדגש הראשי */
+    border-style: solid !important;
+    border-color: var(--accent-primary) !important;
+    /* גוון כחול עדין הנמרח מעל רקע הזכוכית הכהה - חשוב לשמר את הרקע הבסיסי,
+       אחרת ה-backdrop-filter יחד עם ה-transform מבהיר את הכרטיס ומלבין אותו */
+    background: linear-gradient(rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.12)), var(--bg-secondary);
+    /* זוהר חיצוני שמדגיש את הכרטיס הפעיל */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 12px 40px 0 rgba(59, 130, 246, 0.25);
+    /* הגדלה קלה כדי לתת תחושת "קליטה" של הקובץ */
+    transform: scale(1.015);
+}
+
+/* ביטול אירועי עכבר על תוכן הכרטיס בזמן גרירה כדי שלא יגרמו ל-dragleave מזויף */
+.file-dropzone.is-dragover * {
+    pointer-events: none;
+}
+
+/* Light Mode: התאמת אזורי הגרירה למצב הבהיר - חוק הגרירה אחרון כדי שינצח את has-file */
+body.light-mode .file-dropzone.has-file {
+    border-color: rgba(5, 150, 105, 0.45) !important;
+}
+body.light-mode .file-dropzone.is-dragover {
+    border-color: var(--accent-primary) !important;
+    background: linear-gradient(rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.08)), var(--bg-secondary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 12px 40px 0 rgba(37, 99, 235, 0.15);
+}
+
+/* =====================================================================
+   לוח בקרה — תצוגות חדשות (verdict, גרף 14 יום, פסי כשלים)
+   כל המחלקות כאן חדשות ובתחילית dash-, כדי שלא ייווצר התנגשות
+   עם מחלקות קיימות ולא ידרוס עיצוב שכבר עובד.
+   הצבעים נלקחים מהטוקנים הקיימים ולא מוגדרים מחדש.
+   ===================================================================== */
+
+/* פסק דין: שורה אחת בראש הלוח. פס החומרה בקצה מקודד את המצב בצורה
+   ולא רק בצבע, כדי שהמצב ייקרא בסריקה ולא רק בקריאה. */
+.dash-verdict {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 16px;
+    border-radius: 14px;
+    padding: 16px 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-right: 4px solid var(--color-warning);
+}
+.dash-verdict-ok       { border-right-color: var(--color-success); }
+.dash-verdict-warning  { border-right-color: var(--color-warning); }
+.dash-verdict-critical { border-right-color: var(--color-danger); }
+
+.dash-verdict-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--color-warning);
+}
+.dash-verdict-ok .dash-verdict-dot       { background: var(--color-success); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0.14); }
+.dash-verdict-warning .dash-verdict-dot  { background: var(--color-warning); box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14); }
+.dash-verdict-critical .dash-verdict-dot { background: var(--color-danger);  box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.14); }
+
+.dash-verdict-headline { margin: 0; font-size: 1.02rem; font-weight: 700; color: var(--text-primary); }
+.dash-verdict-detail   { margin: 2px 0 0; font-size: 0.84rem; color: var(--text-secondary); }
+
+/* גרף 14 הימים: גובה = מספר הפעולות, אדום בתחתית = כשלים.
+   הגבהים מחושבים בשרת מסקאלה אחת, כדי שההשוואה בין ימים תהיה אמיתית. */
+.dash-days {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 5px;
+    align-items: end;
+    height: 120px;
+}
+.dash-day {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 2px;
+    height: 100%;
+    border-radius: 5px;
+}
+.dash-day-ok {
+    background: linear-gradient(0deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+}
+.dash-day-bad {
+    background: var(--color-danger);
+    border-radius: 0 0 4px 4px;
+    min-height: 2px;
+}
+.dash-day-empty { background: var(--border-color); height: 3px; border-radius: 3px; }
+.dash-days-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+/* פסי התפלגות הכשלים: הרוחב אומר כמה, והשורה מתחת אומרת אצל כמה עובדים.
+   טבלה אינה מראה יחסים, ולכן הפסים נוספים מעליה ולא במקומה. */
+.dash-bar { margin-bottom: 14px; }
+.dash-bar-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+.dash-bar-count { font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+.dash-bar-track {
+    height: 9px;
+    border-radius: 99px;
+    background: var(--border-color);
+    margin-top: 6px;
+    overflow: hidden;
+}
+.dash-bar-fill { display: block; height: 100%; border-radius: 99px; }
+.dash-bar-note { font-size: 0.74rem; color: var(--text-secondary); margin-top: 4px; }
+.dash-bar-shared { color: var(--color-danger); font-weight: 600; }
+
+/* אחוז הצלחה כפס בתוך שורת העובד: 64% מול 98% נקראים מיד באורך,
+   ואילו כמספר בטבלה נדרשת השוואה בראש. */
+.dash-rate-track {
+    height: 5px;
+    border-radius: 99px;
+    background: var(--border-color);
+    overflow: hidden;
+    min-width: 70px;
+}
+.dash-rate-fill { display: block; height: 100%; border-radius: 99px; }
+
+/* פס חומרה בקצה שורת הטבלה, בלי לשנות את מבנה הטבלה עצמה */
+.dash-stripe-ok   { box-shadow: inset -3px 0 0 0 var(--color-success); }
+.dash-stripe-warn { box-shadow: inset -3px 0 0 0 var(--color-warning); }
+.dash-stripe-bad  { box-shadow: inset -3px 0 0 0 var(--color-danger); }
+
+/* מצב תקין נראה תקין, במקום טבלה ריקה שנראית כמו תקלה */
+.dash-allclear { text-align: center; padding: 26px 12px; color: var(--color-success); }
+.dash-allclear-big { font-size: 1.4rem; font-weight: 700; }
+.dash-allclear p { margin: 4px 0 0; font-size: 0.82rem; color: var(--text-secondary); }
+
+/* =====================================================================
+   דוח הבודק — תצוגות חדשות (פס מוערם, טבעת התאמה, פסי שדות)
+   מחלקות חדשות בתחילית report-, כדי שלא ידרסו עיצוב קיים בדוח.
+   הצבעים מהטוקנים הקיימים.
+   ===================================================================== */
+
+/* פס מוערם אחד שמראה את כל ההשוואה במבט: זהות, שונות, עודפות.
+   מספרים בטבלה דורשים חישוב יחסים בראש; אורך נקרא מיד. */
+.report-stack {
+    display: flex;
+    height: 14px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--border-color);
+}
+.report-stack span { display: block; min-width: 2px; }
+.report-stack-legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+.report-stack-legend > span { display: flex; align-items: center; gap: 7px; }
+.report-stack-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+/* טבעת פירוק ההתאמה. הערך במרכז הוא התשובה, והפלחים הם הפירוק שלה. */
+.report-ring { display: grid; place-items: center; }
+.report-ring svg { width: 100%; max-width: 190px; height: auto; }
+.report-ring-center { text-anchor: middle; }
+.report-ring-value {
+    font-size: 26px;
+    font-weight: 800;
+    fill: var(--text-primary);
+    font-family: ui-monospace, "Consolas", monospace;
+}
+.report-ring-label { font-size: 9.5px; fill: var(--text-secondary); }
+
+/* פסי השדות השונים: הרוחב אומר בכמה שורות, והתג אומר אם זה שיטתי.
+   נוספים מעל הטבלה ולא במקומה - הטבלה נושאת את הדוגמאות מכל צד. */
+.report-field { margin-bottom: 14px; }
+.report-field-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+.report-field-count { font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+.report-field-track {
+    height: 9px;
+    border-radius: 99px;
+    background: var(--border-color);
+    margin-top: 6px;
+    overflow: hidden;
+}
+.report-field-fill { display: block; height: 100%; border-radius: 99px; min-width: 3px; }
+.report-field-note { font-size: 0.74rem; color: var(--text-secondary); margin-top: 4px; }
+
+/* קו הפרדה בין ההבדלים השיטתיים לאלה שדורשים בדיקה בפועל.
+   זו ההבחנה המעשית היחידה בדוח הזה, ולכן היא מסומנת ולא רק ממוינת. */
+.report-field-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 18px 0 14px;
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+.report-field-divider::before,
+.report-field-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+/* =====================================================================
+   סבב תיקוני תצוגה — מצב בהיר, נגישות וחריגת גובה
+   הבלוק הזה מוסיף בלבד: הוא מגדיר משתני צבע חדשים ומחזיר צביעה
+   שכללי ה-!important של המצב הבהיר ביטלו. אין כאן דריסה של אף מחלקה
+   קיימת שהייתה עובדת נכון.
+   ===================================================================== */
+
+/* פאנל שקוע. עד כה הצבע rgba(15,23,42,0.4) היה מוטבע ישירות בעשרה
+   מקומות ב-Results.cshtml, ולכן במצב בהיר התקבל כרטיס כחול-כהה עם
+   טקסט כהה מעליו - בלתי קריא. עכשיו זה משתנה אחד לכל ערכת נושא. */
+:root {
+    --panel-sunken: rgba(15, 23, 42, 0.4);
+    --panel-sunken-strong: rgba(15, 23, 42, 0.55);
+}
+body.light-mode {
+    --panel-sunken: rgba(241, 245, 249, 0.85);
+    --panel-sunken-strong: rgba(241, 245, 249, 1);
+}
+
+/* החזרת קידוד הצבע בטבלאות הדוח במצב בהיר.
+   הכלל body.light-mode .table-dark td צובע כל תא ב-#1e293b עם
+   !important, ובסגוליות (0,2,2) הוא גבוה מ-.text-danger שהיא (0,2,0).
+   התוצאה: במצב בהיר כל התאים יצאו באותו אפור כהה - מספר ההבדלים
+   האדום, שם השדה השיטתי הכתום וערכי המקור מול היעד נעלמו כאחד.
+   הכללים כאן מכוונים לתא עצמו וגם לצאצא שלו, ולכן גוברים. */
+body.light-mode .table-dark td.text-danger,
+body.light-mode .table-dark td .text-danger  { color: #dc2626 !important; }
+body.light-mode .table-dark td.text-warning,
+body.light-mode .table-dark td .text-warning { color: #d97706 !important; }
+body.light-mode .table-dark td.text-success,
+body.light-mode .table-dark td .text-success { color: #059669 !important; }
+body.light-mode .table-dark td.text-primary,
+body.light-mode .table-dark td .text-primary { color: #2563eb !important; }
+body.light-mode .table-dark td.text-info,
+body.light-mode .table-dark td .text-info    { color: #0369a1 !important; }
+body.light-mode .table-dark td.text-secondary,
+body.light-mode .table-dark td .text-secondary,
+body.light-mode .table-dark td.text-muted,
+body.light-mode .table-dark td .text-muted   { color: #64748b !important; }
+
+/* היררכיה מודגשת מול מושתקת במצב בהיר.
+   body.light-mode .font-monospace צובע ב-#1e293b עם !important, ולכן
+   ספירות והערות שנועדו להיות מושתקות נקראו חזק כמו כותרות. */
+body.light-mode .report-field-count,
+body.light-mode .report-field-note,
+body.light-mode .dash-bar-count,
+body.light-mode .dash-days-axis span { color: #64748b !important; }
+
+/* עמודת היום הגבוהה חרגה שני פיקסלים מעל תיבת הגרף, מפני ששני
+   הקטעים יחד הם 100% ובנוסף יש ביניהם רווח של 2px. */
+.dash-day { max-height: 100%; overflow: hidden; }
+
+/* בלוק פירוט שנפתח בלחיצה. משמש להסתרת המדדים הטכניים בדוח,
+   כדי שהממצאים עצמם לא ייקברו תחת ספירות ביניים. */
+.report-details { margin-top: 6px; }
+.report-details > summary {
+    cursor: pointer;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border-radius: 99px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: var(--panel-sunken);
+    border: 1px solid var(--border-color);
+    transition: color .15s ease, border-color .15s ease;
+}
+.report-details > summary::-webkit-details-marker { display: none; }
+.report-details > summary::before { content: "▼"; font-size: 0.6rem; transition: transform .15s ease; }
+.report-details[open] > summary::before { transform: rotate(180deg); }
+.report-details > summary:hover { color: var(--text-primary); border-color: var(--accent-primary); }
+.report-details[open] > summary { margin-bottom: 14px; }

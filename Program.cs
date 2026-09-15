@@ -90,6 +90,37 @@ if (!app.Environment.IsDevelopment())
 // הפעלת הפניית HTTPS אוטומטית לטובת תקשורת מוצפנת ומאובטחת במערכת
 app.UseHttpsRedirection();
 
+// הפעלת Middleware להוספת כותרות אבטחה תקניות לכל תגובה
+// (CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy).
+// בדיקת כתיבה לתיקיית הלוגים בעליית האפליקציה.
+//
+// כתיבת הלוגים עטופה ב-catch שקט, כדי שכישלון בכתיבה לא יפיל בקשה. הצד השני
+// של אותה החלטה: תחת IIS, זהות ה-Application Pool מקבלת הרשאת קריאה בלבד
+// לתיקיית האתר כברירת מחדל - ואז אין לוגים בכלל, ואין שום סימן לכך.
+// הבדיקה הזו הופכת כישלון שקט לשגיאה מפורשת בעליית השרת.
+try
+{
+    string logsDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+    Directory.CreateDirectory(logsDirectory);
+
+    string probePath = Path.Combine(logsDirectory, ".write-probe");
+    File.WriteAllText(probePath, DateTime.Now.ToString("O"));
+    File.Delete(probePath);
+
+    app.Logger.LogInformation("תיקיית הלוגים נגישה לכתיבה: {LogsDirectory}", logsDirectory);
+}
+catch (Exception logsProbeException)
+{
+    app.Logger.LogError(logsProbeException,
+        "אין הרשאת כתיבה לתיקיית הלוגים תחת {BaseDirectory}. " +
+        "לוגי השגיאות, הביקורת וניטור הבריאות לא ייכתבו כלל. " +
+        "יש להעניק הרשאת Modify לזהות ה-Application Pool על תיקיית logs.",
+        AppDomain.CurrentDomain.BaseDirectory);
+}
+
+// נרשם לפני הגשת הקבצים הסטטיים כדי שהכותרות יחולו גם עליהם.
+app.UseMiddleware<CompareD.Middleware.SecurityHeadersMiddleware>();
+
 // הגדרת הגשת קבצים סטטיים מתיקיית wwwroot כגון עיצובים ותמונות
 app.UseStaticFiles();
 

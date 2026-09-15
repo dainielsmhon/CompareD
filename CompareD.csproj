@@ -11,7 +11,9 @@
 
   <ItemGroup>
     <!-- ספריית ה-ADO.NET הרשמית של מיקרוסופט להתחברות ל-SQL Server -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.9" />
+    <!-- גרסה 10.0.11: מתקנת שתי פרצות אבטחה בדרגת high שדווחו בגרסה 10.0.9
+         (GHSA-2p3q-h3hg-jcqq, GHSA-8prm-248r-h957) בשכבת האימות מול Active Directory -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.11" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <PackageReference Include="MiniExcel" Version="1.44.1" />
     <!-- ספריית ה-ADO.NET הרשמית של אורקל להתחברות ל-Oracle Database -->

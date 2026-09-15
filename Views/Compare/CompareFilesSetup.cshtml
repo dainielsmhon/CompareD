@@ -40,36 +40,40 @@
     <div class="bento-grid mb-5" id="csv-upload-grid">
         
         @* ===== קובץ 1: מקור ===== *@
-        <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="source-file-card" style="min-height: 250px;">
+        <div class="glass-card file-dropzone p-4 text-center d-flex flex-column align-items-center justify-content-center" id="source-file-card" style="min-height: 250px;">
             <div class="fs-1 text-primary mb-3">📁</div>
             <h3 class="h4 text-gradient mb-2">קובץ מקור (Table 1)</h3>
-            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV או Excel של המקור</p>
-            
+            <p class="text-secondary small mb-4">גררו לכאן קובץ CSV או XLSX של המקור, או לחצו לבחירה</p>
+
             <div class="w-100 px-3">
-                <input type="file" id="file1-input" name="file1" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx, .xls" required style="display:none;" />
+                <input type="file" id="file1-input" name="file1" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx" style="display:none;" />
                 <button type="button" class="btn btn-outline-primary transition-all w-100 py-3" onclick="document.getElementById('file1-input').click();">
                     📂 בחר קובץ מקור
                 </button>
                 <div id="file1-name" class="text-success small mt-3 fw-bold d-none">
                     קובץ נבחר: <span id="file1-selected-name" class="text-light font-monospace"></span>
                 </div>
+                @* הודעת שגיאה מקומית לכרטיס המקור (סוג קובץ שגוי / קובץ חסר) *@
+                <div id="file1-error" class="text-danger small mt-3 fw-bold d-none" role="alert"></div>
             </div>
         </div>
 
         @* ===== קובץ 2: יעד ===== *@
-        <div class="glass-card p-4 text-center d-flex flex-column align-items-center justify-content-center" id="target-file-card" style="min-height: 250px;">
+        <div class="glass-card file-dropzone p-4 text-center d-flex flex-column align-items-center justify-content-center" id="target-file-card" style="min-height: 250px;">
             <div class="fs-1 text-secondary mb-3" style="color: var(--accent-secondary) !important;">📁</div>
             <h3 class="h4 text-gradient mb-2">קובץ יעד (Table 2)</h3>
-            <p class="text-secondary small mb-4">גררו לכאן או בחרו קובץ CSV או Excel של היעד</p>
-            
+            <p class="text-secondary small mb-4">גררו לכאן קובץ CSV או XLSX של היעד, או לחצו לבחירה</p>
+
             <div class="w-100 px-3">
-                <input type="file" id="file2-input" name="file2" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx, .xls" required style="display:none;" />
+                <input type="file" id="file2-input" name="file2" class="form-control form-input-glass text-light w-100" accept=".csv, .xlsx" style="display:none;" />
                 <button type="button" class="btn btn-outline-secondary transition-all w-100 py-3" style="border-color: var(--accent-secondary); color: var(--accent-secondary);" onclick="document.getElementById('file2-input').click();">
                     📂 בחר קובץ יעד
                 </button>
                 <div id="file2-name" class="text-success small mt-3 fw-bold d-none">
                     קובץ נבחר: <span id="file2-selected-name" class="text-light font-monospace"></span>
                 </div>
+                @* הודעת שגיאה מקומית לכרטיס היעד (סוג קובץ שגוי / קובץ חסר) *@
+                <div id="file2-error" class="text-danger small mt-3 fw-bold d-none" role="alert"></div>
             </div>
         </div>
 
@@ -97,31 +101,200 @@
 
 @section Scripts {
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const file1Input = document.getElementById("file1-input");
-            const file2Input = document.getElementById("file2-input");
-            const file1NameDiv = document.getElementById("file1-name");
-            const file2NameDiv = document.getElementById("file2-name");
-            const file1SelectedName = document.getElementById("file1-selected-name");
-            const file2SelectedName = document.getElementById("file2-selected-name");
+        document.addEventListener("DOMContentLoaded", function () {
 
-            file1Input.addEventListener("change", function() {
-                if (file1Input.files && file1Input.files.length > 0) {
-                    file1SelectedName.textContent = file1Input.files[0].name;
-                    file1NameDiv.classList.remove("d-none");
-                } else {
-                    file1NameDiv.classList.add("d-none");
+            // סיומות הקבצים הנתמכות - זהה בדיוק לאימות שמתבצע בצד השרת
+            const allowedExtensions = [".csv", ".xlsx"];
+
+            // בדיקה האם פעולת הגרירה הנוכחית כוללת קבצים (ולא גרירת טקסט או אלמנט בתוך הדף)
+            function dragHasFiles(event) {
+                if (!event.dataTransfer) {
+                    return false;
                 }
+                return Array.prototype.indexOf.call(event.dataTransfer.types || [], "Files") !== -1;
+            }
+
+            // חסימת התנהגות ברירת המחדל של הדפדפן - פתיחת הקובץ בטאב חדש כשהוא נגרר אל הדף
+            ["dragover", "drop"].forEach(function (eventName) {
+                window.addEventListener(eventName, function (event) {
+                    if (dragHasFiles(event)) {
+                        event.preventDefault();
+                    }
+                });
             });
 
-            file2Input.addEventListener("change", function() {
-                if (file2Input.files && file2Input.files.length > 0) {
-                    file2SelectedName.textContent = file2Input.files[0].name;
-                    file2NameDiv.classList.remove("d-none");
-                } else {
-                    file2NameDiv.classList.add("d-none");
+            // אתחול כרטיס בודד כאזור גרירה (Dropzone) עם אפשרות בחירה גם בלחיצה
+            function setupDropzone(cardId, inputId, nameBoxId, nameTextId, errorBoxId) {
+                const card = document.getElementById(cardId);
+                const input = document.getElementById(inputId);
+                const nameBox = document.getElementById(nameBoxId);
+                const nameText = document.getElementById(nameTextId);
+                const errorBox = document.getElementById(errorBoxId);
+
+                // הגנה: אם אחד האלמנטים חסר בדף לא מאתחלים את האזור
+                if (!card || !input || !nameBox || !nameText || !errorBox) {
+                    return null;
                 }
-            });
+
+                // מונה עומק גרירה - מונע כיבוי ההדגשה במעבר בין אלמנטים פנימיים בכרטיס
+                let dragDepth = 0;
+
+                // הצגת הודעת שגיאה מקומית בתוך הכרטיס
+                function showError(message) {
+                    errorBox.textContent = message;
+                    errorBox.classList.remove("d-none");
+                }
+
+                // ניקוי הודעת השגיאה המקומית
+                function clearError() {
+                    errorBox.textContent = "";
+                    errorBox.classList.add("d-none");
+                }
+
+                // בדיקת סיומת הקובץ מול רשימת הסיומות הנתמכות
+                function isSupported(fileName) {
+                    const lowerName = (fileName || "").toLowerCase();
+                    return allowedExtensions.some(function (extension) {
+                        return lowerName.endsWith(extension);
+                    });
+                }
+
+                // רענון תצוגת הכרטיס בהתאם לקובץ שנמצא כרגע בשדה הקלט
+                function renderSelection() {
+                    if (input.files && input.files.length > 0) {
+                        nameText.textContent = input.files[0].name;
+                        nameBox.classList.remove("d-none");
+                        card.classList.add("has-file");
+                        clearError();
+                    } else {
+                        nameBox.classList.add("d-none");
+                        card.classList.remove("has-file");
+                    }
+                }
+
+                // עדכון התצוגה גם כאשר הקובץ נבחר דרך חלון בחירת הקבצים הרגיל
+                input.addEventListener("change", renderSelection);
+
+                // כניסת גרירה לתחום הכרטיס - הדלקת ההדגשה החזותית
+                card.addEventListener("dragenter", function (event) {
+                    if (!dragHasFiles(event)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    dragDepth++;
+                    card.classList.add("is-dragover");
+                });
+
+                // ריחוף מעל הכרטיס - חובה למנוע ברירת מחדל כדי שהדפדפן יאפשר שחרור כאן
+                card.addEventListener("dragover", function (event) {
+                    if (!dragHasFiles(event)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                    card.classList.add("is-dragover");
+                });
+
+                // יציאת הגרירה מתחום הכרטיס - כיבוי ההדגשה רק כשיצאנו ממנו לגמרי
+                card.addEventListener("dragleave", function (event) {
+                    if (!dragHasFiles(event)) {
+                        return;
+                    }
+                    dragDepth = Math.max(0, dragDepth - 1);
+                    if (dragDepth === 0) {
+                        card.classList.remove("is-dragover");
+                    }
+                });
+
+                // שחרור הקובץ בתוך הכרטיס - ליבת מנגנון הגרירה
+                card.addEventListener("drop", function (event) {
+                    if (!dragHasFiles(event)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    event.stopPropagation();
+                    dragDepth = 0;
+                    card.classList.remove("is-dragover");
+
+                    const droppedFiles = event.dataTransfer.files;
+
+                    // גרירה שאינה מכילה קובץ אמיתי (למשל תיקייה או קישור מדף אינטרנט)
+                    if (!droppedFiles || droppedFiles.length === 0) {
+                        showError("לא זוהה קובץ בגרירה. יש לגרור קובץ CSV או XLSX מהמחשב.");
+                        return;
+                    }
+
+                    // כל כרטיס מקבל קובץ אחד בלבד
+                    if (droppedFiles.length > 1) {
+                        showError("ניתן לשחרר קובץ אחד בלבד בכל כרטיס.");
+                        return;
+                    }
+
+                    const droppedFile = droppedFiles[0];
+
+                    // אימות סיומת בצד הלקוח לפני שליחת הטופס לשרת
+                    if (!isSupported(droppedFile.name)) {
+                        showError("סוג הקובץ אינו נתמך. המערכת תומכת בקובצי CSV או XLSX (Excel) בלבד.");
+                        return;
+                    }
+
+                    // העברת הקובץ שנגרר אל שדה הקלט עצמו כדי שיישלח יחד עם הטופס
+                    try {
+                        const transfer = new DataTransfer();
+                        transfer.items.add(droppedFile);
+                        input.files = transfer.files;
+                    } catch (assignError) {
+                        showError("הדפדפן אינו תומך בגרירת קבצים. אנא השתמשו בכפתור בחירת הקובץ.");
+                        return;
+                    }
+
+                    renderSelection();
+                });
+
+                // לחיצה על שטח הכרטיס פותחת את חלון בחירת הקבצים (הכפתור נשמר כגיבוי)
+                card.addEventListener("click", function (event) {
+                    // התעלמות מלחיצה על הכפתור או על קישור כדי לא לפתוח את החלון פעמיים
+                    if (event.target.closest("button, a, input, label")) {
+                        return;
+                    }
+                    input.click();
+                });
+
+                return { card: card, input: input, showError: showError };
+            }
+
+            // אתחול שני אזורי הגרירה - כרטיס קובץ המקור וכרטיס קובץ היעד
+            const dropzones = [
+                setupDropzone("source-file-card", "file1-input", "file1-name", "file1-selected-name", "file1-error"),
+                setupDropzone("target-file-card", "file2-input", "file2-name", "file2-selected-name", "file2-error")
+            ];
+
+            // שדות הקלט מוסתרים, ולכן ולידציית required של הדפדפן לא מצליחה להציג הודעה למשתמש -
+            // במקומה חוסמים את השליחה ומציגים הודעה מקומית בתוך הכרטיס שבו חסר קובץ
+            const compareForm = document.getElementById("csv-compare-form");
+            if (compareForm) {
+                compareForm.addEventListener("submit", function (event) {
+                    let firstMissingCard = null;
+
+                    dropzones.forEach(function (zone) {
+                        if (!zone) {
+                            return;
+                        }
+                        if (!zone.input.files || zone.input.files.length === 0) {
+                            zone.showError("יש לגרור לכאן קובץ או לבחור קובץ לפני הרצת ההשוואה.");
+                            if (!firstMissingCard) {
+                                firstMissingCard = zone.card;
+                            }
+                        }
+                    });
+
+                    // עצירת השליחה וגלילה אל הכרטיס הראשון שחסר בו קובץ
+                    if (firstMissingCard) {
+                        event.preventDefault();
+                        firstMissingCard.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                });
+            }
         });
     </script>
 }

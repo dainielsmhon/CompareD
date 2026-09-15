@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -15,93 +15,78 @@ namespace CompareD.Controllers
     // כולל: Audit Log, System Logs, Analytics Dashboard, Health Monitor, Settings
     // =====================================================================
     [Authorize]
+    [CompareD.Filters.AdminOnly]
     public class AdminController : Controller
     {
-        private readonly IConfiguration _configuration;
-
-        public AdminController(IConfiguration configuration)
-        {
-            _configuration = configuration;
-        }
-
-        // פונקציית עזר לבדיקה האם המשתמש הנוכחי מוגדר כמנהל מורשה
-        private bool IsUserAuthorized()
-        {
-            var username = User.Identity?.Name;
-            if (string.IsNullOrEmpty(username)) return false;
-
-            var authorizedUsers = _configuration.GetSection("AdminSettings:AuthorizedUsers").Get<List<string>>();
-            if (authorizedUsers == null || authorizedUsers.Count == 0) return false;
-
-            return authorizedUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase));
-        }
-
         // =====================================================================
         // Feature 1+2+5+6+7: לוח בקרה ראשי משולב עם Analytics, Health, Settings
         // =====================================================================
         [HttpGet]
         public IActionResult Index()
         {
-            if (!IsUserAuthorized())
-            {
-                // רישום ניסיון גישה לא מורשה ב-Audit Log עם סטטוס Failed
-                AuditLogger.LogAction(User.Identity?.Name ?? "Unknown", "UnauthorizedAdminAccessAttempt",
-                    "ניסיון גישה לא מורשה לפאנל הניהול", "Failed");
-                return RedirectToAction("AccessDenied", "Home");
-            }
-
             // טעינת כל הנתונים הדרושים ל-ViewModel המשולב
             var currentUsername = User.Identity?.Name ?? string.Empty;
             if (!string.IsNullOrEmpty(currentUsername))
                 UserStore.GetOrCreateUser(currentUsername);
 
             var allAuditEntries = AuditLogStore.GetAll();
-            var successCount = allAuditEntries.Count(e => e.Status == "Success");
-            var failedCount = allAuditEntries.Count(e => e.Status == "Failed");
+
+            // הצלחה היא Status שהוא בדיוק "Success"; כל השאר נספר ככשל.
+            //
+            // קודם נספרו כאן "Success" ו-"Failed" בהשוואה מדויקת, בעוד שהחישובים
+            // ב-AuditLogStore סופרים "כל מה שאינו Success" ככשל. סטטוס שאינו אחד
+            // מהשניים היה נספר כאן כלא-כלום וכשם ככשל, וכרטיסי המדד היו סותרים
+            // את הטבלאות. שתי השיטות זהות כעת, וגם מובטח ש-
+            // successCount + failedCount שווה בדיוק לסך הפעולות.
+            var successCount = allAuditEntries.Count(e =>
+                string.Equals(e.Status, "Success", StringComparison.OrdinalIgnoreCase));
+            var failedCount = allAuditEntries.Count - successCount;
 
             // בניית ViewModel עשיר לדאשבורד הניהול
             var viewModel = new AdminDashboardViewModel
             {
-                SuccessRate = AuditLogStore.GetSuccessRate(),
+                // כל החישובים מקבלים את allAuditEntries שנטען למעלה, ולא שולפים
+                // בעצמם. קודם כל חישוב קרא את קובץ הביקורת מהדיסק בנפרד, ולכן
+                // טעינת הדף פרסרה את אותו JSON שמונה פעמים.
+                SuccessRate = AuditLogStore.GetSuccessRate(allAuditEntries),
                 TotalActions = allAuditEntries.Count,
                 SuccessCount = successCount,
                 FailedCount = failedCount,
-                RecentActiveUsers = AuditLogStore.GetRecentActiveUsers(10),
+                RecentActiveUsers = AuditLogStore.GetRecentActiveUsers(10, allAuditEntries),
                 AvgProcessingTimeMs = HealthMonitor.GetAverageProcessingMs(),
                 HealthSamplesCount = HealthMonitor.GetAll().Count,
                 Users = UserStore.GetUsers(),
                 Settings = SystemSettingsStore.Get(),
-                AppVersion = AppVersion.FullVersion
+                AppVersion = AppVersion.FullVersion,
+
+                // פירוט לפי משתמש ולפי שלב כשל. אחוז ההצלחה הגלובלי אינו
+                // מבדיל בין עובד שמריץ בהצלחה לעובד שנתקע שוב ושוב באותו שלב,
+                // וזה מה שצריך לדעת כשהמערכת נמסרת לעובדים.
+                PerUserStats = AuditLogStore.GetPerUserStats(allAuditEntries),
+                FailureBreakdown = AuditLogStore.GetFailureBreakdown(allAuditEntries),
+
+                // פסק הדין, מגמת השבוע וגרף 14 הימים - כולם נגזרים מלוג
+                // הביקורת הקיים ואינם דורשים איסוף נתונים נוסף.
+                Verdict = AuditLogStore.GetVerdict(allAuditEntries),
+                DailyActivity = AuditLogStore.GetDailyActivity(14, allAuditEntries),
+                Trend = AuditLogStore.GetWeeklyTrend(allAuditEntries),
+
+                // מפת החום, המשפך ורשומות הפירוט - כולם נגזרים מאותה
+                // רשימה שנטענה פעם אחת למעלה, בלי קריאה נוספת מהדיסק.
+                YearActivity = AuditLogStore.GetYearActivity(26, allAuditEntries),
+                Funnel = AuditLogStore.GetFunnel(allAuditEntries),
+                DrillEntries = AuditLogStore.GetDrillEntries(26 * 7, allAuditEntries)
             };
 
             return View(viewModel);
         }
 
         // =====================================================================
-        // Feature 2: Audit Log - תצוגת טבלת פעולות משתמשים מלאה
+        // הערה: פעולות AuditLog ו-SystemLogs הוסרו.
+        // הן החזירו View שלא היה קיים בתיקיית Views/Admin ולכן כל גישה אליהן
+        // הסתיימה בשגיאת 500. שני הלוגים מוצגים במלואם, כולל חיפוש,
+        // בטאבים "Audit Log" ו-"System Logs" שבתוך לוח הבקרה (Index).
         // =====================================================================
-        [HttpGet]
-        public IActionResult AuditLog()
-        {
-            if (!IsUserAuthorized())
-                return RedirectToAction("AccessDenied", "Home");
-
-            var entries = AuditLogStore.GetAll();
-            return View(entries);
-        }
-
-        // =====================================================================
-        // Feature 3: System Logs - תצוגת לוג שגיאות מערכת עם תרגום עברי
-        // =====================================================================
-        [HttpGet]
-        public IActionResult SystemLogs()
-        {
-            if (!IsUserAuthorized())
-                return RedirectToAction("AccessDenied", "Home");
-
-            var logs = SystemLogger.GetAll();
-            return View(logs);
-        }
 
         // =====================================================================
         // Feature 7: שמירת הגדרות מערכת דינמיות
@@ -110,9 +95,6 @@ namespace CompareD.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult SaveSettings(SystemSettings settings)
         {
-            if (!IsUserAuthorized())
-                return Json(new { success = false, message = "אין לך הרשאות לבצע פעולה זו!" });
-
             var currentUser = User.Identity?.Name ?? "Unknown";
             settings.LastUpdatedBy = currentUser;
 
@@ -136,9 +118,6 @@ namespace CompareD.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult ToggleStatus(string username, bool isBlocked)
         {
-            if (!IsUserAuthorized())
-                return Json(new { success = false, message = "אין לך הרשאות ניהול לביצוע פעולה זו!" });
-
             if (string.IsNullOrWhiteSpace(username))
                 return Json(new { success = false, message = "שם משתמש לא תקין!" });
 
@@ -167,9 +146,6 @@ namespace CompareD.Controllers
         [SupportedOSPlatform("windows")]
         public IActionResult SearchAD(string query)
         {
-            if (!IsUserAuthorized())
-                return Json(new { success = false, message = "אין הרשאות." });
-
             if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
                 return Json(new { success = true, results = new List<object>() });
 
@@ -218,9 +194,6 @@ namespace CompareD.Controllers
         [ValidateAntiForgeryToken]
         public IActionResult AddUser(string username, string fullName, string email, string authType = "Active Directory")
         {
-            if (!IsUserAuthorized())
-                return Json(new { success = false, message = "אין הרשאות לביצוע פעולה זו." });
-
             if (string.IsNullOrWhiteSpace(username))
                 return Json(new { success = false, message = "שם משתמש חובה." });
 

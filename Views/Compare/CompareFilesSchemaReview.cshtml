@@ -68,7 +68,8 @@
     </div>
 }
 
-<form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison">
+<form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison"
+      data-ux-busy="מריץ השוואה בין הקבצים">
     @Html.AntiForgeryToken()
 
     @* כרטיס מיפוי עמודות מפורט *@
@@ -88,9 +89,10 @@
                                 <span class="small" style="font-size: 0.65rem;">בחר הכל</span>
                             </div>
                         </th>
-                        <th style="width: 30%;">עמודת מקור (Table 1)</th>
-                        <th style="width: 35%;">עמודת יעד תואמת (Table 2)</th>
-                        <th style="width: 25%;">תפקיד העמודה</th>
+                        <th style="width: 24%;">עמודת מקור (Table 1)</th>
+                        <th style="width: 28%;">עמודת יעד תואמת (Table 2)</th>
+                        <th style="width: 20%;">תפקיד העמודה</th>
+                        <th style="width: 18%;">טיפוס השוואה</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -141,6 +143,23 @@
                                     }
                                 </select>
                             </td>
+                            <td>
+                                @* טיפוס ההשוואה קובע כיצד הערך מנורמל לפני ההשוואה.
+                                   ברירת המחדל מזוהה אוטומטית ממדגם ערכים בקובץ, שכן
+                                   לקובץ אין סכימה שממנה ניתן לגזור את הטיפוס.
+                                   בלי זה עמודה מספרית דיווחה 160 מול 160.0 כפער. *@
+                                @{
+                                    var detectedKind = Model.SuggestedKinds.TryGetValue(col, out var dk) ? dk : "Text";
+                                    var kindTitle = detectedKind == "Text"
+                                        ? "לא זוהה טיפוס אחיד בעמודה - השוואה טקסטואלית"
+                                        : "זוהה אוטומטית ממדגם ערכי העמודה בקובץ";
+                                }
+                                <select name="kindMapping_@col" class="form-select form-input-glass text-light w-100" id="kind_@col" title="@kindTitle">
+                                    <option value="Text" selected="@(detectedKind == "Text")">טקסט (רגיל)</option>
+                                    <option value="Number" selected="@(detectedKind == "Number")">מספר</option>
+                                    <option value="Date" selected="@(detectedKind == "Date")">תאריך</option>
+                                </select>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -148,10 +167,108 @@
         </div>
     </div>
 
+    @* ===== שדות מחושבים: מאחדים מספר עמודות לערך אחד בר-השוואה ===== *@
+    <div class="glass-card mb-5 p-4" id="composite-fields-card">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 text-gradient mb-1">שדות מחושבים (אופציונלי)</h3>
+                <p class="text-secondary small mb-0 mt-1">
+                    כאשר המבנה אינו סימטרי — למשל שנה, חודש ויום בשלושה שדות בקובץ אחד מול שדה תאריך אחד בקובץ השני —
+                    כאן מגדירים שדה לוגי אחד שמאחד אותם. בלי זה כל השורות ידווחו כחסרות.
+                </p>
+            </div>
+            <button type="button" class="btn btn-outline-info transition-all rounded-pill px-4" id="btn-add-composite-field">
+                + הוסף שדה מחושב
+            </button>
+        </div>
+
+        <div id="composite-fields-container" class="d-flex flex-column gap-3"></div>
+
+        <div class="text-center py-3 text-secondary small" id="no-composite-alert">
+            לא הוגדרו שדות מחושבים. אם מבנה השדות זהה בשני הקבצים, אין צורך בכלום כאן.
+        </div>
+    </div>
+
+    @* ===== מערכת סינון נתונים מרובת תנאים — זהה לזו שבמסך המסד ===== *@
+    @* עד כה הסינון היה קיים במסלול המסד בלבד. בהיעדרו כאן, שורות שהמשתמש *@
+    @* התכוון להוציא מהבדיקה נכנסו להשוואה ודווחו כחוסר, ואילצו מחיקה ידנית. *@
+    <div class="glass-card mb-5 p-4" id="files-data-filter-card">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h3 class="h5 text-gradient mb-0">בונה שאילתות וסינון נתונים (אופציונלי)</h3>
+                <p class="text-secondary small mb-0 mt-1">
+                    הגדירו מספר תנאי סינון. התנאים יחוברו אוטומטית (וגם - AND) ויסוננו בשני הקבצים. (ללא בחירה - לא יסונן כלום)
+                </p>
+            </div>
+        </div>
+
+        <input type="hidden" name="filterActive" value="true" />
+
+        <div id="files-data-filter-options">
+            <div id="files-filter-conditions-container" class="d-flex flex-column gap-3 mb-3">
+                <!-- שורות הסינון יתווספו לכאן דינמית ע"י JavaScript -->
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 transition-all" id="btn-add-files-filter-condition">
+                    + הוסף תנאי סינון
+                </button>
+            </div>
+            <span class="text-secondary small d-block mt-3">
+                הסינון מופעל על שני הקבצים לפני הגבלת מספר השורות, בדיוק כמו במסך ההשוואה מול מסד הנתונים.
+            </span>
+        </div>
+    </div>
+
+    @* ===== שורות מוסתרות בגיליון ===== *@
+    @* הסתרה בגיליון אינה מחיקה, וברירת המחדל היא לכלול את השורות. התיבה *@
+    @* הזו מאפשרת להחריג אותן בלי למחוק אותן מהקובץ לפני כל הרצה.        *@
+    @if (Model.SourceHiddenRows > 0 || Model.TargetHiddenRows > 0)
+    {
+        <div class="glass-card mb-5" id="hidden-rows-config-container"
+             style="border-color: rgba(245, 158, 11, 0.35) !important;">
+            <div class="d-flex align-items-start gap-3">
+                <span class="fs-3">⚠</span>
+                <div class="flex-grow-1">
+                    <h4 class="h6 text-warning fw-bold mb-2">יש שורות מוסתרות בגיליון</h4>
+                    <p class="text-secondary small mb-3">
+                        @if (Model.SourceHiddenRows > 0)
+                        {
+                            <span class="d-block">
+                                ב-<span class="font-monospace text-light">@Model.SourceFileName</span>:
+                                <strong class="text-warning">@Model.SourceHiddenRows</strong> שורות מוסתרות.
+                            </span>
+                        }
+                        @if (Model.TargetHiddenRows > 0)
+                        {
+                            <span class="d-block">
+                                ב-<span class="font-monospace text-light">@Model.TargetFileName</span>:
+                                <strong class="text-warning">@Model.TargetHiddenRows</strong> שורות מוסתרות.
+                            </span>
+                        }
+                    </p>
+
+                    <div class="form-check d-flex align-items-center gap-2 mb-2">
+                        <input type="checkbox" class="form-check-input" id="skip-hidden-rows"
+                               name="skipHiddenRows" value="true" style="width: 1.3rem; height: 1.3rem; cursor: pointer;" />
+                        <label class="form-check-label text-light" for="skip-hidden-rows" style="cursor: pointer;">
+                            אל תכלול בהשוואה שורות שהוסתרו בגיליון
+                        </label>
+                    </div>
+
+                    <span class="text-secondary small d-block">
+                        הסתרת שורות באקסל אינה מוחקת אותן, ולכן ברירת המחדל היא לכלול אותן —
+                        החרגה שקטה עלולה להסתיר חוסר אמיתי. סימון התיבה מחריג אותן בהרצה הזו,
+                        בלי צורך למחוק אותן מהקובץ.
+                    </span>
+                </div>
+            </div>
+        </div>
+    }
+
     @* הגדרת כמות שורות מקסימלית להשוואה *@
     <div class="glass-card mb-5 text-center" id="limit-config-container" style="max-width: 450px; margin: 0 auto;">
         <label for="max-rows-input" class="form-label text-secondary fs-6 fw-bold" id="max-rows-label">הגבלת כמות רשומות לטעינה (Max Rows)</label>
-        <input type="number" class="form-control form-input-glass text-center text-light mx-auto" id="max-rows-input" name="maxRows" value="1000" min="1" required style="max-width: 200px;" />
+        <input type="number" class="form-control form-input-glass text-center text-light mx-auto" id="max-rows-input" name="maxRows" value="10000" min="1" max="10000" required style="max-width: 200px;" />
         <span class="text-secondary small d-block mt-2">הגבילו את השורות לקבצים גדולים כדי להבטיח ביצועים מהירים.</span>
     </div>
 
@@ -198,10 +315,12 @@
             checkboxes.forEach(cb => {
                 const tSelect = document.getElementById("target_" + cb.value);
                 const rSelect = document.getElementById("role_" + cb.value);
-                
+                const kSelect = document.getElementById("kind_" + cb.value);
+
                 function updateSelectsState() {
                     if (tSelect) tSelect.disabled = !cb.checked;
                     if (rSelect) rSelect.disabled = !cb.checked;
+                    if (kSelect) kSelect.disabled = !cb.checked;
                 }
 
                 // מצב ראשוני - הכל לא מסומן, ולכן מנטרלים את תיבות הבחירה
@@ -222,8 +341,10 @@
                     cb.checked = isChecked;
                     const tSelect = document.getElementById("target_" + cb.value);
                     const rSelect = document.getElementById("role_" + cb.value);
+                    const kSelect = document.getElementById("kind_" + cb.value);
                     if (tSelect) tSelect.disabled = !isChecked;
                     if (rSelect) rSelect.disabled = !isChecked;
+                    if (kSelect) kSelect.disabled = !isChecked;
                 });
             });
 
@@ -236,6 +357,187 @@
             }
 
             updateMasterCheckboxState();
+
+            // =====================================================================
+            // שדות מחושבים - איחוד מספר עמודות לערך לוגי אחד בר-השוואה
+            // =====================================================================
+
+            // רשימות העמודות של שני הקבצים לשימוש בבניית תיבות הבחירה הדינמיות.
+            // הסריאליזטור של .NET מקודד תווים מיוחדים ולכן השימוש כאן בטוח.
+            const SourceColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SourceColumns));
+            const TargetColumns = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TargetColumns));
+
+            const compositeContainer = document.getElementById("composite-fields-container");
+            const noCompositeAlert = document.getElementById("no-composite-alert");
+            const btnAddComposite = document.getElementById("btn-add-composite-field");
+
+            // בריחה מתווי HTML לפני שילוב שם עמודה ב-innerHTML
+            function escapeHtml(text) {
+                const div = document.createElement("div");
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // בניית רשימת אפשרויות עמודות עבור תיבת בחירה
+            function buildColumnOptions(columns) {
+                return columns.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+            }
+
+            // עדכון הודעת "אין שדות מחושבים"
+            function updateNoCompositeAlert() {
+                if (compositeContainer.children.length === 0) {
+                    noCompositeAlert.classList.remove("d-none");
+                } else {
+                    noCompositeAlert.classList.add("d-none");
+                }
+            }
+
+            // בניית בלוק בחירת עמודות לצד אחד של שדה מחושב
+            function buildCompositeSide(sideLabel, sideKey, columns) {
+                return `
+                    <div class="col-md-5">
+                        <label class="form-label text-secondary small fw-bold">${escapeHtml(sideLabel)}</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2 composite-kind" data-side="${sideKey}">
+                            <option value="DateParts" selected>שנה / חודש / יום (3 שדות)</option>
+                            <option value="Date">שדה תאריך אחד</option>
+                        </select>
+                        <div class="d-flex gap-1 composite-parts" data-side="${sideKey}">
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="0" title="שנה">
+                                <option value="">-- שנה --</option>${buildColumnOptions(columns)}
+                            </select>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="1" title="חודש">
+                                <option value="">-- חודש --</option>${buildColumnOptions(columns)}
+                            </select>
+                            <select class="form-select form-select-sm bg-dark text-light border-secondary composite-col" data-part="2" title="יום">
+                                <option value="">-- יום --</option>${buildColumnOptions(columns)}
+                            </select>
+                        </div>
+                        <input type="hidden" name="composite${sideKey}Columns" value="" />
+                        <input type="hidden" name="composite${sideKey}Kind" value="DateParts" />
+                    </div>
+                `;
+            }
+
+            // סנכרון בחירות העמודות אל השדות המוסתרים.
+            // העמודות נשלחות כמחרוזת מופרדת בפסיקים כדי לשמר התאמה בין המערכים בשרת.
+            function syncCompositeRow(row) {
+                ["Source", "Target"].forEach(side => {
+                    const parts = row.querySelector(`.composite-parts[data-side='${side}']`);
+                    const values = Array.from(parts.querySelectorAll(".composite-col"))
+                        .filter(c => !c.classList.contains("d-none"))
+                        .map(c => c.value)
+                        .filter(v => v !== "");
+                    row.querySelector(`input[name='composite${side}Columns']`).value = values.join(",");
+                });
+            }
+
+            // הוספת שורת שדה מחושב חדשה
+            function addCompositeRow() {
+                const row = document.createElement("div");
+                row.className = "row g-3 align-items-start p-3 rounded border border-white/5 composite-row";
+                row.style.background = "rgba(15, 23, 42, 0.4)";
+
+                row.innerHTML = `
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small fw-bold">שם השדה</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary"
+                               name="compositeName" value="תאריך" />
+                    </div>
+                    ${buildCompositeSide("צד מקור (Table 1)", "Source", SourceColumns)}
+                    ${buildCompositeSide("צד יעד (Table 2)", "Target", TargetColumns)}
+                    <div class="col-md-2">
+                        <label class="form-label text-secondary small fw-bold">תפקיד</label>
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" name="compositeRole">
+                            <option value="Key" selected>מפתח התאמה</option>
+                            <option value="Compare">שדה להשוואה</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-remove-composite" title="מחק שדה מחושב">
+                            ✕ הסר
+                        </button>
+                    </div>
+                `;
+
+                // מאזין לשינוי סוג ההרכבה: "שדה תאריך אחד" מציג תיבת בחירה אחת בלבד
+                row.querySelectorAll(".composite-kind").forEach(kindSelect => {
+                    kindSelect.addEventListener("change", function() {
+                        const side = this.dataset.side;
+                        const parts = row.querySelector(`.composite-parts[data-side='${side}']`);
+                        const cols = parts.querySelectorAll(".composite-col");
+                        const isSingleDate = this.value === "Date";
+
+                        cols.forEach((col, index) => {
+                            if (isSingleDate && index > 0) {
+                                col.value = "";
+                                col.classList.add("d-none");
+                            } else {
+                                col.classList.remove("d-none");
+                            }
+                        });
+                        cols[0].title = isSingleDate ? "שדה התאריך" : "שנה";
+
+                        row.querySelector(`input[name='composite${side}Kind']`).value = this.value;
+                        syncCompositeRow(row);
+                    });
+                });
+
+                row.querySelectorAll(".composite-col").forEach(col => {
+                    col.addEventListener("change", function() { syncCompositeRow(row); });
+                });
+
+                row.querySelector(".btn-remove-composite").addEventListener("click", function() {
+                    row.remove();
+                    updateNoCompositeAlert();
+                });
+
+                compositeContainer.appendChild(row);
+                updateNoCompositeAlert();
+            }
+
+            btnAddComposite.addEventListener("click", addCompositeRow);
+            updateNoCompositeAlert();
+
+            // ===== סינון נתונים: אותה שורת תנאי בדיוק כמו במסך המסד =====
+            const filesFilterContainer = document.getElementById("files-filter-conditions-container");
+            const btnAddFilesFilter = document.getElementById("btn-add-files-filter-condition");
+
+            function addFilesFilterConditionRow() {
+                const row = document.createElement("div");
+                row.className = "row g-2 align-items-center p-2 rounded border border-white/5";
+                row.style.background = "rgba(15, 23, 42, 0.4)";
+
+                row.innerHTML = `
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" name="filterColumn" required>
+                            <option value="">-- בחר שדה לסינון --</option>
+                            ${buildColumnOptions(SourceColumns)}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm bg-dark text-light border-secondary" name="filterOperator" required>
+                            <option value="Equals">שווה ל- (=)</option>
+                            <option value="Like">מכיל טקסט (LIKE)</option>
+                            <option value="GreaterThan">גדול מ- (>)</option>
+                            <option value="LessThan">קטן מ- (<)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" name="filterValue" placeholder="ערך לחיפוש..." required />
+                    </div>
+                    <div class="col-md-1 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm rounded-circle p-1 btn-remove-files-filter" style="width: 28px; height: 28px; line-height: 1;" title="מחק תנאי">✕</button>
+                    </div>
+                `;
+
+                row.querySelector(".btn-remove-files-filter").addEventListener("click", function() {
+                    row.remove();
+                });
+
+                filesFilterContainer.appendChild(row);
+            }
+
+            if (btnAddFilesFilter) {
+                btnAddFilesFilter.addEventListener("click", addFilesFilterConditionRow);
+            }
         });
     </script>
 }

@@ -63,7 +63,7 @@
 
 ## 🛠 ארכיטקטורה וטכנולוגיות
 
-* **Framework**: .NET 8.0 / .NET 9.0 (ASP.NET Core MVC)
+* **Framework**: .NET 10.0 (ASP.NET Core MVC)
 * **Data Access**: ADO.NET (Microsoft.Data.SqlClient, Oracle.ManagedDataAccess.Core) ללא ORM לביצועים מרביים.
 * **Excel Parsing**: `MiniExcel` (ביצועים מהירים במיוחד וצריכת זיכרון אפסית).
 * **Frontend**: HTML5, Vanilla CSS (Deep Dark Theme), Bootstrap 5.3 (RTL), Vanilla JavaScript.
@@ -74,7 +74,7 @@
 ## 💻 הפעלה והרצה מקומית
 
 ### דרישות קדם
-* התקנת .NET SDK 8.0 ומעלה.
+* התקנת .NET SDK 10.0 ומעלה.
 
 ### שלבי הרצה
 

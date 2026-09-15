@@ -23,6 +23,8 @@
     <link rel="stylesheet" href="~/css/bootstrap.rtl.min.css" asp-append-version="true" />
     @* טעינת קובץ העיצוב המותאם אישית - Dark/Light Mode + Zoom *@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @* שכבת שיפור הממשק - מוסיפה בלבד ונטענת אחרי site.css *@
+    <link rel="stylesheet" href="~/css/ui-enhance.css" asp-append-version="true" />
 </head>
 <body id="app-body" class="dark-mode">
     @* =====================================================================
@@ -142,6 +144,12 @@
     <script src="~/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
     @* רינדור סקריפטים נוספים לדפים ספציפיים *@
     @await RenderSectionAsync("Scripts", required: false)
+
+    @* שכבת שיפור הממשק: diff, מיון וסינון, העתקה, חלון פירוט.
+       נטענת אחרי Bootstrap מפני שהיא משתמשת ב-Modal שלו, ואחרי
+       סקריפטי הדף מפני שהיא קוראת את window._reportModel
+       ואת window._auditDrill. *@
+    <script src="~/js/ui-enhance.js" asp-append-version="true"></script>
 
     @* =====================================================================
        סקריפטים גלובליים: Dark/Light Mode + Zoom - Feature 4

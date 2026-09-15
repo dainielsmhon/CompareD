@@ -1,0 +1,486 @@
+/* =====================================================================
+   ui-enhance.css — שכבת שיפור הממשק
+   =====================================================================
+   הקובץ הזה נטען אחרי site.css ומוסיף בלבד. כל שם מחלקה כאן פותח
+   בתחילית ייחודית (ux-) כדי שלא תהיה שום התנגשות עם המחלקות הקיימות
+   של Bootstrap, של site.css או של בלוקי dash- ו-report-.
+
+   כל הצבעים נלקחים ממשתני ערכת הנושא שכבר מוגדרים ב-site.css, כך
+   שהמצב הבהיר והמצב הכהה עובדים בלי הגדרה כפולה.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   1. תצוגת Diff לערכים שנמצאו שונים
+   ---------------------------------------------------------------------
+   טבלה של "ערך במקור / ערך ביעד" מחייבת להשוות שתי מחרוזות בעין.
+   כאן החלק הזהה נשאר מושתק והחלק השונה מסומן, ולכן הפרש של יום אחד
+   בתאריך נראה מיד כהפרש של ספרה אחת ולא כשני תאריכים שונים.
+   --------------------------------------------------------------------- */
+.ux-diff {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: 0.86rem;
+    direction: ltr;
+    unicode-bidi: plaintext;
+    display: inline-block;
+    text-align: left;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+.ux-diff-same {
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+.ux-diff-src {
+    background: rgba(239, 68, 68, 0.22);
+    color: var(--color-danger);
+    border-radius: 3px;
+    padding: 0 2px;
+    font-weight: 700;
+}
+.ux-diff-tgt {
+    background: rgba(16, 185, 129, 0.22);
+    color: var(--color-success);
+    border-radius: 3px;
+    padding: 0 2px;
+    font-weight: 700;
+}
+/* ערך שקיים בצד אחד בלבד: אין מה לסמן בתוכו, הסימון הוא על ההיעדרות */
+.ux-diff-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+    opacity: 0.7;
+}
+
+/* ---------------------------------------------------------------------
+   2. כפתור העתקה לאקסל
+   ---------------------------------------------------------------------
+   הכפתור מעתיק את השורה או את הטבלה כ-TSV, שזה הפורמט שאקסל מדביק
+   ישר לתאים נפרדים. זה הפתרון הישיר לצורך "לסנן ולראות שורה אחת".
+   --------------------------------------------------------------------- */
+.ux-copy-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    line-height: 1;
+    padding: 4px 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ux-copy-btn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: #fff;
+}
+.ux-copy-btn.ux-copied {
+    background: var(--color-success);
+    border-color: var(--color-success);
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------------
+   3. סרגל סיכום דביק
+   ---------------------------------------------------------------------
+   בדוח של אלפי שורות המספרים העיקריים נשארים בראש הדף. הסרגל נצמד
+   למעלה בגלילה כדי שההקשר לא יאבד, ומופיע רק אחרי שהכרטיס המקורי
+   יצא מהמסך - כך שאין כפילות על המסך.
+   --------------------------------------------------------------------- */
+.ux-sticky-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    background: var(--bg-secondary);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    transform: translateY(-100%);
+    transition: transform 0.22s ease;
+}
+.ux-sticky-bar.ux-visible { transform: translateY(0); }
+.ux-sticky-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 9px 16px;
+    font-size: 0.82rem;
+}
+.ux-sticky-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+}
+.ux-sticky-item strong {
+    color: var(--text-primary);
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: 0.95rem;
+}
+.ux-sticky-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+/* ---------------------------------------------------------------------
+   4. מיון וסינון חי בטבלאות הדוח
+   --------------------------------------------------------------------- */
+.ux-table-tools {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.ux-filter-input {
+    background: var(--panel-sunken, rgba(15, 23, 42, 0.4));
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 0.82rem;
+    min-width: 220px;
+    max-width: 100%;
+}
+.ux-filter-input:focus {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 1px;
+}
+.ux-filter-count {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+}
+/* כותרת שאפשר למיין לפיה. החץ מציין את הכיוון הנוכחי בלבד, ולכן הוא
+   מושתק עד שהעמודה נבחרה - אחרת כל הכותרות נראות ממוינות. */
+th.ux-sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+th.ux-sortable::after {
+    content: "\2195";
+    margin-inline-start: 6px;
+    opacity: 0.28;
+    font-size: 0.8em;
+}
+th.ux-sortable.ux-sort-asc::after  { content: "\2191"; opacity: 1; }
+th.ux-sortable.ux-sort-desc::after { content: "\2193"; opacity: 1; }
+th.ux-sortable:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: -2px;
+}
+/* הדגשת הטקסט שנמצא בסינון */
+.ux-hit {
+    background: rgba(245, 158, 11, 0.35);
+    border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------------
+   5. מפת חום שנתית
+   ---------------------------------------------------------------------
+   ריבוע אחד ליום, מסודר בעמודות של שבוע. עוצמת הצבע לפי מספר
+   הפעולות; יום עם כשלים מקבל מסגרת אדומה, כדי שהצבע לא יהיה
+   הנשא היחיד של המשמעות.
+   --------------------------------------------------------------------- */
+.ux-heatmap {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 1fr);
+    gap: 3px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+.ux-heat-cell {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    background: var(--border-color);
+    cursor: default;
+    border: 1px solid transparent;
+}
+.ux-heat-cell[data-count]:not([data-count="0"]) { cursor: pointer; }
+.ux-heat-1 { background: rgba(59, 130, 246, 0.30); }
+.ux-heat-2 { background: rgba(59, 130, 246, 0.52); }
+.ux-heat-3 { background: rgba(59, 130, 246, 0.74); }
+.ux-heat-4 { background: rgba(59, 130, 246, 0.96); }
+.ux-heat-bad { border-color: var(--color-danger); }
+.ux-heat-cell:hover { outline: 2px solid var(--accent-secondary); }
+.ux-heat-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.ux-heat-legend i {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+}
+.ux-heat-months {
+    display: flex;
+    gap: 3px;
+    font-size: 0.66rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   6. משפך השלבים
+   ---------------------------------------------------------------------
+   רוחב יורד לפי מספר העובדים שהגיעו לשלב. הנשירה בין שלב לשלב כתובה
+   במספרים בין השלבים, כי זה מה שצריך לפעול לפיו.
+   --------------------------------------------------------------------- */
+.ux-funnel { display: flex; flex-direction: column; gap: 0; }
+.ux-funnel-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.ux-funnel-label {
+    flex: 0 0 190px;
+    font-size: 0.83rem;
+    color: var(--text-primary);
+    text-align: start;
+}
+.ux-funnel-label small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.71rem;
+}
+.ux-funnel-track {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+}
+.ux-funnel-bar {
+    height: 34px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 44px;
+    cursor: pointer;
+    transition: filter 0.15s;
+}
+.ux-funnel-bar:hover { filter: brightness(1.15); }
+.ux-funnel-bar.ux-funnel-empty {
+    background: var(--border-color);
+    color: var(--text-secondary);
+    cursor: default;
+}
+.ux-funnel-side {
+    flex: 0 0 130px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: start;
+}
+/* הנשירה בין שני שלבים */
+.ux-funnel-drop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0 3px 204px;
+    font-size: 0.73rem;
+    color: var(--color-warning);
+}
+.ux-funnel-drop.ux-funnel-nodrop { color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------------
+   7. חלון הפירוט (Drill-down)
+   ---------------------------------------------------------------------
+   כל גרף ניתן ללחיצה, והלחיצה פותחת את הרשומות עצמן. בלי זה גרף הוא
+   מספר שאין מה לעשות איתו.
+   --------------------------------------------------------------------- */
+.ux-drill-table {
+    width: 100%;
+    font-size: 0.8rem;
+    border-collapse: collapse;
+}
+.ux-drill-table th,
+.ux-drill-table td {
+    padding: 6px 9px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: start;
+    vertical-align: top;
+}
+.ux-drill-table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ux-drill-table td { color: var(--text-primary); word-break: break-word; }
+.ux-drill-ok   { color: var(--color-success); font-weight: 700; }
+.ux-drill-bad  { color: var(--color-danger);  font-weight: 700; }
+.ux-drill-scroll { max-height: 62vh; overflow-y: auto; }
+.ux-drill-empty {
+    color: var(--text-secondary);
+    padding: 18px;
+    text-align: center;
+}
+.ux-clickable { cursor: pointer; }
+.ux-clickable:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+/* רמז חזותי שאפשר ללחוץ, בלי להסתמך על ריחוף בלבד */
+.ux-hint-click {
+    font-size: 0.7rem;
+    color: var(--accent-primary);
+    margin-inline-start: 6px;
+}
+
+/* ---------------------------------------------------------------------
+   8. אנימציית מספרים ושכבת המתנה
+   ---------------------------------------------------------------------
+   המספרים עולים מאפס לערך האמיתי. הערך אינו מומצא בשום שלב: הוא
+   נקרא מהטקסט שהשרת כתב, והאנימציה מסתיימת בדיוק עליו.
+
+   שכבת ההמתנה במכוון אינה מציגה אחוזים. השוואה היא בקשת POST אחת
+   ולשרת אין דרך לדווח התקדמות, ולכן אחוז כלשהו כאן היה מומצא.
+   מה שמוצג הוא רשימת השלבים ופס בלתי-מוגדר.
+   --------------------------------------------------------------------- */
+.ux-countup { font-variant-numeric: tabular-nums; }
+
+.ux-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(2, 6, 23, 0.78);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ux-overlay-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 26px 30px;
+    max-width: 420px;
+    width: calc(100% - 40px);
+    text-align: center;
+    color: var(--text-primary);
+}
+.ux-overlay-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+.ux-overlay-note  { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px; }
+.ux-indeterminate {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-color);
+    overflow: hidden;
+    position: relative;
+}
+.ux-indeterminate::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: 38%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    animation: ux-slide 1.1s ease-in-out infinite;
+}
+@keyframes ux-slide {
+    0%   { inset-inline-start: -38%; }
+    100% { inset-inline-start: 100%; }
+}
+.ux-overlay-steps {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 0;
+    text-align: start;
+    font-size: 0.79rem;
+    color: var(--text-secondary);
+}
+.ux-overlay-steps li { padding: 2px 0; }
+.ux-overlay-steps li::before { content: "\00B7\00A0"; }
+
+/* מי שביקש לצמצם תנועה מקבל את אותה מידע בלי אנימציה */
+@media (prefers-reduced-motion: reduce) {
+    .ux-sticky-bar { transition: none; }
+    .ux-indeterminate::after { animation: none; inset-inline-start: 0; width: 100%; }
+}
+
+/* צר: המשפך והסרגל הדביק עוברים לפריסה אנכית */
+@media (max-width: 767.98px) {
+    .ux-funnel-label { flex-basis: 120px; }
+    .ux-funnel-side  { flex-basis: 84px; }
+    .ux-funnel-drop  { padding-inline-start: 134px; }
+    .ux-sticky-inner { gap: 12px; font-size: 0.76rem; }
+}
+
+/* =====================================================================
+   9. מחלקות הצבע השקוף שהתצוגות משתמשות בהן ולא היו מוגדרות בכלל
+   =====================================================================
+   התצוגות משתמשות ב-150 מקומות במחלקות בסגנון Tailwind: bg-success/20,
+   border-white/5, bg-danger/10 וכן הלאה. אף אחת מהן לא הוגדרה - לא
+   ב-site.css ולא ב-bootstrap.rtl.min.css. התוצאה על המסך:
+
+   - לכל התגים (badge) האלה לא היה שום רקע, ולכן הם נראו כטקסט צף.
+   - "border border-white/5" הפעיל את border של Bootstrap בלי הצבע,
+     ולכן התקבל קו בגוון #dee2e6 - קו כמעט לבן על רקע כהה, במקום
+     הקו העדין שהתכוונו אליו.
+
+   כאן כולן מוגדרות, לשני מצבי ערכת הנושא, מאותם צבעים של המערכת.
+   הערוצים נשמרים כשלשות RGB כדי שאפשר יהיה לחשב שקיפות מהם.
+   ===================================================================== */
+:root {
+    --rgb-success: 16, 185, 129;
+    --rgb-danger: 239, 68, 68;
+    --rgb-warning: 245, 158, 11;
+    --rgb-primary: 59, 130, 246;
+    --rgb-info: 14, 165, 233;
+    --rgb-secondary: 148, 163, 184;
+    --rgb-dark: 2, 6, 23;
+    --rgb-edge: 255, 255, 255;   /* צבע הקו העדין: לבן על רקע כהה */
+}
+body.light-mode {
+    --rgb-success: 5, 150, 105;
+    --rgb-danger: 220, 38, 38;
+    --rgb-warning: 217, 119, 6;
+    --rgb-primary: 37, 99, 235;
+    --rgb-info: 3, 105, 161;
+    --rgb-secondary: 100, 116, 139;
+    --rgb-dark: 148, 163, 184;
+    --rgb-edge: 30, 41, 59;      /* על רקע בהיר הקו העדין הוא כהה */
+}
+
+.bg-success\/10 { background-color: rgba(var(--rgb-success), 0.10) !important; }
+.bg-success\/20 { background-color: rgba(var(--rgb-success), 0.20) !important; }
+.bg-danger\/10  { background-color: rgba(var(--rgb-danger),  0.10) !important; }
+.bg-danger\/20  { background-color: rgba(var(--rgb-danger),  0.20) !important; }
+.bg-warning\/10 { background-color: rgba(var(--rgb-warning), 0.10) !important; }
+.bg-warning\/20 { background-color: rgba(var(--rgb-warning), 0.20) !important; }
+.bg-primary\/10 { background-color: rgba(var(--rgb-primary), 0.10) !important; }
+.bg-info\/10    { background-color: rgba(var(--rgb-info),    0.10) !important; }
+.bg-secondary\/20 { background-color: rgba(var(--rgb-secondary), 0.20) !important; }
+.bg-dark\/30    { background-color: rgba(var(--rgb-dark),    0.30) !important; }
+
+.border-success\/20 { border-color: rgba(var(--rgb-success), 0.20) !important; }
+.border-success\/30 { border-color: rgba(var(--rgb-success), 0.30) !important; }
+.border-danger\/20  { border-color: rgba(var(--rgb-danger),  0.20) !important; }
+.border-danger\/30  { border-color: rgba(var(--rgb-danger),  0.30) !important; }
+.border-warning\/20 { border-color: rgba(var(--rgb-warning), 0.20) !important; }
+.border-warning\/30 { border-color: rgba(var(--rgb-warning), 0.30) !important; }
+.border-primary\/20 { border-color: rgba(var(--rgb-primary), 0.20) !important; }
+.border-primary\/30 { border-color: rgba(var(--rgb-primary), 0.30) !important; }
+.border-info\/20    { border-color: rgba(var(--rgb-info),    0.20) !important; }
+.border-secondary\/30 { border-color: rgba(var(--rgb-secondary), 0.30) !important; }
+.border-white\/5    { border-color: rgba(var(--rgb-edge), 0.05) !important; }
+.border-white\/10   { border-color: rgba(var(--rgb-edge), 0.10) !important; }

@@ -202,7 +202,420 @@
 
     @* ========================= TAB 2: Audit Log ========================= *@
     <div class="tab-pane fade" id="tab-audit" role="tabpanel">
-        
+
+        @* ===== פסק דין: מה דורש תשומת לב, לפני כל מספר ===== *@
+        @* הלוח פתח בארבעה מספרים והמנהל נדרש להסיק מהם בעצמו מה בוער. *@
+        @if (!string.IsNullOrEmpty(Model.Verdict.Headline))
+        {
+                string verdictClass = Model.Verdict.Status switch
+                {
+                    "Ok" => "dash-verdict-ok",
+                    "Critical" => "dash-verdict-critical",
+                    _ => "dash-verdict-warning"
+                };
+            <div class="dash-verdict @verdictClass mb-4" id="dashboard-verdict-card">
+                <span class="dash-verdict-dot"></span>
+                <div>
+                    <h2 class="dash-verdict-headline">@Model.Verdict.Headline</h2>
+                    <p class="dash-verdict-detail">@Model.Verdict.Detail</p>
+                </div>
+            </div>
+        }
+
+        @* ===== גרף 14 הימים: שבועיים במבט אחד ===== *@
+        @if (Model.DailyActivity.Count > 0)
+        {
+                // סקאלה אחת לכל העמודות, אחרת ההשוואה בין ימים אינה אמיתית
+                int dailyPeak = Model.DailyActivity.Max(d => d.Total);
+                if (dailyPeak < 1) { dailyPeak = 1; }
+
+                // הגובה נכתב תמיד בנקודה עשרונית ולא בפסיק.
+                // ב-CSS רק הנקודה תקפה, ולכן על שרת שהתרבות שלו משתמשת בפסיק
+                // כל העמודות היו הופכות ל-height:66,7% ומתקפלות לאפס.
+                Func<int, string> dayPct = v =>
+                    Math.Round((double)v / dailyPeak * 100, 1)
+                        .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            <div class="glass-card mb-4 p-4" id="daily-activity-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="admin-section-title mb-0">📈 פעילות ב-14 הימים האחרונים</h5>
+                    <span class="admin-text-muted small">גובה = פעולות · אדום = כשלים</span>
+                </div>
+                <div class="dash-days">
+                    @foreach (var day in Model.DailyActivity)
+                    {
+                        @* role ו-aria-label ולא title בלבד: title אינו נגיש
+                           במקלדת ואינו קיים כלל במגע, ולכן הנתון של כל יום
+                           היה בלתי מושג לכל מי שאינו מרחף עם עכבר. *@
+                        @* data-ux-drill-day הופך את העמודה ללחיצה שפותחת את
+                           הרשומות של אותו יום. גרף בלי פירוט הוא מספר שאין
+                           מה לעשות איתו - כאן לוחצים ורואים מי, מה ומתי. *@
+                        <div class="dash-day" role="img"
+                             data-ux-drill-day="@day.Date.ToString("yyyy-MM-dd")"
+                             data-ux-drill-label="@day.Date.ToString("dd.MM.yyyy")"
+                             title="@day.Label — @day.Successes הצליחו, @day.Failures נכשלו (לחיצה לפירוט)"
+                             aria-label="@day.Label: @day.Successes הצליחו, @day.Failures נכשלו">
+                            @if (day.Total == 0)
+                            {
+                                <span class="dash-day-empty"></span>
+                            }
+                            else
+                            {
+                                @* ההצלחות נכתבות ראשונות ולכן יושבות למעלה,
+                                   והכשלים האדומים בתחתית - כפי שכתוב בכיתוב
+                                   הכרטיס וכפי שהעיגול הפינות ב-CSS מצפה. *@
+                                @if (day.Successes > 0)
+                                {
+                                    <span class="dash-day-ok" style="height:@(dayPct(day.Successes))%"></span>
+                                }
+                                @if (day.Failures > 0)
+                                {
+                                    <span class="dash-day-bad" style="height:@(dayPct(day.Failures))%"></span>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="dash-days-axis">
+                    <span class="font-monospace">@Model.DailyActivity.First().Label</span>
+                    <span class="font-monospace">@Model.DailyActivity.Last().Label</span>
+                </div>
+                <div class="d-flex gap-4 mt-3">
+                    @* דלתא מוצגת רק כשיש שבוע קודם להשוות אליו. בלי התנאי, *@
+                    @* בשבוע הראשון של השימוש הוצג "+91.7 נקודות" - מה שנקרא *@
+                    @* כשיפור דרמטי, כשבפועל לא היה עם מה להשוות. *@
+                    <span class="admin-text-muted small">
+                        השבוע: <strong class="admin-text-strong">@Model.Trend.RunsThisWeek</strong> השוואות
+                        @if (Model.Trend.HasPreviousWeek && Model.Trend.RunsDelta != 0)
+                        {
+                            <span class="@(Model.Trend.RunsDelta > 0 ? "admin-text-success" : "admin-text-warning")">
+                                (@(Model.Trend.RunsDelta > 0 ? "+" : "")@Model.Trend.RunsDelta מהשבוע שעבר)
+                            </span>
+                        }
+                    </span>
+                    <span class="admin-text-muted small">
+                        אחוז הצלחה: <strong class="admin-text-strong">@Model.Trend.RateThisWeek%</strong>
+                        @if (Model.Trend.HasPreviousWeek && Model.Trend.RateDelta != 0)
+                        {
+                            <span class="@(Model.Trend.RateDelta > 0 ? "admin-text-success" : "admin-text-warning")">
+                                (@(Model.Trend.RateDelta > 0 ? "+" : "")@Model.Trend.RateDelta נקודות)
+                            </span>
+                        }
+                        else if (!Model.Trend.HasPreviousWeek)
+                        {
+                            <span class="admin-text-muted">(אין שבוע קודם להשוואה)</span>
+                        }
+                    </span>
+                </div>
+            </div>
+        }
+
+        @* =============================================================== *@
+        @* ===== מפת חום שנתית: האם השימוש נמשך או התרכז בשבוע אחד ===== *@
+        @* גרף 14 הימים עונה על "מה קרה השבועיים האחרונים". זה עונה על    *@
+        @* שאלה אחרת, ותופס פחות מקום מ-182 עמודות.                       *@
+        @* =============================================================== *@
+        @if (Model.YearActivity.Count > 0)
+        {
+                // עוצמת הצבע נקבעת מול השיא, כדי שהסקאלה תהיה יחסית
+                // לנפח השימוש האמיתי ולא למספר קבוע שנבחר מראש.
+                int heatPeak = Model.YearActivity.Max(d => d.Total);
+                if (heatPeak < 1) { heatPeak = 1; }
+
+                Func<int, string> heatClass = total =>
+                {
+                    if (total == 0) return string.Empty;
+                    double share = (double)total / heatPeak;
+                    if (share <= 0.25) return "ux-heat-1";
+                    if (share <= 0.50) return "ux-heat-2";
+                    if (share <= 0.75) return "ux-heat-3";
+                    return "ux-heat-4";
+                };
+
+                int activeDays = Model.YearActivity.Count(d => d.Total > 0);
+            <div class="glass-card mb-4 p-4" id="year-heatmap-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="admin-section-title mb-0">🗓️ מפת פעילות — 26 השבועות האחרונים</h5>
+                    <span class="admin-text-muted small">
+                        <strong class="admin-text-strong ux-countup">@activeDays</strong>
+                        ימי פעילות · לחיצה על יום פותחת את הרשומות
+                    </span>
+                </div>
+
+                <div class="ux-heatmap" id="year-heatmap-grid">
+                    @foreach (var day in Model.YearActivity)
+                    {
+                        @* יום עם כשלים מקבל מסגרת אדומה ולא רק גוון אחר,
+                           כדי שהצבע לא יהיה הנשא היחיד של המשמעות. *@
+                        <div class="ux-heat-cell @heatClass(day.Total) @(day.Failures > 0 ? "ux-heat-bad" : "")"
+                             data-count="@day.Total"
+                             @* התכונה נכתבת רק ליום שיש בו רשומות. ערך null
+                                גורם ל-Razor להשמיט את התכונה כולה, ולכן יום
+                                ריק אינו נראה לחיץ ואינו פותח חלון ריק. *@
+                             data-ux-drill-day="@(day.Total > 0 ? day.Date.ToString("yyyy-MM-dd") : null)"
+                             data-ux-drill-label="@day.Label"
+                             title="@day.Label — @day.Successes הצליחו, @day.Failures נכשלו"></div>
+                    }
+                </div>
+
+                <div class="ux-heat-legend">
+                    <span>פחות</span>
+                    <i style="background: var(--border-color);"></i>
+                    <i class="ux-heat-1"></i>
+                    <i class="ux-heat-2"></i>
+                    <i class="ux-heat-3"></i>
+                    <i class="ux-heat-4"></i>
+                    <span>יותר</span>
+                    <span class="ms-3">
+                        <i class="ux-heat-bad" style="background: var(--border-color);"></i>
+                        מסגרת אדומה = היו כשלים באותו יום
+                    </span>
+                </div>
+            </div>
+        }
+
+        @* =============================================================== *@
+        @* ===== משפך השלבים: איפה העובדים נושרים ===== *@
+        @* אחוז ההצלחה אומר כמה פעולות הצליחו, לא כמה עובדים הגיעו עד    *@
+        @* הדוח. עובד שמיפה ואז נטש אינו נספר כאף כשל, ובכל זאת הוא      *@
+        @* בדיוק המקרה שצריך לטפל בו.                                     *@
+        @* =============================================================== *@
+        @if (Model.Funnel.Count > 0 && Model.Funnel[0].Users > 0)
+        {
+                double funnelBase = Model.Funnel[0].Users;
+                if (funnelBase < 1) { funnelBase = 1; }
+
+                // הרוחב לא יורד מתחת ל-8% כדי ששלב עם עובד אחד יישאר
+                // נראה ולחיץ, ולא ייעלם לפס בעובי אפס.
+                Func<int, string> funnelWidth = users =>
+                    Math.Max(8, Math.Round(users / funnelBase * 100, 1))
+                        .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            <div class="glass-card mb-4 p-4" id="funnel-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="admin-section-title mb-0">🔻 איפה העובדים נושרים</h5>
+                    <span class="admin-text-muted small">
+                        עובדים ייחודיים שהשלב הצליח להם · לחיצה על שלב פותחת את הרשומות
+                    </span>
+                </div>
+
+                <div class="ux-funnel" id="funnel-stages">
+                    @for (int i = 0; i < Model.Funnel.Count; i++)
+                    {
+                        var stage = Model.Funnel[i];
+                        <div class="ux-funnel-row">
+                            <div class="ux-funnel-label">
+                                @stage.Title
+                                <small>@stage.Detail</small>
+                            </div>
+                            <div class="ux-funnel-track">
+                                <div class="ux-funnel-bar @(stage.Users == 0 ? "ux-funnel-empty" : "")"
+                                     style="width: @funnelWidth(stage.Users)%"
+                                     data-ux-drill-actions="@string.Join(",", stage.Actions)"
+                                     data-ux-drill-label="@stage.Title"
+                                     title="@stage.Users עובדים, @stage.Runs פעולות מוצלחות, @stage.Failures כשלים">
+                                    @stage.Users
+                                </div>
+                            </div>
+                            <div class="ux-funnel-side">
+                                @stage.ReachPercentage% מהעובדים
+                                @if (stage.Failures > 0)
+                                {
+                                    <span class="admin-text-warning d-block">
+                                        @stage.Failures כשלים
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        @* הנשירה כתובה בין השלבים במספרים, כי זה מה שצריך
+                           לפעול לפיו - לא ההפרש בין שני רוחבי פסים. *@
+                        @if (i < Model.Funnel.Count - 1)
+                        {
+                            var next = Model.Funnel[i + 1];
+                            int drop = stage.Users - next.Users;
+                            <div class="ux-funnel-drop @(drop <= 0 ? "ux-funnel-nodrop" : "")">
+                                @if (drop > 0)
+                                {
+                                    <span>↓ @drop @(drop == 1 ? "עובד לא המשיך" : "עובדים לא המשיכו") מכאן</span>
+                                }
+                                else
+                                {
+                                    <span>↓ כל מי שהגיע לשלב הזה המשיך</span>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        }
+
+        @* ===== פירוט לפי משתמש ===== *@
+        @* אחוז ההצלחה הגלובלי אינו מבדיל בין עובד שמריץ בהצלחה לעובד שנתקע *@
+        @* שוב ושוב באותו שלב. הפירוט הזה מראה למי צריך הדרכה, ובמה. *@
+        @if (Model.PerUserStats.Count > 0)
+        {
+            <div class="glass-card mb-4 p-4" id="per-user-stats-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="admin-section-title mb-0">👤 פעילות לפי עובד</h5>
+                    <span class="admin-text-muted small">@Model.PerUserStats.Count עובדים</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table admin-table align-middle" id="per-user-stats-table"
+                           data-ux-sort data-ux-filter="סינון עובדים: שם, שלב שנכשל" data-ux-copy-table>
+                        <thead>
+                            <tr>
+                                @* "השוואות" הוא תת-קבוצה של הפעולות: העלאת קבצים והתחברות *@
+                                @* למסד נחשבות פעולות אך אינן השוואות. הכותרות מבדילות ביניהן *@
+                                @* במפורש, כדי שלא ייראה כאילו המספרים אינם מסתדרים. *@
+                                <th style="width:22%">עובד</th>
+                                <th style="width:10%" class="text-center">השוואות שהריץ</th>
+                                <th style="width:10%" class="text-center">פעולות שהצליחו</th>
+                                <th style="width:10%" class="text-center">פעולות שנכשלו</th>
+                                <th style="width:12%" class="text-center">אחוז הצלחה</th>
+                                <th style="width:16%">פעיל לאחרונה</th>
+                                <th style="width:20%">נתקע הכי הרבה ב-</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var stat in Model.PerUserStats)
+                                {
+                                    // פס חומרה בקצה השורה: המצב נקרא בסריקה ולא בקריאה
+                                    string stripe = stat.SuccessRate >= 90 ? "dash-stripe-ok"
+                                        : stat.SuccessRate >= 70 ? "dash-stripe-warn" : "dash-stripe-bad";
+                                    string rateColor = stat.SuccessRate >= 90 ? "var(--color-success)"
+                                        : stat.SuccessRate >= 70 ? "var(--color-warning)" : "var(--color-danger)";
+                                <tr class="@stripe" data-ux-drill-user="@stat.Username"
+                                    title="לחיצה על השורה פותחת את כל הפעולות של העובד">
+                                    <td class="admin-text-strong font-monospace small">@stat.Username</td>
+                                    <td class="text-center admin-text-strong">@stat.ComparisonRuns</td>
+                                    <td class="text-center admin-text-success">@stat.SuccessfulActions</td>
+                                    <td class="text-center @(stat.FailedActions > 0 ? "admin-text-warning" : "admin-text-muted")">@stat.FailedActions</td>
+                                    <td class="text-center">
+                                        <span class="admin-badge @(stat.SuccessRate >= 90 ? "admin-badge-success" : stat.SuccessRate >= 70 ? "admin-badge-warning" : "admin-badge-danger")">
+                                            @stat.SuccessRate%
+                                        </span>
+                                        @* אחוז ההצלחה גם כפס: אורך נקרא מיד, מספר דורש השוואה בראש *@
+                                        <span class="dash-rate-track d-block mt-2">
+                                            <span class="dash-rate-fill" style="width:@stat.SuccessRate%;background:@rateColor"></span>
+                                        </span>
+                                    </td>
+                                    <td class="admin-text-muted font-monospace small">@stat.LastActivity.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="admin-text-muted small">
+                                        @if (stat.MostFrequentFailureCount > 0)
+                                        {
+                                            @CompareD.Models.AuditActionTranslator.Translate(stat.MostFrequentFailure)
+                                            <span class="admin-text-warning">(@stat.MostFrequentFailureCount)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="admin-text-success">ללא כשלים</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* ===== מצב תקין נראה תקין, במקום טבלה ריקה שנראית כמו תקלה ===== *@
+        @if (Model.FailureBreakdown.Count == 0 && Model.PerUserStats.Count > 0)
+        {
+            <div class="glass-card mb-4 p-4" id="no-failures-card">
+                <div class="dash-allclear">
+                    <div class="dash-allclear-big">✓ לא נרשם אף כשל</div>
+                    <p>כל הפעולות שנרשמו במערכת הסתיימו בהצלחה. אין שלב שעובדים נתקעים בו.</p>
+                </div>
+            </div>
+        }
+
+        @* ===== איפה נופלים ===== *@
+        @* שלב שנכשל אצל משתמש אחד הוא תקלה נקודתית; שלב שנכשל אצל כמה *@
+        @* משתמשים הוא בעיה במערכת או בהדרכה - ולכן מוצג מספר המשתמשים השונים. *@
+        @if (Model.FailureBreakdown.Count > 0)
+        {
+            <div class="glass-card mb-4 p-4" id="failure-breakdown-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="admin-section-title mb-0">⚠ איפה עובדים נופלים</h5>
+                    <span class="admin-text-muted small">מהשכיח לנדיר</span>
+                </div>
+                @* ===== התפלגות כשלים כפסים, מעל הטבלה ולא במקומה ===== *@
+                @* הרוחב אומר כמה, והשורה מתחת אומרת אצל כמה עובדים. הטבלה *@
+                @* שמתחת נשארת כי היא נושאת מידע שהפסים אינם מראים - *@
+                @* מתי זה קרה לאחרונה ומה היה הפירוט. *@
+                @{
+                    int failurePeak = Model.FailureBreakdown.Max(f => f.Count);
+                    if (failurePeak < 1) { failurePeak = 1; }
+                }
+                <div class="mb-4" id="failure-breakdown-bars">
+                    @foreach (var failure in Model.FailureBreakdown.Take(6))
+                    {
+                        <div class="dash-bar" data-ux-drill-actions="@failure.Action"
+                             data-ux-drill-label="@failure.HebrewAction"
+                             title="לחיצה פותחת את כל הכשלים בשלב הזה">
+                            <div class="dash-bar-head">
+                                <span>@failure.HebrewAction</span>
+                                <span class="dash-bar-count font-monospace">@failure.Count</span>
+                            </div>
+                            <div class="dash-bar-track">
+                                <span class="dash-bar-fill"
+                                      style="width:@(Math.Round((double)failure.Count / failurePeak * 100, 1))%;background:@(failure.DistinctUsers > 1 ? "var(--color-danger)" : "var(--color-warning)")"></span>
+                            </div>
+                            <div class="dash-bar-note">
+                                @if (failure.DistinctUsers > 1)
+                                {
+                                    <span class="dash-bar-shared">@failure.DistinctUsers עובדים</span>
+                                    <span> — לא תקלה נקודתית</span>
+                                }
+                                else
+                                {
+                                    <span>עובד אחד</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table admin-table align-middle" id="failure-breakdown-table"
+                           data-ux-sort data-ux-copy-table>
+                        <thead>
+                            <tr>
+                                <th style="width:30%">השלב</th>
+                                <th style="width:10%" class="text-center">כשלים</th>
+                                <th style="width:14%" class="text-center">עובדים שונים</th>
+                                <th style="width:16%">בפעם האחרונה</th>
+                                <th style="width:30%">פירוט אחרון</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var failure in Model.FailureBreakdown)
+                            {
+                                <tr data-ux-drill-actions="@failure.Action"
+                                    data-ux-drill-label="@failure.HebrewAction"
+                                    title="לחיצה על השורה פותחת את הרשומות">
+                                    <td class="admin-text-strong small">@failure.HebrewAction</td>
+                                    <td class="text-center admin-text-warning">@failure.Count</td>
+                                    <td class="text-center">
+                                        <span class="admin-badge @(failure.DistinctUsers > 1 ? "admin-badge-danger" : "admin-badge-warning")">
+                                            @failure.DistinctUsers
+                                        </span>
+                                    </td>
+                                    <td class="admin-text-muted font-monospace small">@failure.LastOccurrence.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="admin-text-muted small" style="word-break: break-word;">@failure.LastDetails</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="admin-text-muted small mb-0 mt-3">
+                    שלב שמופיע כאן עם <strong class="admin-text-danger">יותר מעובד אחד</strong> אינו תקלה נקודתית —
+                    הוא סימן שהמערכת או ההדרכה לא ברורות באותו שלב.
+                </p>
+            </div>
+        }
+
+
         <div class="glass-card mb-4 p-4" id="audit-search-card">
             <div class="row align-items-center gap-3 gap-md-0">
                 <div class="col-12 col-md-8">
@@ -340,6 +753,38 @@
                                     <td class="admin-text-strong font-monospace small">@log.Username</td>
                                     <td class="admin-text-warning small">@log.HebrewExplanation</td>
                                 </tr>
+                                @* שורת המשך: תרגום ההודעה הטכנית לעברית, המלצת פעולה, *@
+                                @* וההודעה המקורית באנגלית. עד כה ההודעה המקורית נשמרה *@
+                                @* בקובץ הלוג אך לא הוצגה כאן בכלל, וקוד HTTP לבדו אינו *@
+                                @* מסביר תקלה - 500 יכול להיות סיסמה שגויה או קובץ נעול. *@
+                                @if (!string.IsNullOrWhiteSpace(log.HebrewErrorMessage)
+                                    || !string.IsNullOrWhiteSpace(log.ErrorMessage))
+                                {
+                                    <tr class="syslog-row">
+                                        <td colspan="5" class="pt-0">
+                                            @if (!string.IsNullOrWhiteSpace(log.HebrewErrorMessage))
+                                            {
+                                                <div class="admin-text-strong small mb-1">
+                                                    <span class="admin-badge admin-badge-danger">מה קרה</span>
+                                                    <span class="ms-2">@log.HebrewErrorMessage</span>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(log.SuggestedAction))
+                                            {
+                                                <div class="admin-text-warning small mb-1">
+                                                    <span class="admin-badge admin-badge-warning">מה לעשות</span>
+                                                    <span class="ms-2">@log.SuggestedAction</span>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(log.ErrorMessage))
+                                            {
+                                                <div class="admin-text-muted font-monospace" style="font-size: 0.75rem; word-break: break-word;">
+                                                    ההודעה המקורית: @log.ErrorMessage
+                                                </div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
                             }
                         }
                     </tbody>
@@ -599,6 +1044,45 @@
 @Html.AntiForgeryToken()
 
 @section Scripts {
+    @* =================================================================== *@
+    @* רשומות הביקורת שנשלחות לדפדפן עבור חלונות הפירוט בלחיצה.           *@
+    @*                                                                     *@
+    @* שמות השדות מקוצרים לאות אחת במכוון: הרשימה יכולה להגיע למאות        *@
+    @* רשומות, ושם שדה מלא בכל אחת מהן היה מכפיל את גודל ה-JSON בדף.       *@
+    @* הפעולה נשלחת גם באנגלית (a, לצורך הסינון) וגם בעברית (h, לתצוגה).  *@
+    @* =================================================================== *@
+    <script>
+        window._auditDrill = {
+            entries: [
+                @for (int i = 0; i < Model.DrillEntries.Count; i++)
+                {
+                    var e = Model.DrillEntries[i];
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        t = e.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                        u = e.Username,
+                        a = e.Action,
+                        h = CompareD.Models.AuditActionTranslator.Translate(e.Action),
+                        s = e.Status,
+
+                        // הפירוט נחתך ל-200 תווים בעומס הזה בלבד.
+                        //
+                        // JsonSerializer מקודד עברית כ-\uXXXX (וזה נכון:
+                        // כך גם '<' מקודד, ולכן פירוט שמכיל תג לא יכול
+                        // לשבור את בלוק ה-script). אבל כל תו עברי הופך
+                        // לשישה בתים, ולכן 1000 רשומות עם פירוט ארוך היו
+                        // מנפחות את הדף לכמעט מגה-בייט. הפירוט המלא מוצג
+                        // בטאב "Audit Log" מהשרת.
+                        d = e.Details != null && e.Details.Length > 200
+                            ? e.Details.Substring(0, 200) + "…"
+                            : e.Details
+                    }))
+                    @Html.Raw(i < Model.DrillEntries.Count - 1 ? "," : "")
+                }
+            ]
+        };
+    </script>
+
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;

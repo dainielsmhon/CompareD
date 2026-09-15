@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "compared",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--urls", "https://localhost:44345"],
+      "port": 44345,
+      "url": "https://localhost:44345"
+    }
+  ]
+}
