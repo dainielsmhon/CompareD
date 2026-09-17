@@ -78,9 +78,13 @@
         <p class="text-secondary small mb-4">
             סמנו בתיבת הסימון (V) את העמודות שברצונכם לכלול בתהליך. הגדירו את תפקיד העמודה (מפתח מול שדה להשוואה) והתאימו את עמודת היעד.
         </p>
+        <p class="text-secondary small mb-4">
+            שורת החיפוש מסננת את הרשימה תוך כדי הקלדה, והעמודות שסימנתם בכוכב (⭐) נשמרות בדפדפן,
+            ננעצות לראש הטבלה וניתנות לבחירה בלחיצה אחת בהשוואה הבאה.
+        </p>
 
         <div class="table-responsive">
-            <table class="table table-dark table-borderless align-middle" id="files-mapping-table">
+            <table class="table table-dark table-borderless align-middle" id="files-mapping-table" data-ux-colpick>
                 <thead>
                     <tr class="text-secondary border-bottom border-white/5 small">
                         <th style="width: 10%;" class="text-center">
@@ -334,10 +338,19 @@
                 });
             });
 
+            // שורה שהוסתרה על ידי החיפוש אינה על המסך, ו"בחר הכל" שהיה
+            // מסמן גם אותה היה מסמן עמודות שהמשתמש אינו רואה.
+            function visibleCheckboxes() {
+                return Array.from(checkboxes).filter(cb => {
+                    const row = cb.closest("tr");
+                    return !row || !row.classList.contains("colpick-hidden");
+                });
+            }
+
             // תיבת סימון ראשית לבחירת הכל / ביטול בחירת הכל
             masterCheckbox.addEventListener("change", function() {
                 const isChecked = masterCheckbox.checked;
-                checkboxes.forEach(cb => {
+                visibleCheckboxes().forEach(cb => {
                     cb.checked = isChecked;
                     const tSelect = document.getElementById("target_" + cb.value);
                     const rSelect = document.getElementById("role_" + cb.value);
@@ -350,13 +363,21 @@
 
             // סנכרון תיבת הסימון הראשית עם המצב הבודד
             function updateMasterCheckboxState() {
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                const visible = visibleCheckboxes();
+                const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
+                const anyChecked = visible.some(cb => cb.checked);
                 masterCheckbox.checked = allChecked;
                 masterCheckbox.indeterminate = !allChecked && anyChecked;
             }
 
             updateMasterCheckboxState();
+
+            // סינון בשורת החיפוש משנה אילו שורות נחשבות "הכל", ולכן
+            // תיבת הבחירה הראשית מתעדכנת מחדש בכל סינון
+            const filesMappingTable = document.getElementById("files-mapping-table");
+            if (filesMappingTable) {
+                filesMappingTable.addEventListener("colpick:filter", updateMasterCheckboxState);
+            }
 
             // =====================================================================
             // שדות מחושבים - איחוד מספר עמודות לערך לוגי אחד בר-השוואה
@@ -540,4 +561,8 @@
             }
         });
     </script>
+
+    @* סרגל איתור עמודות: חיפוש חי ומועדפים נעוצים.
+       נטען אחרי הסקריפט של המסך כדי שמאזיני ה-change שלו כבר יהיו קיימים. *@
+    <script src="~/js/column-picker.js" asp-append-version="true"></script>
 }

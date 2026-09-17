@@ -74,9 +74,13 @@
     @* ===== בנטו גריד: טבלת סקירת סכמה (שלב 4) ===== *@
     <div class="glass-card mb-5 p-4" id="schema-table-card">
         <h3 class="h5 text-gradient mb-3">סקירת עמודות וטיפוסים</h3>
+        <p class="text-secondary small mb-3">
+            שורת החיפוש מסננת את הרשימה תוך כדי הקלדה, והעמודות שסימנתם בכוכב (⭐) נשמרות בדפדפן,
+            ננעצות לראש הטבלה וניתנות לבחירה בלחיצה אחת בהשוואה הבאה.
+        </p>
         
         <div class="table-responsive">
-            <table class="table table-dark table-hover table-borderless align-middle" id="schema-comparison-table">
+            <table class="table table-dark table-hover table-borderless align-middle" id="schema-comparison-table" data-ux-colpick>
                 <thead>
                     <tr class="text-secondary border-bottom border-white/10 small">
                         <th style="width: 8%;" class="text-center">
@@ -836,9 +840,18 @@
             });
 
             // תיבת סימון ראשית לבחירת הכל / ביטול בחירת הכל עבור טבלת הסכמה
+            // שורה שהוסתרה על ידי החיפוש אינה על המסך, ו"בחר הכל" שהיה
+            // מסמן גם אותה היה מסמן עמודות שהמשתמש אינו רואה.
+            function visibleSchemaCheckboxes() {
+                return Array.from(checkBoxes).filter(chk => {
+                    const row = chk.closest("tr");
+                    return !row || !row.classList.contains("colpick-hidden");
+                });
+            }
+
             masterSchemaCheckbox.addEventListener("change", function() {
                 const isChecked = masterSchemaCheckbox.checked;
-                checkBoxes.forEach(chk => {
+                visibleSchemaCheckboxes().forEach(chk => {
                     const wasPreviouslyChecked = chk.checked;
                     chk.checked = isChecked;
                     // הפעלת אירוע שינוי רק אם המצב אכן השתנה
@@ -850,13 +863,21 @@
 
             // סנכרון המצב החזותי של תיבת הסימון הראשית
             function updateMasterSchemaCheckboxState() {
-                const allChecked = Array.from(checkBoxes).every(cb => cb.checked);
-                const anyChecked = Array.from(checkBoxes).some(cb => cb.checked);
+                const visible = visibleSchemaCheckboxes();
+                const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
+                const anyChecked = visible.some(cb => cb.checked);
                 masterSchemaCheckbox.checked = allChecked;
                 masterSchemaCheckbox.indeterminate = !allChecked && anyChecked;
             }
 
             updateMasterSchemaCheckboxState();
+
+            // סינון בשורת החיפוש משנה אילו שורות נחשבות "הכל", ולכן
+            // תיבת הבחירה הראשית מתעדכנת מחדש בכל סינון
+            const schemaTableEl = document.getElementById("schema-comparison-table");
+            if (schemaTableEl) {
+                schemaTableEl.addEventListener("colpick:filter", updateMasterSchemaCheckboxState);
+            }
 
             // האזנה לכפתור הוספת שורה מותאמת אישית ידנית
             btnAddCustom.addEventListener("click", function() {
@@ -920,4 +941,8 @@
             link.click();
         };
     </script>
+
+    @* סרגל איתור עמודות: חיפוש חי ומועדפים נעוצים.
+       נטען אחרי הסקריפט של המסך כדי שמאזיני ה-change שלו כבר יהיו קיימים. *@
+    <script src="~/js/column-picker.js" asp-append-version="true"></script>
 }

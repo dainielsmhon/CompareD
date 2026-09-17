@@ -458,8 +458,46 @@
     }
 
     // =================================================================
-    // 5. אנימציית מספרים
+    // 5. אנימציית מספרים וחשיפה בגלילה
     // =================================================================
+    // מריצים פעולה כשהאלמנט מגיע למסך, ולא בטעינת הדף. בדוח ארוך
+    // הכרטיס המסכם יושב אלפי פיקסלים מתחת לקיפול, וכל אנימציה שרצה
+    // בטעינה הסתיימה הרבה לפני שהקורא הגיע אליה - כלומר לא נראתה כלל.
+    function whenVisible(el, fn, delay) {
+        var wait = delay || 0;
+        if (!('IntersectionObserver' in window)) {
+            setTimeout(fn, wait);
+            return;
+        }
+        var io = new IntersectionObserver(function (list) {
+            list.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                io.unobserve(entry.target);
+                setTimeout(fn, wait);
+            });
+        }, { threshold: 0, rootMargin: '0px 0px -8% 0px' });
+        io.observe(el);
+    }
+
+    // חשיפה רכה של כרטיס כשמגיעים אליו. המצב המוסתר מוחל מכאן ולא
+    // מה-CSS, כדי שדף בלי JavaScript יציג את התוכן כרגיל.
+    function enhanceReveal(root) {
+        var reduce = window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        (root || document).querySelectorAll('[data-ux-reveal]').forEach(function (el) {
+            if (el.getAttribute('data-ux-revealed') === '1') return;
+            el.setAttribute('data-ux-revealed', '1');
+            if (reduce) return;
+
+            var delay = parseInt(el.getAttribute('data-ux-reveal-delay'), 10);
+            if (!isFinite(delay)) delay = 350;
+
+            el.classList.add('ux-reveal-armed');
+            whenVisible(el, function () { el.classList.add('ux-in'); }, delay);
+        });
+    }
+
     // הערך נקרא מהטקסט שהשרת כתב והאנימציה מסתיימת בדיוק עליו, כך
     // שאף מספר אינו מומצא. מי שביקש לצמצם תנועה מקבל את הערך מיד.
     function animateCounters(root) {
@@ -503,7 +541,10 @@
                     el.textContent = raw;   // תמיד מסתיים על הערך המקורי
                 }
             }
-            requestAnimationFrame(frame);
+
+            // הספירה מתחילה כשהמספר נכנס למסך, ועוד רגע קצר אחרי כן,
+            // כדי שמי שגולל אל הסיכום יראה אותה מתרחשת ולא גמורה
+            whenVisible(el, function () { requestAnimationFrame(frame); }, 450);
         });
     }
 
@@ -803,7 +844,8 @@
         // להיות שמיש גם אם כולם נכשלו
         var steps = [
             enhanceDiffCells, enhanceTables, enhanceCopy, enhanceStickyBar,
-            animateCounters, enhanceBusyForms, enhanceAdminDrill, enhanceReportDrill
+            enhanceReveal, animateCounters, enhanceBusyForms,
+            enhanceAdminDrill, enhanceReportDrill
         ];
         steps.forEach(function (fn) {
             try { fn(document); } catch (e) { /* שיפור נוי בלבד */ }
