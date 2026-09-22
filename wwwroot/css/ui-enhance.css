@@ -698,3 +698,32 @@ tr.colpick-flash > td { animation: colpick-flash 1.2s ease-out; }
     .ux-reveal-armed.ux-in { transition: none; }
     tr.colpick-flash > td { animation: none; }
 }
+
+/* =====================================================================
+   מועדפות טבלאות (table-favorites.js)
+   ===================================================================== */
+.tablefav-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.6rem;
+    font-size: 0.85rem;
+}
+
+.tablefav-label { color: var(--text-secondary); font-weight: 600; }
+.tablefav-empty { color: var(--text-secondary); font-size: 0.8rem; }
+
+.tablefav-chips {
+    display: inline-flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.tablefav-bar .d-none { display: none !important; }
+
+/* =====================================================================
+   תצורות שמורות (compare-profiles.js)
+   ===================================================================== */
+#compare-profiles-card .profiles-status:empty { display: none; }
+#compare-profiles-card .profiles-select:disabled { opacity: 0.6; }

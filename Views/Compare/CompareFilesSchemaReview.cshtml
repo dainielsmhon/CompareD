@@ -69,7 +69,7 @@
 }
 
 <form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison"
-      data-ux-busy="מריץ השוואה בין הקבצים">
+      data-ux-busy="מריץ השוואה בין הקבצים" data-key-guard data-compare-profiles>
     @Html.AntiForgeryToken()
 
     @* כרטיס מיפוי עמודות מפורט *@
@@ -268,6 +268,9 @@
             </div>
         </div>
     }
+
+    @* ===== מקום לכרטיס התצורות השמורות (נבנה ב-compare-profiles.js) ===== *@
+    <div id="compare-profiles-slot"></div>
 
     @* הגדרת כמות שורות מקסימלית להשוואה *@
     <div class="glass-card mb-5 text-center" id="limit-config-container" style="max-width: 450px; margin: 0 auto;">
@@ -559,10 +562,34 @@
             if (btnAddFilesFilter) {
                 btnAddFilesFilter.addEventListener("click", addFilesFilterConditionRow);
             }
+
+            // ווים עבור compare-profiles.js: טעינת תצורה שמורה צריכה
+            // ליצור מחדש את השורות הדינמיות לפני שהיא ממלאת ערכים
+            window.compareFormHooks = {
+                filter: {
+                    container: "#files-filter-conditions-container",
+                    add: addFilesFilterConditionRow
+                },
+                composite: {
+                    container: "#composite-fields-container",
+                    add: addCompositeRow
+                }
+            };
         });
+    </script>
+
+    @* מדגם ערכי עמודות המקור — משמש את key-guard.js לבדיקת ייחודיות
+       המפתח לפני ההרצה. עד 100 שורות, מהקובץ שהמשתמש עצמו העלה. *@
+    <script>
+        window._sourceSample = {
+            rows: @Model.SourceSampleRows,
+            values: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SourceSampleValues))
+        };
     </script>
 
     @* סרגל איתור עמודות: חיפוש חי ומועדפים נעוצים.
        נטען אחרי הסקריפט של המסך כדי שמאזיני ה-change שלו כבר יהיו קיימים. *@
     <script src="~/js/column-picker.js" asp-append-version="true"></script>
+    <script src="~/js/compare-profiles.js" asp-append-version="true"></script>
+    <script src="~/js/key-guard.js" asp-append-version="true"></script>
 }

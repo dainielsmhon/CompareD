@@ -65,7 +65,7 @@
 
 @* ===== טופס הגשת תצורת המיפוי והרצת ההשוואה ===== *@
 <form id="schema-review-form" method="post" asp-controller="Compare" asp-action="CompareData" data-default-pk="@Model.PrimaryKeyColumn"
-      data-ux-busy="מריץ השוואה מול מסד הנתונים">
+      data-ux-busy="מריץ השוואה מול מסד הנתונים" data-compare-profiles data-key-guard>
     @* שדות מוסתרים המכילים את שמות הטבלאות וסוג המיפוי לצורך שליחה בטופס *@
     <input type="hidden" name="SourceTable" value="@Model.SourceTable" />
     <input type="hidden" name="TargetTable" value="@Model.TargetTable" />
@@ -321,6 +321,9 @@
             </div>
         </div>
     </div>
+
+    @* ===== מקום לכרטיס התצורות השמורות (נבנה ב-compare-profiles.js) ===== *@
+    <div id="compare-profiles-slot"></div>
 
     @* ===== כפתור אישור יוקרתי (Submit) ===== *@
     <div class="text-center mb-5" id="action-button-container">
@@ -879,6 +882,19 @@
                 schemaTableEl.addEventListener("colpick:filter", updateMasterSchemaCheckboxState);
             }
 
+            // ווים עבור compare-profiles.js: טעינת תצורה שמורה צריכה
+            // ליצור מחדש את השורות הדינמיות לפני שהיא ממלאת ערכים
+            window.compareFormHooks = {
+                filter: {
+                    container: "#filter-conditions-container",
+                    add: addFilterConditionRow
+                },
+                composite: {
+                    container: "#composite-fields-container",
+                    add: addCompositeRow
+                }
+            };
+
             // האזנה לכפתור הוספת שורה מותאמת אישית ידנית
             btnAddCustom.addEventListener("click", function() {
                 addMappingRow("", "", false);
@@ -945,4 +961,8 @@
     @* סרגל איתור עמודות: חיפוש חי ומועדפים נעוצים.
        נטען אחרי הסקריפט של המסך כדי שמאזיני ה-change שלו כבר יהיו קיימים. *@
     <script src="~/js/column-picker.js" asp-append-version="true"></script>
+    <script src="~/js/compare-profiles.js" asp-append-version="true"></script>
+    @* ב-key-guard.js נעשה כאן שימוש בקיצור Ctrl+Enter בלבד: אימות המפתח
+       במסך הזה כבר קיים בסקריפט של המסך, מול שורות המיפוי שלו. *@
+    <script src="~/js/key-guard.js" asp-append-version="true"></script>
 }
