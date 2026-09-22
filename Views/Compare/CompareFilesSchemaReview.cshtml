@@ -69,7 +69,7 @@
 }
 
 <form id="files-compare-exec-form" method="post" asp-controller="Compare" asp-action="RunFilesComparison"
-      data-ux-busy="מריץ השוואה בין הקבצים">
+      data-ux-busy="מריץ השוואה בין הקבצים" data-key-guard data-compare-profiles>
     @Html.AntiForgeryToken()
 
     @* כרטיס מיפוי עמודות מפורט *@
@@ -78,9 +78,13 @@
         <p class="text-secondary small mb-4">
             סמנו בתיבת הסימון (V) את העמודות שברצונכם לכלול בתהליך. הגדירו את תפקיד העמודה (מפתח מול שדה להשוואה) והתאימו את עמודת היעד.
         </p>
+        <p class="text-secondary small mb-4">
+            שורת החיפוש מסננת את הרשימה תוך כדי הקלדה, והעמודות שסימנתם בכוכב (⭐) נשמרות בדפדפן,
+            ננעצות לראש הטבלה וניתנות לבחירה בלחיצה אחת בהשוואה הבאה.
+        </p>
 
         <div class="table-responsive">
-            <table class="table table-dark table-borderless align-middle" id="files-mapping-table">
+            <table class="table table-dark table-borderless align-middle" id="files-mapping-table" data-ux-colpick>
                 <thead>
                     <tr class="text-secondary border-bottom border-white/5 small">
                         <th style="width: 10%;" class="text-center">
@@ -265,6 +269,9 @@
         </div>
     }
 
+    @* ===== מקום לכרטיס התצורות השמורות (נבנה ב-compare-profiles.js) ===== *@
+    <div id="compare-profiles-slot"></div>
+
     @* הגדרת כמות שורות מקסימלית להשוואה *@
     <div class="glass-card mb-5 text-center" id="limit-config-container" style="max-width: 450px; margin: 0 auto;">
         <label for="max-rows-input" class="form-label text-secondary fs-6 fw-bold" id="max-rows-label">הגבלת כמות רשומות לטעינה (Max Rows)</label>
@@ -334,10 +341,19 @@
                 });
             });
 
+            // שורה שהוסתרה על ידי החיפוש אינה על המסך, ו"בחר הכל" שהיה
+            // מסמן גם אותה היה מסמן עמודות שהמשתמש אינו רואה.
+            function visibleCheckboxes() {
+                return Array.from(checkboxes).filter(cb => {
+                    const row = cb.closest("tr");
+                    return !row || !row.classList.contains("colpick-hidden");
+                });
+            }
+
             // תיבת סימון ראשית לבחירת הכל / ביטול בחירת הכל
             masterCheckbox.addEventListener("change", function() {
                 const isChecked = masterCheckbox.checked;
-                checkboxes.forEach(cb => {
+                visibleCheckboxes().forEach(cb => {
                     cb.checked = isChecked;
                     const tSelect = document.getElementById("target_" + cb.value);
                     const rSelect = document.getElementById("role_" + cb.value);
@@ -350,13 +366,21 @@
 
             // סנכרון תיבת הסימון הראשית עם המצב הבודד
             function updateMasterCheckboxState() {
-                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+                const visible = visibleCheckboxes();
+                const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
+                const anyChecked = visible.some(cb => cb.checked);
                 masterCheckbox.checked = allChecked;
                 masterCheckbox.indeterminate = !allChecked && anyChecked;
             }
 
             updateMasterCheckboxState();
+
+            // סינון בשורת החיפוש משנה אילו שורות נחשבות "הכל", ולכן
+            // תיבת הבחירה הראשית מתעדכנת מחדש בכל סינון
+            const filesMappingTable = document.getElementById("files-mapping-table");
+            if (filesMappingTable) {
+                filesMappingTable.addEventListener("colpick:filter", updateMasterCheckboxState);
+            }
 
             // =====================================================================
             // שדות מחושבים - איחוד מספר עמודות לערך לוגי אחד בר-השוואה
@@ -538,6 +562,34 @@
             if (btnAddFilesFilter) {
                 btnAddFilesFilter.addEventListener("click", addFilesFilterConditionRow);
             }
+
+            // ווים עבור compare-profiles.js: טעינת תצורה שמורה צריכה
+            // ליצור מחדש את השורות הדינמיות לפני שהיא ממלאת ערכים
+            window.compareFormHooks = {
+                filter: {
+                    container: "#files-filter-conditions-container",
+                    add: addFilesFilterConditionRow
+                },
+                composite: {
+                    container: "#composite-fields-container",
+                    add: addCompositeRow
+                }
+            };
         });
     </script>
+
+    @* מדגם ערכי עמודות המקור — משמש את key-guard.js לבדיקת ייחודיות
+       המפתח לפני ההרצה. עד 100 שורות, מהקובץ שהמשתמש עצמו העלה. *@
+    <script>
+        window._sourceSample = {
+            rows: @Model.SourceSampleRows,
+            values: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SourceSampleValues))
+        };
+    </script>
+
+    @* סרגל איתור עמודות: חיפוש חי ומועדפים נעוצים.
+       נטען אחרי הסקריפט של המסך כדי שמאזיני ה-change שלו כבר יהיו קיימים. *@
+    <script src="~/js/column-picker.js" asp-append-version="true"></script>
+    <script src="~/js/compare-profiles.js" asp-append-version="true"></script>
+    <script src="~/js/key-guard.js" asp-append-version="true"></script>
 }

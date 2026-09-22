@@ -1375,7 +1375,10 @@
     int totalFindings = Model.TotalMissingInTarget + Model.TotalMissingInSource + Model.TotalDiscrepancyRows;
     bool allClear = totalFindings == 0;
 }
+@* הכרטיס נחשף כשגוללים אליו ולא בטעינת הדף: הוא יושב מתחת לאלפי *@
+@* שורות, וכל אנימציה שרצה בטעינה נגמרה הרבה לפני שהקורא הגיע לכאן. *@
 <div class="glass-card mb-5 p-4 text-center" id="final-summary-card"
+     data-ux-reveal data-ux-reveal-delay="450"
      style="border-color: @(allClear ? "rgba(16,185,129,0.45)" : "rgba(245,158,11,0.4)") !important;">
 
     <span class="badge px-3 py-2 fs-6" style="background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: #fff;">
@@ -1394,25 +1397,25 @@
     <div class="row g-3 mb-4 justify-content-center" id="final-summary-stats">
         <div class="col-6 col-lg-3">
             <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
-                <div class="h3 fw-bold text-success mb-1">@Model.TotalMatched</div>
+                <div class="h3 fw-bold text-success mb-1 ux-countup">@Model.TotalMatched</div>
                 <div class="text-secondary small">שורות זהות לחלוטין</div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
-                <div class="h3 fw-bold @(Model.TotalDiscrepancyRows > 0 ? "text-warning" : "text-success") mb-1">@Model.TotalDiscrepancyRows</div>
+                <div class="h3 fw-bold @(Model.TotalDiscrepancyRows > 0 ? "text-warning" : "text-success") mb-1 ux-countup">@Model.TotalDiscrepancyRows</div>
                 <div class="text-secondary small">שורות עם תוכן שונה</div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
-                <div class="h3 fw-bold @(Model.TotalMissingInTarget > 0 ? "text-danger" : "text-success") mb-1">@Model.TotalMissingInTarget</div>
+                <div class="h3 fw-bold @(Model.TotalMissingInTarget > 0 ? "text-danger" : "text-success") mb-1 ux-countup">@Model.TotalMissingInTarget</div>
                 <div class="text-secondary small">יש רק ב-<span class="font-monospace">@sourceShort</span></div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="p-3 rounded-3 h-100" style="background: var(--panel-sunken); border: 1px solid var(--border-color);">
-                <div class="h3 fw-bold @(Model.TotalMissingInSource > 0 ? "text-primary" : "text-success") mb-1">@Model.TotalMissingInSource</div>
+                <div class="h3 fw-bold @(Model.TotalMissingInSource > 0 ? "text-primary" : "text-success") mb-1 ux-countup">@Model.TotalMissingInSource</div>
                 <div class="text-secondary small">יש רק ב-<span class="font-monospace">@targetShort</span></div>
             </div>
         </div>

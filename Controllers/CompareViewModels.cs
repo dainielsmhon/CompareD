@@ -652,6 +652,15 @@ public class FilesSchemaReviewViewModel
     // לקובץ אין סכימה, ולכן הטיפוס נלמד מהנתונים עצמם ולא ממטא-דאטה.
     public Dictionary<string, string> SuggestedKinds { get; set; } =
         new(StringComparer.OrdinalIgnoreCase);
+
+    // מדגם הערכים של עמודות המקור, מיושר לפי שורות, לבדיקת ייחודיות
+    // צירוף המפתח עוד במסך המיפוי. מפתח שאינו ייחודי מייצר דוח שכולו
+    // "הבדלים" מדומים, וללא המדגם הזה הוא התגלה רק אחרי הרצה מלאה.
+    public Dictionary<string, List<string>> SourceSampleValues { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    // מספר השורות שנכללו במדגם - הכיתוב במסך אומר על כמה שורות נבדק
+    public int SourceSampleRows { get; set; }
 }
 
 

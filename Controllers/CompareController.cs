@@ -691,7 +691,18 @@ public class CompareController : Controller
                     : new List<string>();
                 model.SuggestedKinds[column] =
                     CompareD.Services.CompareService.DetectValueKindFromSamples(values);
+
+                // אותו מדגם משמש גם לבדיקת ייחודיות המפתח במסך. נשלחות
+                // עד 100 שורות בלבד: די כדי לזהות מפתח כפול, ובלי לנפח
+                // את הדף בתוכן הקובץ.
+                model.SourceSampleValues[column] = values.Count > 100
+                    ? values.GetRange(0, 100)
+                    : new List<string>(values);
             }
+
+            model.SourceSampleRows = model.SourceSampleValues.Count == 0
+                ? 0
+                : model.SourceSampleValues.Values.Max(v => v.Count);
 
             // רישום השלב שהצליח, מאותה סיבה כמו במסלול המסד: בלי רשומה
             // על הצלחה, עובד שהגיע למסך המיפוי ונטש שם אינו קיים בלוג.

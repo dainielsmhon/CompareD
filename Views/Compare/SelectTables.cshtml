@@ -1,4 +1,4 @@
-@model CompareD.Controllers.TableSelectionViewModel
+﻿@model CompareD.Controllers.TableSelectionViewModel
 
 @* הגדרת כותרת הדף — שלב 2: בחירת טבלה או תצוגה *@
 @{
@@ -56,7 +56,7 @@
             @* תיבת בחירת הטבלה/תצוגה מתוך הרשימה שנשלפה מהמסד *@
             <div class="mb-3">
                 <label for="sql-table-select" class="form-label text-secondary fs-6" id="sql-table-select-label">בחרו טבלה או תצוגה</label>
-                <select class="form-select form-input-glass text-light w-100" id="sql-table-select" name="SourceTable" required>
+                <select class="form-select form-input-glass text-light w-100" id="sql-table-select" name="SourceTable" required data-ux-tablefav="source">
                     <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
                     @* לולאה על כל הטבלאות והתצוגות שנשלפו מ-SQL Server *@
                     @foreach (var table in Model.SourceTables)
@@ -85,7 +85,7 @@
             @* תיבת בחירת הטבלה/תצוגה מתוך הרשימה שנשלפה מהמסד *@
             <div class="mb-3">
                 <label for="oracle-table-select" class="form-label text-secondary fs-6" id="oracle-table-select-label">בחרו טבלה או תצוגה</label>
-                <select class="form-select form-input-glass text-light w-100" id="oracle-table-select" name="TargetTable" required>
+                <select class="form-select form-input-glass text-light w-100" id="oracle-table-select" name="TargetTable" required data-ux-tablefav="target">
                     <option value="" disabled selected>-- בחרו טבלה או תצוגה --</option>
                     @* לולאה על כל הטבלאות והתצוגות שנשלפו מ-Oracle *@
                     @foreach (var table in Model.TargetTables)
@@ -171,6 +171,7 @@
         });
 
         // פונקציה לייבוא תצורת מיפוי מתוך קובץ JSON חיצוני והרצה מיידית
+        // (המועדפות של הטבלאות נטענות מ-table-favorites.js בסוף הקטע)
         window.importMappingConfig = function() {
             const fileInput = document.getElementById("import-config-file");
             if (!fileInput.files || fileInput.files.length === 0) {
@@ -241,4 +242,8 @@
             reader.readAsText(file);
         };
     </script>
+
+    @* מועדפות טבלאות: כוכב לטבלאות שנבחרות שוב ושוב, נשמר בדפדפן.
+       נטען אחרי הסקריפט של המסך כדי שסינון החיפוש שלו כבר יהיה רשום. *@
+    <script src="~/js/table-favorites.js" asp-append-version="true"></script>
 }
