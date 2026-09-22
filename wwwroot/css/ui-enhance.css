@@ -620,6 +620,30 @@ body.light-mode {
 .colpick-btn + .colpick-btn { margin-inline-start: 0.35rem; }
 .colpick-btn:hover { background: rgba(var(--rgb-primary), 0.12); }
 
+.colpick-memory {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.colpick-memory-text { color: var(--text-secondary); }
+
+.colpick-memory .colpick-suggest-apply {
+    border-color: rgba(var(--rgb-success), 0.45);
+    color: var(--color-success);
+}
+
+.colpick-memory .colpick-suggest-apply:hover { background: rgba(var(--rgb-success), 0.12); }
+
+.colpick-memory .colpick-suggest-skip {
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
 .colpick-star {
     background: none;
     border: 0;

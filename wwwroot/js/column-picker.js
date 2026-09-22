@@ -12,6 +12,11 @@
       דף, דף נוסף) נשמרות בדפדפן, נעוצות לראש הטבלה ומקבלות כפתור
       לבחירה בלחיצה אחת. בלי זה אותה בחירה נעשתה מחדש בכל הרצה.
 
+   3. למידה מהשימוש — המסך זוכר מה נבחר בהרצות קודמות (בדפדפן בלבד),
+      מציע לשחזר את הבחירה האחרונה, ומציע להוסיף למועדפים עמודה
+      שמסומנת שוב ושוב. ההצעה תמיד נשאלת ולעולם אינה מסמנת מעצמה,
+      כדי שלא ייכנסו להשוואה שדות שהמשתמש לא ראה.
+
    הסרגל נבנה כאן ולא ב-Razor כדי שאותו קוד ישרת את מסך הקבצים ואת
    מסך המסד, שמבנה הטבלאות שלהם שונה. ההצמדה נעשית דרך data-ux-colpick
    על אלמנט הטבלה.
@@ -50,6 +55,80 @@
         try {
             window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
         } catch (e) { /* אחסון חסום — לא עוצרים את המסך */ }
+    }
+
+    // =================================================================
+    // זיכרון שימוש: מה נבחר בהרצות קודמות
+    // =================================================================
+    // הכל נשמר בדפדפן של המשתמש בלבד — אין שרת, אין חשבון ואין עלות.
+    // נשמרים שמות עמודות ומונים, לא נתונים מתוך הקבצים.
+    var USAGE_KEY = 'compared.columnUsage.v1';
+
+    // כמה הרצות צריך לראות עמודה, ובאיזה שיעור סימון, לפני שמציעים
+    // אותה. סף נמוך מדי היה הופך את ההצעה לרעש אחרי הרצה אחת.
+    var SUGGEST_MIN_RUNS = 2;
+    var SUGGEST_MIN_RATIO = 0.67;
+    var MAX_SETS = 20;
+    var MAX_COLS = 400;
+
+    function emptyUsage() {
+        return { cols: {}, sets: {}, skip: [] };
+    }
+
+    function readUsage() {
+        try {
+            var raw = window.localStorage.getItem(USAGE_KEY);
+            if (!raw) return emptyUsage();
+            var u = JSON.parse(raw);
+            if (!u || typeof u !== 'object') return emptyUsage();
+            return {
+                cols: (u.cols && typeof u.cols === 'object') ? u.cols : {},
+                sets: (u.sets && typeof u.sets === 'object') ? u.sets : {},
+                skip: Array.isArray(u.skip) ? u.skip : []
+            };
+        } catch (e) {
+            return emptyUsage();
+        }
+    }
+
+    function writeUsage(u) {
+        try {
+            window.localStorage.setItem(USAGE_KEY, JSON.stringify(u));
+        } catch (e) { /* אחסון חסום או מלא — הזיכרון פשוט לא יישמר */ }
+    }
+
+    // גיזום: הזיכרון לא אמור לגדול בלי גבול באחסון של הדפדפן
+    function pruneUsage(u) {
+        var sigs = Object.keys(u.sets);
+        if (sigs.length > MAX_SETS) {
+            sigs.sort(function (a, b) { return (u.sets[b].at || 0) - (u.sets[a].at || 0); });
+            sigs.slice(MAX_SETS).forEach(function (sig) { delete u.sets[sig]; });
+        }
+        var names = Object.keys(u.cols);
+        if (names.length > MAX_COLS) {
+            names.sort(function (a, b) { return (u.cols[b].seen || 0) - (u.cols[a].seen || 0); });
+            names.slice(MAX_COLS).forEach(function (n) { delete u.cols[n]; });
+        }
+        return u;
+    }
+
+    // חתימה של מערך העמודות: מזהה "אותה השוואה" בלי לשמור שמות קבצים
+    function signature(table, rows) {
+        var text = (table.id || 'table') + '|' +
+            rows.map(function (r) { return r.key; }).sort().join(',');
+        var h = 5381;
+        for (var i = 0; i < text.length; i++) {
+            h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+        }
+        return (table.id || 'table') + '-' + h.toString(36) + '-' + rows.length;
+    }
+
+    function daysAgoText(ts) {
+        if (!ts) return '';
+        var days = Math.floor((Date.now() - ts) / 86400000);
+        if (days <= 0) return 'היום';
+        if (days === 1) return 'אתמול';
+        return 'לפני ' + days + ' ימים';
     }
 
     function on(el, evt, fn) {
@@ -95,6 +174,13 @@
                     '<button type="button" class="colpick-btn colpick-pick-favs">סמן את כל המועדפים</button>' +
                     '<button type="button" class="colpick-btn colpick-pick-keys d-none">סמן מועדפים כשדות מפתח</button>' +
                 '</span>' +
+            '</div>' +
+            '<div class="colpick-memory d-none">' +
+                '<span class="colpick-memory-text"></span>' +
+                '<button type="button" class="colpick-btn colpick-restore d-none"></button>' +
+                '<button type="button" class="colpick-btn colpick-suggest-apply d-none">כן, סמן עכשיו</button>' +
+                '<button type="button" class="colpick-btn colpick-suggest-fav d-none">הוסף למועדפים</button>' +
+                '<button type="button" class="colpick-btn colpick-suggest-skip d-none">לא, תודה</button>' +
             '</div>';
 
         var wrap = table.closest('.table-responsive') || table;
@@ -135,6 +221,13 @@
         var btnPickFavs = bar.querySelector('.colpick-pick-favs');
         var btnPickKeys = bar.querySelector('.colpick-pick-keys');
         if (hasRoles) btnPickKeys.classList.remove('d-none');
+
+        var memoryBar = bar.querySelector('.colpick-memory');
+        var memoryText = bar.querySelector('.colpick-memory-text');
+        var btnRestore = bar.querySelector('.colpick-restore');
+        var btnSuggestApply = bar.querySelector('.colpick-suggest-apply');
+        var btnSuggestFav = bar.querySelector('.colpick-suggest-fav');
+        var btnSuggestSkip = bar.querySelector('.colpick-suggest-skip');
 
         // שורת "אין תוצאות" — אחרת חיפוש שלא נמצא מחזיר טבלה ריקה בלי הסבר
         var emptyRow = document.createElement('tr');
@@ -297,6 +390,130 @@
             pinFavorites();
         }
 
+        // =============================================================
+        // למידה מהשימוש: שחזור הבחירה הקודמת והצעות על סמך היסטוריה
+        // =============================================================
+        var usage = readUsage();
+        var sig = signature(table, rows);
+        var lastRun = usage.sets[sig] || null;
+        var suggested = [];
+
+        function isSkipped(r) {
+            return usage.skip.some(function (n) { return norm(n) === r.key; });
+        }
+
+        // עמודה "קבועה" היא כזו שנראתה בכמה הרצות וסומנה כמעט בכולן
+        function computeSuggestions() {
+            return rows.filter(function (r) {
+                if (isFavorite(r) || isSkipped(r)) return false;
+                var stat = usage.cols[r.key];
+                if (!stat || !stat.seen || stat.seen < SUGGEST_MIN_RUNS) return false;
+                return (stat.sel / stat.seen) >= SUGGEST_MIN_RATIO;
+            });
+        }
+
+        function applySelection(names, keyNames) {
+            var wanted = (names || []).map(norm);
+            var keys = (keyNames || []).map(norm);
+            var applied = 0;
+            rows.forEach(function (r) {
+                if (wanted.indexOf(r.key) === -1) return;
+                setChecked(r, true);
+                applied++;
+                if (r.role && keys.indexOf(r.key) !== -1) {
+                    r.role.value = 'Key';
+                    r.role.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            updateCount();
+            return applied;
+        }
+
+        function renderMemory() {
+            suggested = computeSuggestions();
+
+            var hasRestore = !!(lastRun && lastRun.cols && lastRun.cols.length);
+            var hasSuggest = suggested.length > 0;
+
+            memoryBar.classList.toggle('d-none', !hasRestore && !hasSuggest);
+            btnRestore.classList.toggle('d-none', !hasRestore);
+            btnSuggestApply.classList.toggle('d-none', !hasSuggest);
+            btnSuggestFav.classList.toggle('d-none', !hasSuggest);
+            btnSuggestSkip.classList.toggle('d-none', !hasSuggest);
+
+            if (hasRestore) {
+                btnRestore.textContent = 'שחזר את הבחירה מההשוואה הקודמת (' +
+                    lastRun.cols.length + ' עמודות, ' + daysAgoText(lastRun.at) + ')';
+            }
+
+            if (hasSuggest) {
+                var names = suggested.slice(0, 6).map(function (r) { return r.name; }).join(', ');
+                var more = suggested.length > 6 ? ' ועוד ' + (suggested.length - 6) : '';
+                memoryText.textContent = 'בהשוואות הקודמות סימנתם כמעט תמיד את ' + names + more +
+                    '. לסמן גם עכשיו?';
+            } else if (hasRestore) {
+                memoryText.textContent = 'ההשוואה הקודמת במבנה הזה נשמרה:';
+            }
+        }
+
+        on(btnRestore, 'click', function () {
+            if (!lastRun) return;
+            var applied = applySelection(lastRun.cols, lastRun.keys);
+            memoryText.textContent = 'שוחזרו ' + applied + ' עמודות מההשוואה הקודמת.';
+            btnRestore.classList.add('d-none');
+        });
+
+        on(btnSuggestApply, 'click', function () {
+            applySelection(suggested.map(function (r) { return r.name; }),
+                           suggested.filter(function (r) {
+                               var st = usage.cols[r.key];
+                               // תפקיד מפתח מוצע רק אם כך סומן ברוב ההרצות
+                               return st && st.key && st.key / st.seen >= SUGGEST_MIN_RATIO;
+                           }).map(function (r) { return r.name; }));
+            memoryBar.classList.add('d-none');
+        });
+
+        on(btnSuggestFav, 'click', function () {
+            suggested.forEach(function (r) {
+                if (!isFavorite(r)) favorites = favorites.concat([r.name]);
+            });
+            writeFavorites(favorites);
+            renderStars();
+            renderChips();
+            pinFavorites();
+            renderMemory();
+        });
+
+        on(btnSuggestSkip, 'click', function () {
+            usage.skip = usage.skip.concat(suggested.map(function (r) { return r.name; }));
+            writeUsage(pruneUsage(usage));
+            renderMemory();
+        });
+
+        // הרצת ההשוואה היא רגע הלמידה: מה שנשלח בפועל הוא מה שנלמד
+        var form = table.closest('form');
+        on(form, 'submit', function () {
+            try {
+                var picked = [];
+                var keys = [];
+                rows.forEach(function (r) {
+                    var stat = usage.cols[r.key] || { seen: 0, sel: 0, key: 0 };
+                    stat.seen++;
+                    if (r.cb && r.cb.checked) {
+                        stat.sel++;
+                        picked.push(r.name);
+                        if (r.role && r.role.value === 'Key') {
+                            stat.key++;
+                            keys.push(r.name);
+                        }
+                    }
+                    usage.cols[r.key] = stat;
+                });
+                usage.sets[sig] = { at: Date.now(), cols: picked, keys: keys };
+                writeUsage(pruneUsage(usage));
+            } catch (e) { /* הלמידה לעולם לא תחסום הרצת השוואה */ }
+        });
+
         on(input, 'input', applyFilter);
         on(input, 'keydown', function (ev) {
             if (ev.key === 'Escape') {
@@ -346,6 +563,7 @@
         renderStars();
         renderChips();
         pinFavorites();
+        renderMemory();
         applyFilter();
     }
 
